@@ -220,14 +220,52 @@ func TestGracefulExpiry(t *testing.T) {
 func TestRestartPreservesDeadline(t *testing.T) {
 	kerneltest.WithTopology(t, func(x *kerneltest.Topology) {
 		b := New(x.NFT)
-		s := allow(scope(), time.Now().Add(2*time.Second))
+		expiry := time.Now().Add(3 * time.Second)
+		s := allow(scope(), expiry)
 		apply(t, b, s)
 		for i := range kerneltest.Sources {
 			probe(t, x, i, false, "tcp", 8000, true)
 		}
-		deniedEventually(t, x, 0, 8000)
+		// Reapply while the memberships are still active, near their absolute expiry.
+		// This milestone is scheduling, not evidence of policy expiry.
+		for time.Until(expiry) > 700*time.Millisecond {
+			time.Sleep(10 * time.Millisecond)
+		}
 		b = New(x.NFT)
 		apply(t, b, s)
+		for i := range kerneltest.Sources {
+			probe(t, x, i, false, "tcp", 8000, true)
+		}
+		// A renewed full 3s TTL would still admit traffic here; the original
+		// absolute deadline plus 500ms gives a bounded and distinct observation.
+		for time.Now().Before(expiry.Add(100 * time.Millisecond)) {
+			time.Sleep(10 * time.Millisecond)
+		}
+		type observation struct {
+			family   int
+			err      error
+			finished time.Time
+		}
+		results := make(chan observation, 2)
+		for i := range kerneltest.Sources {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+				defer cancel()
+				err := x.Probe(ctx, kerneltest.Sources[i], kerneltest.Destinations[i], "tcp", 8000)
+				results <- observation{i, err, time.Now()}
+			}()
+		}
+		for range kerneltest.Sources {
+			got := <-results
+			if got.err == nil {
+				t.Fatalf("restart renewed full TTL for family %d past original deadline", got.family)
+			}
+			if got.finished.After(expiry.Add(time.Second)) {
+				t.Fatal("deadline observation exceeded tolerance")
+			}
+		}
+		// Replaying an already expired snapshot must still not resurrect access.
+		apply(t, New(x.NFT), s)
 		for i := range kerneltest.Sources {
 			probe(t, x, i, false, "tcp", 8000, false)
 		}
