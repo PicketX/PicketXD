@@ -2,7 +2,7 @@
 
 > [English (default)](README.md) | 简体中文
 
-PicketX 的 Linux 执行 Agent。当前仓库仅包含**内部 M0 验证基础设施**，尚不是生产 Agent，也未完成网络执行实现。
+PicketX 的 Linux 执行 Agent。当前仓库仅包含**内部 M0 验证基础设施**，尚不是生产 Agent。
 
 已评审的 [M0 计划](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.zh-CN.md)要求先验证 nftables 准入/过期和 conntrack 定向撤销，再推进完整 Agent/Controller 流程。
 
@@ -18,6 +18,14 @@ go build ./...
 ```
 
 内核验证需要显式启用、具备权限的 Linux 环境和可销毁的网络命名空间。跳过测试不构成内核证据；启用后缺少权限必须失败。测试辅助代码可以调用 `unshare`/`ip`；夹具及后端代码不能依赖运行时 nft/conntrack 命令。
+
+在具备权限、可销毁的 Linux 主机运行真实内核场景：
+
+```sh
+PICKETX_KERNEL_TESTS=1 scripts/test-kernel.sh
+```
+
+已观察的版本、覆盖范围及边界见 [M0 发现与验收](docs/validation/M0.zh-CN.md)。
 
 ## 许可证
 

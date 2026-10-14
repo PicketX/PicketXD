@@ -113,7 +113,7 @@ func (b *Backend) applyBatch(ctx context.Context, s fixture.Snapshot, now time.T
 			ex = append(ex, &expr.Immediate{Register: 1, Data: binaryutil.NativeEndian.PutUint32(TestMark)}, &expr.Ct{Key: expr.CtKeyMARK, Register: 1, SourceRegister: true}, &expr.Verdict{Kind: expr.VerdictAccept})
 			c.AddRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: ex})
 		}
-		c.AddRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: []expr.Any{&expr.Verdict{Kind: expr.VerdictDrop}}})
+		c.AddRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 	}
 	if b.inject != nil {
 		b.inject(c)

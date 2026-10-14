@@ -60,5 +60,9 @@ func run() error {
 	if closeErr != nil {
 		return closeErr
 	}
-	return report.CheckRequired(r, report.RequiredScenarios)
+	if err := report.CheckRequired(r, report.RequiredScenarios); err != nil {
+		return err
+	}
+	fmt.Printf("M0 observed kernel=%s Go=%s required=%d passed=%d\n", r.Kernel, r.Go, len(report.RequiredScenarios), len(report.RequiredScenarios))
+	return nil
 }
