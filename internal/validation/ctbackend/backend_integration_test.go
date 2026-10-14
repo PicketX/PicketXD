@@ -4,6 +4,7 @@ package ctbackend_test
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/netip"
 	"testing"
@@ -156,17 +157,69 @@ func TestOldTCPPacketsCannotResurrect(t *testing.T) {
 		after := snapshot()
 		after.Allow = nil
 		revoke(t, b, r, before, after, 2)
-		for _, c := range cs {
-			exchange(t, c, false)
-		}
+		// Even after a valid grant returns, the old tuple's ACK/PSH cannot acquire
+		// the owned mark. Only a fresh SYN can establish new authorized traffic.
 		apply(t, b, before)
-		for _, c := range cs {
-			exchange(t, c, false)
+		for i, c := range cs {
+			for _, flags := range []byte{0x10, 0x18} {
+				old := dropPackets(t, x)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				err := x.SendTCP(ctx, kerneltest.Sources[i], kerneltest.Destinations[i], uint16(c.LocalAddr().(*net.TCPAddr).Port), 8000, flags)
+				cancel()
+				if err != nil {
+					t.Fatal(err)
+				}
+				observed := false
+				deadline := time.Now().Add(time.Second)
+				for time.Now().Before(deadline) {
+					if dropPackets(t, x) > old {
+						observed = true
+						break
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+				if !observed {
+					t.Fatalf("explicit old TCP flags %#x not observed dropping on family %d", flags, i)
+				}
+				family := netlink.InetFamily(netlink.FAMILY_V4)
+				if i == 1 {
+					family = netlink.FAMILY_V6
+				}
+				flows, err := x.CT.ConntrackTableList(netlink.ConntrackTable, family)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, f := range flows {
+					if f.Forward.SrcPort == uint16(c.LocalAddr().(*net.TCPAddr).Port) && f.Forward.DstPort == 8000 && f.Mark == nftbackend.TestMark {
+						t.Fatalf("old TCP packet resurrected owned mark: %v", f)
+					}
+				}
+				t.Logf("observed old TCP family=%d flags=%#x dropped, no owned mark", i, flags)
+			}
 		}
 		for i, dst := range kerneltest.Destinations {
 			open(t, x, i, dst, "tcp", 8000)
 		}
 	})
+}
+func dropPackets(t *testing.T, x *kerneltest.Topology) uint64 {
+	t.Helper()
+	tab := &nftables.Table{Name: "picketx", Family: nftables.TableFamilyINet}
+	var total uint64
+	for i := 0; i < 4; i++ {
+		rules, err := x.NFT.GetRules(tab, &nftables.Chain{Name: fmt.Sprintf("picketx_scope_%d", i), Table: tab})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range rules {
+			for _, e := range r.Exprs {
+				if c, ok := e.(*expr.Counter); ok {
+					total += c.Packets
+				}
+			}
+		}
+	}
+	return total
 }
 func TestUDPAfterDeletionRequiresCurrentAllow(t *testing.T) {
 	kerneltest.WithTopology(t, func(x *kerneltest.Topology) {
