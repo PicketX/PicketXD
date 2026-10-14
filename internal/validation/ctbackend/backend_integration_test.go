@@ -68,10 +68,10 @@ func exchange(t *testing.T, c net.Conn, want bool) {
 func revoke(t *testing.T, b *nftbackend.Backend, r *ctbackend.Backend, before, after fixture.Snapshot, minSelected int) ctbackend.Result {
 	t.Helper()
 	got, err := scenario.ApplyStrict(context.Background(), b, r, before, after, nftbackend.TestMark, time.Now())
+	t.Logf("revocation selected=%d deleted=%d remaining=%d", got.Selected, got.Deleted, got.Remaining)
 	if err != nil || got.Selected < minSelected || got.Remaining != 0 {
 		t.Fatalf("strict result=%+v err=%v require selected>=%d and no remaining targets", got, err, minSelected)
 	}
-	t.Logf("revocation selected=%d deleted=%d remaining=%d", got.Selected, got.Deleted, got.Remaining)
 	return got
 }
 func TestStrictRevokeDualStack(t *testing.T) {
@@ -296,10 +296,10 @@ func TestNATScopedDeletion(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, err := r.Revoke(context.Background(), before, after, nftbackend.TestMark, time.Now())
+		t.Logf("revocation selected=%d deleted=%d remaining=%d", got.Selected, got.Deleted, got.Remaining)
 		if err != nil || got.Selected < 2 || got.Remaining != 0 {
 			t.Fatalf("NAT result=%+v err=%v", got, err)
 		}
-		t.Logf("revocation selected=%d deleted=%d remaining=%d", got.Selected, got.Deleted, got.Remaining)
 		for _, c := range kept {
 			exchange(t, c, true)
 		}

@@ -3,6 +3,8 @@ package report
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -49,5 +51,22 @@ func TestReadEventsPreservesFailureAndCounts(t *testing.T) {
 	}
 	if len(got) != 3 || got[0].Status != "fail" || got[0].Selected != 2 || got[0].Deleted != 1 || got[0].Remaining != 1 || got[1].Status != "skipped" || got[2].Status != "fail" {
 		t.Fatalf("lost observed evidence: %+v", got)
+	}
+}
+
+// These are the actual failure records emitted by the integration assertions.
+func TestReadEventsPreservesActualPartialFailureRecord(t *testing.T) {
+	for _, prefix := range []string{"strict", "NAT"} {
+		events := fmt.Sprintf(`{"Action":"run","Test":"partial"}
+{"Action":"output","Test":"partial","Output":"%s result={Selected:2 Deleted:1 Remaining:1} err=delete denied"}
+{"Action":"fail","Test":"partial"}
+`, prefix)
+		got, err := ReadEvents(strings.NewReader(events))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 1 || got[0].Status != "fail" || got[0].Selected != 2 || got[0].Deleted != 1 || got[0].Remaining != 1 {
+			t.Fatalf("partial failure counts lost: %+v", got)
+		}
 	}
 }

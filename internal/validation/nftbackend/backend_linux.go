@@ -64,7 +64,6 @@ func (b *Backend) applyBatch(ctx context.Context, s fixture.Snapshot, now time.T
 		var entries []entry
 		for i, r := range rules {
 			e, active := membership(r, now)
-if active && !r.ExpiresAt.IsZero() { e.Timeout = 3 * time.Second } // Deliberate draft-branch mutation check; reverted next commit.
 			if !active {
 				continue
 			}

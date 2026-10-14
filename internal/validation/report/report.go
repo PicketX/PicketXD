@@ -74,8 +74,16 @@ func ReadEvents(reader io.Reader) ([]ScenarioResult, error) {
 			if len(r.Detail) < 8192 {
 				r.Detail += e.Output
 			}
-			if pos := strings.Index(e.Output, "revocation selected="); pos >= 0 {
-				fmt.Sscanf(e.Output[pos:], "revocation selected=%d deleted=%d remaining=%d", &r.Selected, &r.Deleted, &r.Remaining)
+			for _, format := range []struct{ prefix, scan string }{
+				{"revocation selected=", "revocation selected=%d deleted=%d remaining=%d"},
+				{"result={Selected:", "result={Selected:%d Deleted:%d Remaining:%d}"},
+			} {
+				if pos := strings.Index(e.Output, format.prefix); pos >= 0 {
+					var selected, deleted, remaining int
+					if n, _ := fmt.Sscanf(e.Output[pos:], format.scan, &selected, &deleted, &remaining); n == 3 {
+						r.Selected, r.Deleted, r.Remaining = selected, deleted, remaining
+					}
+				}
 			}
 		}
 	}
