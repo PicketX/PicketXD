@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"os/exec"
 	"runtime"
 	"testing"
 	"time"
@@ -104,6 +105,25 @@ func WithTopology(t *testing.T, run func(*Topology)) {
 	}
 	if x.CT, err = netlink.NewHandleAt(x.Enforcement, unix.NETLINK_NETFILTER); err != nil {
 		t.Fatal(err)
+	}
+	// Prove both fixture paths work before testing policy. A broken network
+	// must never be mistaken for a successful deny.
+	for i, src := range Sources {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		err := x.Probe(ctx, src, Destinations[i], "tcp", 8000)
+		cancel()
+		if err != nil {
+			for _, ns := range []netns.NsHandle{x.Client, x.Enforcement, x.Server} {
+				withNS(ns, func() error {
+					for _, args := range [][]string{{"-6", "addr"}, {"-6", "route"}, {"-6", "neigh"}} {
+						out, e := exec.Command("ip", args...).CombinedOutput()
+						t.Logf("namespace %d ip %v: %s (%v)", ns, args, out, e)
+					}
+					return nil
+				})
+			}
+			t.Fatalf("unfiltered IPv%d fixture failed: %v", src.BitLen(), err)
+		}
 	}
 	run(x)
 }
