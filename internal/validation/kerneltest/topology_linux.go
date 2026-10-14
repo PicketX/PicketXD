@@ -208,6 +208,53 @@ func (x *Topology) setup() error {
 			return err
 		}
 	}
+	// Permanent fixture neighbors avoid multicast/DAD startup timing. They
+	// affect these disposable links only; every policy assertion uses real packets.
+	neighbors := []struct {
+		ns, peer       netns.NsHandle
+		name, peerName string
+		ips            []string
+	}{
+		{x.Client, x.Enforcement, "picketx_p0", "picketx_r0", []string{"192.0.2.1", "2001:db8:1:0:1::1"}},
+		{x.Enforcement, x.Client, "picketx_r0", "picketx_p0", []string{"192.0.2.10", "192.0.2.11", "2001:db8:1:0:1::10", "2001:db8:1:0:1::11"}},
+		{x.Server, x.Enforcement, "picketx_p1", "picketx_r1", []string{"192.0.2.65", "2001:db8:1:0:2::1"}},
+		{x.Enforcement, x.Server, "picketx_r1", "picketx_p1", []string{"192.0.2.100", "192.0.2.101", "2001:db8:1:0:2::100", "2001:db8:1:0:2::101"}},
+	}
+	for _, n := range neighbors {
+		h, err := netlink.NewHandleAt(n.ns, unix.NETLINK_ROUTE)
+		if err != nil {
+			return err
+		}
+		peer, err := netlink.NewHandleAt(n.peer, unix.NETLINK_ROUTE)
+		if err != nil {
+			h.Close()
+			return err
+		}
+		l, err := h.LinkByName(n.name)
+		if err != nil {
+			h.Close()
+			peer.Close()
+			return err
+		}
+		pl, err := peer.LinkByName(n.peerName)
+		peer.Close()
+		if err != nil {
+			h.Close()
+			return err
+		}
+		for _, a := range n.ips {
+			ip := net.ParseIP(a)
+			family := unix.AF_INET
+			if ip.To4() == nil {
+				family = unix.AF_INET6
+			}
+			if err = h.NeighSet(&netlink.Neigh{LinkIndex: l.Attrs().Index, Family: family, State: unix.NUD_PERMANENT, IP: ip, HardwareAddr: pl.Attrs().HardwareAddr}); err != nil {
+				h.Close()
+				return err
+			}
+		}
+		h.Close()
+	}
 	return withNS(x.Server, func() error {
 		for _, a := range append(append([]netip.Addr{}, Destinations...), NATDestinations...) {
 			for _, port := range []uint16{8000, 8001, 8002, 9000} {
@@ -290,4 +337,8 @@ func Exchange(ctx context.Context, c net.Conn) error {
 		return fmt.Errorf("unexpected echo %q", b)
 	}
 	return nil
+}
+
+func (x *Topology) OpenUDP(ctx context.Context, source, destination netip.Addr, port uint16) (net.Conn, error) {
+	return x.dial(ctx, source, destination, "udp", port)
 }

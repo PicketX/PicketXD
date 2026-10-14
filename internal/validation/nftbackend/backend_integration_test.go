@@ -4,6 +4,7 @@ package nftbackend
 
 import (
 	"context"
+	"net"
 	"net/netip"
 	"testing"
 	"time"
@@ -189,6 +190,7 @@ func TestGracefulExpiry(t *testing.T) {
 	kerneltest.WithTopology(t, func(x *kerneltest.Topology) {
 		b := New(x.NFT)
 		apply(t, b, allow(scope(), time.Now().Add(2*time.Second)))
+		var cs []net.Conn
 		for i := range kerneltest.Sources {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			c, err := x.OpenTCP(ctx, kerneltest.Sources[i], kerneltest.Destinations[i], 8000)
@@ -197,16 +199,21 @@ func TestGracefulExpiry(t *testing.T) {
 				t.Fatal(err)
 			}
 			if err = kerneltest.Exchange(ctx, c); err != nil {
+				cancel()
 				t.Fatal(err)
 			}
 			cancel()
+			cs = append(cs, c)
+			t.Cleanup(func() { c.Close() })
+		}
+		for i, c := range cs {
 			deniedEventually(t, x, i, 8000)
-			ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-			if err = kerneltest.Exchange(ctx, c); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			err := kerneltest.Exchange(ctx, c)
+			cancel()
+			if err != nil {
 				t.Fatalf("graceful retained connection: %v", err)
 			}
-			cancel()
-			c.Close()
 		}
 	})
 }
