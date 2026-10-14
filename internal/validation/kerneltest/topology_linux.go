@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
@@ -111,6 +110,9 @@ func WithTopology(t *testing.T, run func(*Topology)) {
 func (x *Topology) setup() error {
 	if err := withNS(x.Enforcement, func() error {
 		if err := os.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte("1"), 0644); err != nil {
+			return err
+		}
+		if err := os.WriteFile("/proc/sys/net/ipv6/conf/default/forwarding", []byte("1"), 0644); err != nil {
 			return err
 		}
 		if err := os.WriteFile("/proc/sys/net/ipv6/conf/all/forwarding", []byte("1"), 0644); err != nil {
@@ -268,10 +270,4 @@ func Exchange(ctx context.Context, c net.Conn) error {
 		return fmt.Errorf("unexpected echo %q", b)
 	}
 	return nil
-}
-
-// Environment is diagnostic only and does not substitute for packet tests.
-func Environment() (string, error) {
-	b, err := os.ReadFile(filepath.Clean("/proc/sys/kernel/osrelease"))
-	return string(b), err
 }
