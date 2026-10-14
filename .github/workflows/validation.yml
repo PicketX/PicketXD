@@ -1,0 +1,44 @@
+name: M0 validation
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - run: go vet ./...
+      - run: go build ./...
+  kernel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+      - name: Build before privileged execution
+        run: |
+          mkdir -p artifacts
+          go mod download
+          go test -c -tags=integration -o artifacts/nft.test ./internal/validation/nftbackend
+          uname -r > artifacts/kernel.txt
+          go version > artifacts/go.txt
+          go list -m all > artifacts/modules.txt
+      - name: Real isolated kernel scenarios
+        shell: bash
+        run: |
+          set -o pipefail
+          sudo env PICKETX_KERNEL_TESTS=1 unshare --net ./artifacts/nft.test -test.v -test.timeout=3m 2>&1 | tee artifacts/kernel.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kernel-evidence
+          path: artifacts
