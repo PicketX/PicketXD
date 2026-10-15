@@ -48,7 +48,7 @@ func privateFile(info os.FileInfo, dir bool) error {
 }
 func lockJournal(path string) (*os.File, error) {
 	dir := filepath.Dir(path)
-	if e := os.MkdirAll(dir, 0700); e != nil {
+	if e := prepareDirectory(dir, syncDirectory); e != nil {
 		return nil, e
 	}
 	info, e := os.Lstat(dir)
@@ -122,6 +122,9 @@ func readJournal(path string) (cacheRecord, bool, error) {
 	return r, true, nil
 }
 func writeJournal(path string, r cacheRecord) error {
+	return writeJournalWithSync(path, r, syncDirectory)
+}
+func writeJournalWithSync(path string, r cacheRecord, syncDir func(string) error) error {
 	data, e := json.Marshal(r)
 	if e != nil {
 		return &commitError{Err: e}
@@ -146,13 +149,47 @@ func writeJournal(path string, r cacheRecord) error {
 	if e = os.Rename(tmp, path); e != nil {
 		return &commitError{Err: e}
 	}
-	d, e := os.Open(dir)
-	if e != nil {
+	if e = syncDir(dir); e != nil {
 		return &commitError{Published: true, Err: e}
 	}
-	e = errors.Join(d.Sync(), d.Close())
+	return nil
+}
+
+func syncDirectory(path string) error {
+	d, e := os.Open(path)
 	if e != nil {
-		return &commitError{Published: true, Err: e}
+		return e
+	}
+	return errors.Join(d.Sync(), d.Close())
+}
+
+// Sync every ancestor on open, including retries after an earlier creation
+// failed to sync. Merely syncing a newly created child cannot publish its name
+// in its parent's durable directory entries.
+func prepareDirectory(dir string, syncDir func(string) error) error {
+	if e := os.MkdirAll(dir, 0700); e != nil {
+		return e
+	}
+	info, e := os.Lstat(dir)
+	if e != nil {
+		return e
+	}
+	if e = privateFile(info, true); e != nil {
+		return e
+	}
+	current, e := filepath.Abs(dir)
+	if e != nil {
+		return e
+	}
+	for {
+		if e = syncDir(current); e != nil {
+			return e
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
 	}
 	return nil
 }

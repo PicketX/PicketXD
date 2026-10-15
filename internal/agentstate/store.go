@@ -103,6 +103,12 @@ func New(c Config) (*Store, error) {
 	return s, nil
 }
 func (s *Store) Accept(ctx context.Context, policy []byte) error {
+	return s.accept(ctx, policy, writeJournal)
+}
+
+// accept separates publication from state advancement so filesystem durability
+// failures retain their explicit pre/post-publication outcomes.
+func (s *Store) accept(ctx context.Context, policy []byte, save func(string, cacheRecord) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if e := s.check(ctx); e != nil {
@@ -135,7 +141,7 @@ func (s *Store) Accept(ctx context.Context, policy []byte) error {
 	if e = ctx.Err(); e != nil {
 		return reject(e)
 	}
-	if e = writeJournal(s.cfg.Path, r); e != nil {
+	if e = save(s.cfg.Path, r); e != nil {
 		var ce *commitError
 		if errors.As(e, &ce) && ce.Published {
 			s.faulted = true

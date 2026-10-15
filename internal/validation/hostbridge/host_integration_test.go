@@ -5,9 +5,9 @@ package hostbridge
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"net/netip"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,6 +24,9 @@ import (
 	"github.com/google/nftables/expr"
 	"golang.org/x/sys/unix"
 )
+
+//go:embed testdata/policy.yaml
+var policyFixture []byte
 
 type hostCase struct {
 	x       *kerneltest.Topology
@@ -70,10 +73,7 @@ func withHost(t *testing.T, fn func(*hostCase)) {
 }
 func publication(t *testing.T, until4, until6 time.Time, grants bool) []byte {
 	t.Helper()
-	raw, e := os.ReadFile("../../../examples/prepare/policy.yaml")
-	if e != nil {
-		t.Fatal(e)
-	}
+	raw := policyFixture
 	s := strings.NewReplacer("198.51.100.9", kerneltest.Sources[0].String(), "2001:db8:1::9", kerneltest.Sources[1].String(), "2001:db8::100", kerneltest.Destinations[1].String(), "2026-10-15T10:00:00Z", until4.UTC().Format(time.RFC3339Nano), "2026-10-15T12:00:00Z", until6.UTC().Format(time.RFC3339Nano), "      endpointNames: [https]\n", "", "      endpointNames: [ssh]\n", "", "protocol: TCP, port: 22", "protocol: UDP, port: 22").Replace(string(raw))
 	if !grants {
 		parts := strings.Split(s, "---\n")
@@ -173,9 +173,8 @@ func TestHostConfigurationSourcesAndDeny(t *testing.T) {
 		deny4 := strings.NewReplacer("kind: Grant", "kind: NetworkDeny", "grant-browser-v1", "deny-other4", "name: browser", "name: deny4", kerneltest.Sources[0].String(), kerneltest.Others[0].String()).Replace(parts[1])
 		deny6 := strings.NewReplacer("kind: Grant", "kind: NetworkDeny", "grant-ssh6-v1", "deny-other6", "name: ssh6", "name: deny6", kerneltest.Sources[1].String(), kerneltest.Others[1].String()).Replace(parts[2])
 		// Revoke the exact host grants; overlapping CIDRs still independently allow.
-		withdrawn := strings.ReplaceAll(union, "  subject:", "  revoked: true\n  subject:")
 		// Only mark original exact grants revoked, preserving broad contributions.
-		withdrawn = strings.Join([]string{parts[0], strings.Replace(parts[1], "  subject:", "  revoked: true\n  subject:", 1), strings.Replace(parts[2], "  subject:", "  revoked: true\n  subject:", 1), parts[3], broad4, broad6, deny4, deny6}, "---\n")
+		withdrawn := strings.Join([]string{parts[0], strings.Replace(parts[1], "  subject:", "  revoked: true\n  subject:", 1), strings.Replace(parts[2], "  subject:", "  revoked: true\n  subject:", 1), parts[3], broad4, broad6, deny4, deny6}, "---\n")
 		h.apply(t, []byte(withdrawn))
 		for i := range kerneltest.Sources {
 			packet(t, h.x, i, false, "tcp", 443, true)

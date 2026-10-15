@@ -3,6 +3,7 @@ package agentstate
 
 import (
 	"context"
+	"errors"
 	"golang.org/x/sys/unix"
 	"net/netip"
 	"os"
@@ -208,5 +209,64 @@ func TestCacheRejectsFIFOWithoutBlockingStartup(t *testing.T) {
 		}
 	case <-time.After(150 * time.Millisecond):
 		t.Fatal("FIFO blocked startup before regular-file validation")
+	}
+}
+
+func TestNewStateHierarchySyncsEveryCreatedParent(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "a", "b", "c")
+	var synced []string
+	e := prepareDirectory(dir, func(path string) error {
+		info, e := os.Stat(path)
+		if e != nil || !info.IsDir() {
+			t.Fatalf("sync before directory creation: %s %v", path, e)
+		}
+		synced = append(synced, filepath.Clean(path))
+		return nil
+	})
+	if e != nil {
+		t.Fatal(e)
+	}
+	// Each newly created directory and its parent must be durably published.
+	for _, wanted := range []string{base, filepath.Join(base, "a"), filepath.Join(base, "a", "b"), dir} {
+		found := false
+		for _, got := range synced {
+			found = found || got == wanted
+		}
+		if !found {
+			t.Fatalf("created component not synced: %s; got %v", wanted, synced)
+		}
+	}
+	failed := filepath.Join(t.TempDir(), "private", "deep")
+	if e := prepareDirectory(failed, func(string) error { return errors.New("directory fsync failed") }); e == nil {
+		t.Fatal("directory creation sync failure ignored")
+	}
+}
+func TestPostRenameUncertaintyFaultsUntilRecovery(t *testing.T) {
+	c := testConfig(t)
+	s := open(t, c)
+	if e := s.Accept(context.Background(), policy(t)); e != nil {
+		t.Fatal(e)
+	}
+	next := []byte(strings.Replace(string(policy(t)), "10:00:00Z", "09:30:00Z", 1))
+	e := s.accept(context.Background(), next, func(path string, r cacheRecord) error {
+		return writeJournalWithSync(path, r, func(string) error { return errors.New("injected directory fsync failure") })
+	})
+	var commit *commitError
+	if !errors.As(e, &commit) || !commit.Published {
+		t.Fatalf("post-publication uncertainty not classified: %v", e)
+	}
+	st, _ := s.Status(c.Now())
+	if !st.CacheFault || st.Generation != 1 || st.LastError == "" {
+		t.Fatalf("uncertain disk completion advanced acceptance: %#v", st)
+	}
+	if e := s.Accept(context.Background(), policy(t)); e == nil {
+		t.Fatal("faulted store accepted new candidate")
+	}
+	s.Close()
+	restored := open(t, c)
+	st, _ = restored.Status(c.Now())
+	if !st.Restored || st.Generation != 2 || st.CacheFault || st.EnforcementConfirmed {
+		t.Fatalf("reopen did not validate actually published state: %#v", st)
 	}
 }
