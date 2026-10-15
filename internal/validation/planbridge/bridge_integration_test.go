@@ -37,6 +37,10 @@ type liveFixture struct {
 func withBridge(t *testing.T, mode networkplan.HandlingMode, nat bool, run func(*liveFixture)) {
 	t.Helper()
 	kerneltest.WithTopology(t, func(x *kerneltest.Topology) {
+		stopObservation, err := x.ObserveConntrack()
+		if err != nil {
+			t.Fatal(err)
+		}
 		f := testFacts(mode)
 		f.NamespaceID = x.Enforcement.UniqueId()
 		f.Context.NetworkSpaceID = f.NamespaceID
@@ -121,6 +125,9 @@ func withBridge(t *testing.T, mode networkplan.HandlingMode, nat bool, run func(
 			if !seen {
 				t.Fatal("source/tuple not observed at bound enforcement namespace", family)
 			}
+		}
+		if err := stopObservation(); err != nil {
+			t.Fatal(err)
 		}
 		run(&liveFixture{x: x, c: c, b: b, r: r, in: in, facts: f})
 	})

@@ -316,6 +316,11 @@ type invalidBatchApplier struct {
 
 func (a invalidBatchApplier) Apply(ctx context.Context, s fixture.Snapshot, now time.Time) error {
 	a.c.AddRule(&nftables.Rule{Table: &nftables.Table{Name: "picketx_nonexistent", Family: nftables.TableFamilyINet}, Chain: &nftables.Chain{Name: "picketx_missing"}, Exprs: []expr.Any{&expr.Verdict{Kind: expr.VerdictDrop}}})
+	// Backends now own a private staging connection. Reject a real invalid
+	// transaction here instead of assuming caller-queued commands join its batch.
+	if err := a.c.Flush(); err != nil {
+		return err
+	}
 	return a.b.Apply(ctx, s, now)
 }
 func TestApplyFailureDoesNotTriggerDeletion(t *testing.T) {

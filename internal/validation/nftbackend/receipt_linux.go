@@ -120,9 +120,10 @@ func (b *Backend) applyReceiptLocked(ctx context.Context, s fixture.Snapshot, op
 	b.generation++
 	return r, nil
 }
-func sameExpressions(a, b []expr.Any) bool {
+func sameExpressions(a, b []expr.Any) bool { return expressionDifference(a, b) == "" }
+func expressionDifference(a, b []expr.Any) string {
 	if len(a) != len(b) {
-		return false
+		return fmt.Sprintf("expression count %d/%d", len(a), len(b))
 	}
 	normalized := func(e expr.Any) expr.Any {
 		switch v := e.(type) {
@@ -139,10 +140,10 @@ func sameExpressions(a, b []expr.Any) bool {
 		x, e := expr.Marshal(byte(nftables.TableFamilyINet), normalized(a[i]))
 		y, f := expr.Marshal(byte(nftables.TableFamilyINet), normalized(b[i]))
 		if e != nil || f != nil || !bytes.Equal(x, y) {
-			return false
+			return fmt.Sprintf("expression %d actual=%#v expected=%#v wire=%x/%x", i, a[i], b[i], x, y)
 		}
 	}
-	return true
+	return ""
 }
 
 // Confirm requires matching owned structure and membership. It tolerates only
@@ -201,7 +202,7 @@ func (b *Backend) Confirm(ctx context.Context, r Receipt) error {
 		}
 		for i, v := range rules {
 			if !sameExpressions(v.Exprs, expected[i]) {
-				return fmt.Errorf("owned chain %s rule %d differs", c.Name, i)
+				return fmt.Errorf("owned chain %s rule %d differs: %s", c.Name, i, expressionDifference(v.Exprs, expected[i]))
 			}
 		}
 	}
