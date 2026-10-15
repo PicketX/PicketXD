@@ -2,11 +2,11 @@
 
 > [English (default)](README.md) | 简体中文
 
-PicketX 的 Linux 执行 Agent。当前仓库包含**内部 M0 与共享计划桥接验证基础设施**，尚不是生产 Agent。
+PicketX 的 Linux 执行 Agent。当前仓库包含**静态期望状态准备/恢复流程，以及 M0、共享桥接和主机 INPUT 验证基础设施**，尚不是生产执行 Agent。
 
 已评审的 [M0 计划](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.zh-CN.md)要求先验证 nftables 准入/过期和 conntrack 定向撤销，再推进完整 Agent/Controller 流程。
 
-M1.3A 的 [`planbridge`](internal/validation/planbridge)依据固定声明夹具范围校验完整共享计划，物化显式时间 TCP/UDP 成员，保留 Grant/Deny 分域来源及绝对期限，并校验包括明确移除 Agent 在内的完整替换。共享依赖固定为 `v0.0.0-20261015081000-e39f96e27871`。构造范围不证明实际拓扑，编译输出不证明实际应用。本分支沿用同一个编译器接入 M1.3B/C：真实拓扑校验、应用/读回确认、实际发出历史、严格/空状态清理和边界驱动；新增特权验收状态见下文。详见[切片记录](docs/validation/M1.3A.zh-CN.md)、[实施计划](docs/superpowers/plans/2026-10-15-planbridge-compiler.zh-CN.md)及[四层/七层/管理端交付路线](docs/DELIVERY.zh-CN.md)。
+M1.3A 的 [`planbridge`](internal/validation/planbridge)依据固定声明夹具范围校验完整共享计划，物化显式时间 TCP/UDP 成员，保留 Grant/Deny 分域来源及绝对期限，并校验包括明确移除 Agent 在内的完整替换。共享依赖固定为 `v0.0.0-20261015145159-81daf5abb831`。构造范围不证明实际拓扑，编译输出不证明实际应用。本分支沿用同一个编译器接入 M1.3B/C：真实拓扑校验、应用/读回确认、实际发出历史、严格/空状态清理和边界驱动；新增特权验收状态见下文。详见[切片记录](docs/validation/M1.3A.zh-CN.md)、[实施计划](docs/superpowers/plans/2026-10-15-planbridge-compiler.zh-CN.md)及[四层/七层/管理端交付路线](docs/DELIVERY.zh-CN.md)。
 
 ## 开发
 
@@ -34,3 +34,9 @@ PICKETX_KERNEL_TESTS=1 scripts/test-kernel.sh
 ## 许可证
 
 GPL-3.0-or-later，详见 [LICENSE](LICENSE)。独立 OEM/商业条款需要与权利人另行签订协议，本仓库不授予这些权利。依赖许可列于 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## M2B 静态准备与主机验证
+
+新增 `picketxd prepare`：有界完整配置加载、共享校验替换、来源绑定的私有原子缓存、排他文件锁、重启恢复、独立期限求值和真实错误/新鲜度状态。参见[可运行示例](examples/prepare/README.zh-CN.md)。它不修改内核，状态始终明确未确认执行。
+
+测试专用 HostInputFixture 验证实际 INPUT、双栈原始 conntrack 元组（包括 DNAT）、invalid/untracked 拒绝；新增 7 项 host 必需门禁，保留原 17 M0+19 bridge。当前分支真实 CI 状态见 PR；不得把未执行或 skip 当成兼容证据。生产所有权/mark、严格恢复、失联未来限制、容器发布、Controller/L7/管理端仍待完成。详见[设计](docs/superpowers/specs/2026-10-15-static-lifecycle.zh-CN.md)。

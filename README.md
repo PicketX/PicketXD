@@ -2,11 +2,11 @@
 
 > English (default) | [简体中文](README.zh-CN.md)
 
-Linux enforcement Agent for PicketX. This repository contains **private M0 and shared-plan bridge validation infrastructure**, not a production Agent.
+Linux enforcement Agent for PicketX. This repository contains **static desired preparation/recovery plus private M0, shared-plan and host-input validation infrastructure**, not a production enforcement Agent.
 
 The approved [M0 plan](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.md) defines nftables admission/expiry and scoped conntrack revocation validation before the full Agent/Controller workflow.
 
-M1.3A's [`planbridge`](internal/validation/planbridge) validates complete shared plans against a fixed declarative fixture scope, materializes explicit-time TCP/UDP members, preserves separate Grant/Deny provenance and absolute deadlines, and validates full replacements including explicit Agent removal. Its shared dependency is pinned to `v0.0.0-20261015081000-e39f96e27871`. Scope construction does not prove a live topology, and compiler output does not prove application. This branch builds M1.3B/C on that same compiler: live topology guards, confirmed apply/readback, emitted history, strict/empty cleanup and boundary driving; new privileged acceptance is tracked below. See [slice findings](docs/validation/M1.3A.md), [implementation plan](docs/superpowers/plans/2026-10-15-planbridge-compiler.md) and the [L4/L7/management delivery route](docs/DELIVERY.md).
+M1.3A's [`planbridge`](internal/validation/planbridge) validates complete shared plans against a fixed declarative fixture scope, materializes explicit-time TCP/UDP members, preserves separate Grant/Deny provenance and absolute deadlines, and validates full replacements including explicit Agent removal. Its shared dependency is pinned to `v0.0.0-20261015145159-81daf5abb831`. Scope construction does not prove a live topology, and compiler output does not prove application. This branch builds M1.3B/C on that same compiler: live topology guards, confirmed apply/readback, emitted history, strict/empty cleanup and boundary driving; new privileged acceptance is tracked below. See [slice findings](docs/validation/M1.3A.md), [implementation plan](docs/superpowers/plans/2026-10-15-planbridge-compiler.md) and the [L4/L7/management delivery route](docs/DELIVERY.md).
 
 ## Development
 
@@ -34,3 +34,9 @@ The [M1.3 bridge implementation](docs/validation/M13.md) pins the shared Core/pl
 ## License
 
 GPL-3.0-or-later; see [LICENSE](LICENSE). Separate OEM/commercial terms require an agreement with the rights holder and are not granted by this repository. Dependency licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## M2B static preparation and host validation
+
+`picketxd prepare` adds bounded complete publication loading, shared validation/replacement, provider-bound private atomic cache, exclusive file locking, restart recovery, independent deadline projection and truthful error/freshness status. See the [runnable example](examples/prepare/README.md). It does not modify kernel state and always reports enforcement unconfirmed.
+
+Test-only HostInputFixture verifies real INPUT, dual-stack original CT tuples including DNAT and invalid/untracked rejection. Seven required host cases join all 17 M0+19 bridge cases. The current branch real CI status is in its PR; unexecuted/skipped tests never establish compatibility. Production ownership/mark, strict recovery, process-loss future restrictions, container-published coverage and Controller/L7/admin remain incomplete. See the [design](docs/superpowers/specs/2026-10-15-static-lifecycle.md).

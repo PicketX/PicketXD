@@ -5,8 +5,11 @@ import (
 	"errors"
 	"github.com/PicketX/PicketXD/internal/validation/fixture"
 	"github.com/google/nftables"
+	"github.com/google/nftables/binaryutil"
 	"github.com/google/nftables/expr"
 	nl "github.com/mdlayher/netlink"
+	"github.com/mdlayher/netlink/nltest"
+	"golang.org/x/sys/unix"
 	"io"
 	"net/netip"
 	"strings"
@@ -17,7 +20,7 @@ import (
 func TestSlowPreparationRechecksDeadlineAtDispatch(t *testing.T) {
 	now := time.Unix(1000, 0)
 	end := now.Add(time.Second)
-	conn := &nftables.Conn{TestDial: func([]nl.Message) ([]nl.Message, error) { return nil, io.EOF }}
+	conn := &nftables.Conn{TestDial: acknowledgedFixtureDial}
 	b := New(conn)
 	b.now = func() time.Time { return now }
 	b.inject = func(*nftables.Conn) { now = end.Add(time.Millisecond) }
@@ -49,7 +52,7 @@ func TestBoundedConfirmationRejectsPermanentNativeElement(t *testing.T) {
 
 func TestReceiptRejectsCallerMutationBeforeReadback(t *testing.T) {
 	now := time.Now()
-	conn := &nftables.Conn{TestDial: func([]nl.Message) ([]nl.Message, error) { return nil, io.EOF }}
+	conn := &nftables.Conn{TestDial: acknowledgedFixtureDial}
 	b := New(conn)
 	r := fixture.Rule{Source: mustPrefix("192.0.2.10/32"), Endpoint: fixture.Endpoint{Destination: mustPrefix("192.0.2.100/32"), Protocol: 6, PortFirst: 443, PortLast: 443}, ExpiresAt: now.Add(time.Hour)}
 	got, e := b.ApplyReceipt(context.Background(), fixture.Snapshot{Protected: []fixture.Endpoint{r.Endpoint}, Allow: []fixture.Rule{r}}, Options{})
@@ -70,7 +73,7 @@ func TestReceiptReportsExpiredAndSubmillisecondOmissions(t *testing.T) {
 	s.Allow[1].ExpiresAt = now.Add(time.Second)
 	s.Allow[2].ExpiresAt = now
 	s.Allow[3].ExpiresAt = now.Add(time.Microsecond)
-	b := New(&nftables.Conn{TestDial: func([]nl.Message) ([]nl.Message, error) { return nil, io.EOF }})
+	b := New(&nftables.Conn{TestDial: acknowledgedFixtureDial})
 	b.now = func() time.Time { return now }
 	receipt, err := b.ApplyReceipt(context.Background(), s, Options{})
 	if err != nil {
@@ -160,4 +163,35 @@ func TestMissingReceiptCannotConfirm(t *testing.T) {
 	if !errors.Is((&ApplyError{Rejected: true, Err: context.Canceled}), context.Canceled) {
 		t.Fatal("lost underlying application error")
 	}
+}
+
+// The newer upstream backend requires echoed rule handles before ACKs. Unit
+// transport fixtures must model that protocol rather than treating EOF as ACK.
+func acknowledgedFixtureDial(reqs []nl.Message) ([]nl.Message, error) {
+	if len(reqs) < 2 {
+		return nil, io.EOF
+	}
+	var replies []nl.Message
+	for i, req := range reqs {
+		if req.Header.Flags&nl.Echo == 0 {
+			continue
+		}
+		attrs, e := nl.MarshalAttributes([]nl.Attribute{{Type: unix.NFTA_RULE_HANDLE, Data: binaryutil.BigEndian.PutUint64(uint64(i + 1))}})
+		if e != nil {
+			return nil, e
+		}
+		data := append(append([]byte{}, req.Data[:4]...), attrs...)
+		replies = append(replies, nl.Message{Header: nl.Header{Length: uint32(16 + len(data)), Type: req.Header.Type, Sequence: req.Header.Sequence, PID: req.Header.PID}, Data: data})
+	}
+	for _, req := range reqs {
+		if req.Header.Flags&nl.Acknowledge == 0 {
+			continue
+		}
+		ack, e := nltest.Error(0, []nl.Message{req})
+		if e != nil {
+			return nil, e
+		}
+		replies = append(replies, ack...)
+	}
+	return replies, nil
 }
