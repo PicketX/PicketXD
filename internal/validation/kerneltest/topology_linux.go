@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -257,7 +258,7 @@ func (x *Topology) setup() error {
 	}
 	return withNS(x.Server, func() error {
 		for _, a := range append(append([]netip.Addr{}, Destinations...), NATDestinations...) {
-			for _, port := range []uint16{8000, 8001, 8002, 9000} {
+			for _, port := range []uint16{22, 443, 8000, 8001, 8002, 9000} {
 				addr := net.JoinHostPort(a.String(), fmt.Sprint(port))
 				ln, err := net.Listen("tcp", addr)
 				if err != nil {
@@ -293,6 +294,67 @@ func (x *Topology) setup() error {
 		return nil
 	})
 }
+
+// ValidateTransit rechecks facts owned by this disposable topology. Initial
+// unfiltered packet proofs belong to WithTopology/withBridge, before admission.
+func (x *Topology) ValidateTransit(ctx context.Context, identity string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var stat unix.Stat_t
+	if err := unix.Fstat(int(x.Enforcement), &stat); err != nil {
+		return err
+	}
+	if identity == "" || x.Enforcement.UniqueId() != identity || x.Enforcement.Equal(x.Server) || x.Enforcement.Equal(x.Client) || x.NFT == nil || x.CT == nil || x.NFT.NetNS != int(x.Enforcement) {
+		return fmt.Errorf("fixture namespace/Netlink ownership mismatch")
+	}
+	if err := withNS(x.Enforcement, func() error {
+		for _, path := range []string{"/proc/sys/net/ipv4/ip_forward", "/proc/sys/net/ipv6/conf/all/forwarding"} {
+			b, e := os.ReadFile(path)
+			if e != nil {
+				return e
+			}
+			if strings.TrimSpace(string(b)) != "1" {
+				return fmt.Errorf("transit forwarding disabled: %s", path)
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	h, err := netlink.NewHandleAt(x.Enforcement, unix.NETLINK_ROUTE)
+	if err != nil {
+		return err
+	}
+	defer h.Close()
+	addresses, err := h.AddrList(nil, netlink.FAMILY_ALL)
+	if err != nil {
+		return err
+	}
+	for _, dst := range append(slicesCloneAddresses(Destinations), NATDestinations...) {
+		for _, a := range addresses {
+			if a.IP.Equal(net.IP(dst.AsSlice())) {
+				return fmt.Errorf("protected destination became Enforcement-local: %s", dst)
+			}
+		}
+		routes, e := h.RouteGet(net.IP(dst.AsSlice()))
+		if e != nil {
+			return e
+		}
+		if len(routes) == 0 {
+			return fmt.Errorf("missing fixture transit route for %s", dst)
+		}
+		link, e := h.LinkByIndex(routes[0].LinkIndex)
+		if e != nil {
+			return e
+		}
+		if link.Attrs().Name != "picketx_r1" || link.Attrs().Flags&net.FlagUp == 0 {
+			return fmt.Errorf("fixture destination no longer uses active server transit link")
+		}
+	}
+	return ctx.Err()
+}
+func slicesCloneAddresses(v []netip.Addr) []netip.Addr { return append([]netip.Addr{}, v...) }
 func (x *Topology) dial(ctx context.Context, source, destination netip.Addr, protocol string, port uint16) (c net.Conn, err error) {
 	err = withNS(x.Client, func() error {
 		d := net.Dialer{}

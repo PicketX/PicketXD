@@ -3,10 +3,42 @@ package ctbackend
 import (
 	"context"
 	"errors"
+	"github.com/PicketX/PicketXD/internal/validation/fixture"
 	"github.com/vishvananda/netlink"
 	"testing"
 	"time"
 )
+
+func TestExplicitEmptyAfterCleansOnlyHistoricalOwnedFlows(t *testing.T) {
+	b := New(nil)
+	owned := flow(false)
+	other := flow(false)
+	other.Mark = 999
+	current := []*netlink.ConntrackFlow{owned, other}
+	b.dump = func(f netlink.InetFamily) ([]*netlink.ConntrackFlow, error) {
+		if f == netlink.FAMILY_V4 {
+			return current, nil
+		}
+		return nil, nil
+	}
+	b.delete = func(_ netlink.InetFamily, fs []*netlink.ConntrackFlow) (uint, error) {
+		if len(fs) != 1 || fs[0].Mark != 123 {
+			t.Fatal("unowned cleanup", fs)
+		}
+		current = []*netlink.ConntrackFlow{other}
+		return 1, nil
+	}
+	r, e := b.RevokeEmpty(context.Background(), input(false), 123, time.Now())
+	if e != nil || r.Selected != 1 || r.Deleted != 1 || r.Remaining != 0 {
+		t.Fatal(r, e)
+	}
+	if _, e := b.Revoke(context.Background(), input(false), fixture.Snapshot{}, 123, time.Now()); e == nil {
+		t.Fatal("general Revoke accepted arbitrary empty snapshot")
+	}
+	if _, e := b.RevokeEmpty(context.Background(), fixture.Snapshot{}, 123, time.Now()); e == nil {
+		t.Fatal("empty historical authority accepted")
+	}
+}
 
 func TestRevokeReportsInterruptedDump(t *testing.T) {
 	b := New(nil)

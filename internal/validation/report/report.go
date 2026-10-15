@@ -44,6 +44,8 @@ func ReadEvents(reader io.Reader) ([]ScenarioResult, error) {
 	d := json.NewDecoder(reader)
 	var out []ScenarioResult
 	indices := make(map[string]int)
+	started := make(map[string]bool)
+	childFailures := make(map[string]string)
 	for {
 		var e struct{ Action, Test, Output string }
 		err := d.Decode(&e)
@@ -53,25 +55,44 @@ func ReadEvents(reader io.Reader) ([]ScenarioResult, error) {
 		if err != nil {
 			return nil, fmt.Errorf("test JSON: %w", err)
 		}
-		if e.Test == "" || strings.Contains(e.Test, "/") {
+		if e.Test == "" {
 			continue
 		}
-		index, exists := indices[e.Test]
+		if e.Action == "run" {
+			if started[e.Test] {
+				return nil, fmt.Errorf("duplicate test execution %s", e.Test)
+			}
+			started[e.Test] = true
+		}
+		name := strings.SplitN(e.Test, "/", 2)[0]
+		child := name != e.Test
+		index, exists := indices[name]
 		if !exists {
 			index = len(out)
-			indices[e.Test] = index
-			out = append(out, ScenarioResult{Name: e.Test, Status: "fail", Remaining: -1})
+			indices[name] = index
+			out = append(out, ScenarioResult{Name: name, Status: "fail", Remaining: -1})
 		}
 		r := &out[index]
+		if child && e.Action != "output" {
+			if e.Action == "fail" {
+				childFailures[name] = "fail"
+			} else if e.Action == "skip" && childFailures[name] != "fail" {
+				childFailures[name] = "skipped"
+			}
+			continue
+		}
 		switch e.Action {
 		case "pass":
 			r.Status = "pass"
+			if status := childFailures[name]; status != "" {
+				r.Status = status
+			}
 		case "fail":
 			r.Status = "fail"
 		case "skip":
 			r.Status = "skipped"
 		case "output":
-			if len(r.Detail) < 8192 {
+			if len(r.Detail) < 65536 {
 				r.Detail += e.Output
 			}
 			for _, format := range []struct{ prefix, scan string }{
@@ -94,4 +115,10 @@ func ReadEvents(reader io.Reader) ([]ScenarioResult, error) {
 var RequiredScenarios = []string{
 	"TestDefaultDenyDualStack", "TestScopedAllowDualStack", "TestDenyPrecedence", "TestConcatenatedIntervalSets", "TestOverlapRetainsMembership", "TestIndependentDeadlines", "TestNativeTimeoutWithoutController", "TestGracefulExpiry", "TestRestartPreservesDeadline", "TestInvalidBatchPreservesPreviousState",
 	"TestStrictRevokeDualStack", "TestStrictRevokePreservesOtherGrant", "TestStrictRevokePreservesUnrelatedFlow", "TestOldTCPPacketsCannotResurrect", "TestUDPAfterDeletionRequiresCurrentAllow", "TestNATScopedDeletion", "TestApplyFailureDoesNotTriggerDeletion",
+}
+
+// RequiredBridgeScenarios must execute against generated shared intent in real
+// disposable namespaces. Old M0 evidence cannot satisfy this additional gate.
+var RequiredBridgeScenarios = []string{
+	"TestBridgeGiteaIndependentDeadlines", "TestBridgeDenyAndRevocation", "TestBridgeUDP", "TestBridgeNativeExpiry", "TestBridgeFutureBoundaries", "TestBridgeReplayLateApply", "TestBridgeHistoricalStrictCleanup", "TestBridgeStrictPreservation", "TestBridgeApplyFailure", "TestBridgeConfirmationFailure", "TestBridgePartialCleanup", "TestBridgeBindingOwnership", "TestBridgeEmptyOwnership", "TestBridgeNAT", "TestBridgeInterruptedDump", "TestBridgeBackendDispatchDeadline", "TestBridgeBackendSubmillisecondReceipt", "TestBridgeNATAtomicRejection", "TestBridgeRejectsPermanentNativeMutation",
 }

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/PicketX/PicketXD/internal/validation/report"
 	"os"
@@ -36,7 +37,7 @@ func run() error {
 			r.Libraries[f[0]] = f[1]
 		}
 	}
-	for _, name := range []string{"nft.json", "ct.json"} {
+	for _, name := range []string{"nft.json", "ct.json", "bridge.json"} {
 		f, err := os.Open(filepath.Join(dir, name))
 		if err != nil {
 			return err
@@ -60,9 +61,9 @@ func run() error {
 	if closeErr != nil {
 		return closeErr
 	}
-	if err := report.CheckRequired(r, report.RequiredScenarios); err != nil {
+	if err := errors.Join(report.CheckRequired(r, report.RequiredScenarios), report.CheckRequired(r, report.RequiredBridgeScenarios)); err != nil {
 		return err
 	}
-	fmt.Printf("M0 observed kernel=%s Go=%s required=%d passed=%d\n", r.Kernel, r.Go, len(report.RequiredScenarios), len(report.RequiredScenarios))
+	fmt.Printf("M0 + bridge observed kernel=%s Go=%s M0=%d bridge=%d passed\n", r.Kernel, r.Go, len(report.RequiredScenarios), len(report.RequiredBridgeScenarios))
 	return nil
 }
