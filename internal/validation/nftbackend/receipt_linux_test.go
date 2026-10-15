@@ -135,6 +135,24 @@ func TestConntrackWriteDirectionSurvivesReadbackCodec(t *testing.T) {
 		t.Fatal("dependency decoder lost conntrack write semantics", got, want)
 	}
 }
+
+func TestFixtureNATDeclaresExactSingleAddressAndPort(t *testing.T) {
+	count := 0
+	appendFixtureNAT(&nftables.Table{Name: "picketx", Family: nftables.TableFamilyINet}, func(c *nftables.Chain) *nftables.Chain { return c }, func(r *nftables.Rule) *nftables.Rule {
+		for _, e := range r.Exprs {
+			if nat, ok := e.(*expr.NAT); ok {
+				count++
+				if nat.RegAddrMin == 0 || nat.RegAddrMax != nat.RegAddrMin || nat.RegProtoMin == 0 || nat.RegProtoMax != nat.RegProtoMin || !nat.Specified {
+					t.Error("NAT fixture does not explicitly pin single address/port", nat)
+				}
+			}
+		}
+		return r
+	})
+	if count != 2 {
+		t.Fatal("missing family NAT fixture", count)
+	}
+}
 func TestMissingReceiptCannotConfirm(t *testing.T) {
 	if e := New(&nftables.Conn{}).Confirm(context.Background(), Receipt{}); e == nil {
 		t.Fatal("fabricated receipt confirmed")

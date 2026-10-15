@@ -27,7 +27,7 @@ func appendFixtureNAT(tab *nftables.Table, chain func(*nftables.Chain) *nftables
 			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 1}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{6}},
 			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: offset, Len: size}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: vip.AsSlice()},
 			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2}, &expr.Range{Op: expr.CmpOpEq, Register: 1, FromData: binaryutil.BigEndian.PutUint16(8000), ToData: binaryutil.BigEndian.PutUint16(8001)},
-			&expr.Immediate{Register: 1, Data: dst.AsSlice()}, &expr.Immediate{Register: 2, Data: binaryutil.BigEndian.PutUint16(9000)}, &expr.NAT{Type: expr.NATTypeDestNAT, Family: family, RegAddrMin: 1, RegProtoMin: 2},
+			&expr.Immediate{Register: 1, Data: dst.AsSlice()}, &expr.Immediate{Register: 2, Data: binaryutil.BigEndian.PutUint16(9000)}, &expr.NAT{Type: expr.NATTypeDestNAT, Family: family, RegAddrMin: 1, RegAddrMax: 1, RegProtoMin: 2, RegProtoMax: 2, Specified: true},
 		}})
 	}
 }
