@@ -19,15 +19,21 @@ import (
 const TestMark uint32 = 0x5049434b
 
 type Backend struct {
-	conn  *nftables.Conn
-	mu    sync.Mutex
-	batch func(context.Context, fixture.Snapshot, time.Time) error
+	conn       *nftables.Conn
+	mu         sync.Mutex
+	batch      func(context.Context, fixture.Snapshot, time.Time) error
+	now        func() time.Time
+	generation uint64
 	// Test-only invalid-operation seam; nil outside package integration tests.
 	inject func(*nftables.Conn)
 }
 
-func New(c *nftables.Conn) *Backend { b := &Backend{conn: c}; b.batch = b.applyBatch; return b }
-func (b *Backend) Close() error     { return b.conn.CloseLasting() }
+func New(c *nftables.Conn) *Backend {
+	b := &Backend{conn: c, now: time.Now}
+	b.batch = b.applyBatch
+	return b
+}
+func (b *Backend) Close() error { return b.conn.CloseLasting() }
 func (b *Backend) Apply(ctx context.Context, s fixture.Snapshot, now time.Time) error {
 	if err := fixture.Validate(s); err != nil {
 		return err
@@ -37,10 +43,25 @@ func (b *Backend) Apply(ctx context.Context, s fixture.Snapshot, now time.Time) 
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.batch(ctx, s, now)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return b.batch(ctx, s, b.now())
 }
 func (b *Backend) applyBatch(ctx context.Context, s fixture.Snapshot, now time.Time) error {
-	c := b.conn
+	_, err := b.applyReceiptLocked(ctx, s, Options{}, now)
+	return err
+}
+func (b *Backend) queueBatch(ctx context.Context, c *nftables.Conn, s fixture.Snapshot, now time.Time, receipt *Receipt, opts Options) error {
+	addChain := func(chain *nftables.Chain) *nftables.Chain {
+		receipt.manifest.chains[chain.Name] = chain
+		return c.AddChain(chain)
+	}
+	addRule := func(rule *nftables.Rule) *nftables.Rule {
+		receipt.manifest.rules[rule.Chain.Name] = append(receipt.manifest.rules[rule.Chain.Name], rule.Exprs)
+		return c.AddRule(rule)
+	}
+
 	tables, err := c.ListTablesOfFamily(nftables.TableFamilyINet)
 	if err != nil {
 		return fmt.Errorf("list owned table: %w", err)
@@ -55,7 +76,7 @@ func (b *Backend) applyBatch(ctx context.Context, s fixture.Snapshot, now time.T
 	}
 	tab := c.AddTable(&nftables.Table{Name: "picketx", Family: nftables.TableFamilyINet})
 	priority := nftables.ChainPriority(-110)
-	main := c.AddChain(&nftables.Chain{Name: "picketx_admission", Table: tab, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookPrerouting, Priority: &priority})
+	main := addChain(&nftables.Chain{Name: "picketx_admission", Table: tab, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookPrerouting, Priority: &priority})
 	type entry struct {
 		rule fixture.Rule
 		set  *nftables.Set
@@ -63,19 +84,17 @@ func (b *Backend) applyBatch(ctx context.Context, s fixture.Snapshot, now time.T
 	create := func(rules []fixture.Rule, label string) ([]entry, error) {
 		var entries []entry
 		for i, r := range rules {
-			e, active := membership(r, now)
-			if !active {
-				continue
-			}
 			addrType := nftables.TypeIPAddr
 			if r.Source.Addr().Is6() {
 				addrType = nftables.TypeIP6Addr
 			}
 			set := &nftables.Set{Table: tab, Name: fmt.Sprintf("picketx_%s_%d", label, i), KeyType: nftables.MustConcatSetType(addrType, addrType, nftables.TypeInetProto, nftables.TypeInetService), Interval: true, Concatenation: true, HasTimeout: !r.ExpiresAt.IsZero()}
-			if err := c.AddSet(set, []nftables.SetElement{e}); err != nil {
+			if err := c.AddSet(set, nil); err != nil {
 				return nil, err
 			}
 			entries = append(entries, entry{r, set})
+			receipt.manifest.sets[set.Name] = setExpectation{rule: r, set: set}
+			receipt.manifest.pending = append(receipt.manifest.pending, pendingMember{rule: r, set: set, deny: label == "deny"})
 		}
 		return entries, nil
 	}
@@ -88,15 +107,15 @@ func (b *Backend) applyBatch(ctx context.Context, s fixture.Snapshot, now time.T
 		return err
 	}
 	for i, e := range s.Protected {
-		chain := c.AddChain(&nftables.Chain{Name: fmt.Sprintf("picketx_scope_%d", i), Table: tab})
-		c.AddRule(&nftables.Rule{Table: tab, Chain: main, Exprs: append(endpointMatch(e), &expr.Verdict{Kind: expr.VerdictJump, Chain: chain.Name})})
+		chain := addChain(&nftables.Chain{Name: fmt.Sprintf("picketx_scope_%d", i), Table: tab})
+		addRule(&nftables.Rule{Table: tab, Chain: main, Exprs: append(endpointMatch(e), &expr.Verdict{Kind: expr.VerdictJump, Chain: chain.Name})})
 		for _, en := range denies {
 			if en.rule.Source.Addr().Is4() == e.Destination.Addr().Is4() {
-				c.AddRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: append(lookup(en.rule, en.set), &expr.Verdict{Kind: expr.VerdictDrop})})
+				addRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: append(lookup(en.rule, en.set), &expr.Verdict{Kind: expr.VerdictDrop})})
 			}
 		}
 		// Preserve established authorized traffic on graceful expiry. Explicit denies above win.
-		c.AddRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: []expr.Any{
+		addRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: []expr.Any{
 			&expr.Ct{Key: expr.CtKeyMARK, Register: 1}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(TestMark)},
 			&expr.Ct{Key: expr.CtKeySTATE, Register: 1}, &expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(2 | 4), Xor: make([]byte, 4)},
 			&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: make([]byte, 4)}, &expr.Verdict{Kind: expr.VerdictAccept},
@@ -111,15 +130,12 @@ func (b *Backend) applyBatch(ctx context.Context, s fixture.Snapshot, now time.T
 				ex = append(ex, &expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 13, Len: 1}, &expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 1, Mask: []byte{0x12}, Xor: []byte{0}}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{0x02}})
 			}
 			ex = append(ex, &expr.Immediate{Register: 1, Data: binaryutil.NativeEndian.PutUint32(TestMark)}, &expr.Ct{Key: expr.CtKeyMARK, Register: 1, SourceRegister: true}, &expr.Verdict{Kind: expr.VerdictAccept})
-			c.AddRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: ex})
+			addRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: ex})
 		}
-		c.AddRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
+		addRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 	}
-	if b.inject != nil {
-		b.inject(c)
-	}
-	if err := c.Flush(); err != nil {
-		return fmt.Errorf("apply owned batch: %w", err)
+	if opts.FixtureNAT {
+		appendFixtureNAT(tab, addChain, addRule)
 	}
 	return nil
 }

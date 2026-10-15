@@ -16,7 +16,7 @@
 //
 // An empty snapshot is explicit empty-owned intent. Existing M0 Apply/Revoke
 // require nonempty protection; callers must not synthesize wildcard protection
-// or treat this result as permission for unscoped cleanup. Applying, ACK/readback
-// confirmation, actual emitted receipts/history, timers and empty-table cleanup
-// belong to later bridge slices. A successful conversion is not applied access.
+// or treat this result as permission for unscoped cleanup. The fixture Coordinator adds live guards, ACK/readback confirmation, actual
+// emitted receipts/history, timers and exact empty-table cleanup. A successful
+// conversion alone is not applied access.
 package planbridge

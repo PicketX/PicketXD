@@ -1,4 +1,4 @@
-name: M0 validation
+name: Linux data-plane conformance
 on:
   push:
     branches: [main]

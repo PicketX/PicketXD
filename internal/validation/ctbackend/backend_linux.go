@@ -18,26 +18,52 @@ type Backend struct {
 	delete func(netlink.InetFamily, []*netlink.ConntrackFlow) (uint, error)
 }
 
+// Operations is an injected validation boundary; kernel scenarios can interrupt
+// a real dump/delete without weakening the exact filters used by KernelOperations.
+type Operations struct {
+	Dump   func(netlink.InetFamily) ([]*netlink.ConntrackFlow, error)
+	Delete func(netlink.InetFamily, []*netlink.ConntrackFlow) (uint, error)
+}
+
+func NewWithOperations(ops Operations) *Backend { return &Backend{dump: ops.Dump, delete: ops.Delete} }
+func KernelOperations(h *netlink.Handle) Operations {
+	return Operations{Dump: func(f netlink.InetFamily) ([]*netlink.ConntrackFlow, error) {
+		return h.ConntrackTableList(netlink.ConntrackTable, f)
+	}, Delete: func(f netlink.InetFamily, flows []*netlink.ConntrackFlow) (uint, error) {
+		return h.ConntrackDeleteFilters(netlink.ConntrackTable, f, exactFilter{flows})
+	}}
+}
+
 func New(h *netlink.Handle) *Backend {
-	b := &Backend{handle: h}
-	b.dump = func(family netlink.InetFamily) ([]*netlink.ConntrackFlow, error) {
-		return h.ConntrackTableList(netlink.ConntrackTable, family)
-	}
-	b.delete = func(family netlink.InetFamily, flows []*netlink.ConntrackFlow) (uint, error) {
-		return h.ConntrackDeleteFilters(netlink.ConntrackTable, family, exactFilter{flows})
-	}
+	b := NewWithOperations(KernelOperations(h))
+	b.handle = h
 	return b
 }
 func (b *Backend) Revoke(ctx context.Context, before, after fixture.Snapshot, mark uint32, now time.Time) (Result, error) {
+	return b.revoke(ctx, before, after, mark, now, false)
+}
+
+// RevokeEmpty is only for explicitly withdrawn ownership confirmed by the
+// bridge. General snapshot validation and Revoke continue to reject emptiness.
+func (b *Backend) RevokeEmpty(ctx context.Context, before fixture.Snapshot, mark uint32, now time.Time) (Result, error) {
+	return b.revoke(ctx, before, fixture.Snapshot{}, mark, now, true)
+}
+func (b *Backend) revoke(ctx context.Context, before, after fixture.Snapshot, mark uint32, now time.Time, explicitEmpty bool) (Result, error) {
 	result := Result{Remaining: -1}
+	if b.dump == nil || b.delete == nil {
+		return result, fmt.Errorf("missing conntrack operations")
+	}
 	if err := fixture.Validate(before); err != nil {
 		return result, err
 	}
-	if err := fixture.Validate(after); err != nil {
+	if err := fixture.Validate(after); err != nil && !explicitEmpty {
 		return result, err
 	}
 	if mark == 0 {
 		return result, fmt.Errorf("ownership mark must be nonzero")
+	}
+	if now.IsZero() {
+		return result, fmt.Errorf("cleanup time must not be zero")
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()

@@ -8,6 +8,46 @@ import (
 	"testing"
 )
 
+func TestBridgeGateRequiresEveryNewKernelCase(t *testing.T) {
+	var scenarios []ScenarioResult
+	for _, name := range RequiredScenarios {
+		scenarios = append(scenarios, ScenarioResult{Name: name, Status: "pass"})
+	}
+	if err := CheckRequired(Report{Scenarios: scenarios}, RequiredBridgeScenarios); err == nil {
+		t.Fatal("old M0 passes satisfied new bridge gate")
+	}
+	for _, name := range RequiredBridgeScenarios {
+		scenarios = append(scenarios, ScenarioResult{Name: name, Status: "pass"})
+	}
+	if err := CheckRequired(Report{Scenarios: scenarios}, RequiredBridgeScenarios); err != nil {
+		t.Fatal(err)
+	}
+	scenarios[len(scenarios)-1].Status = "skipped"
+	if err := CheckRequired(Report{Scenarios: scenarios}, RequiredBridgeScenarios); err == nil {
+		t.Fatal("skipped bridge accepted")
+	}
+}
+
+func TestSubtestEvidenceSurvivesAndSkippedVariantFailsGate(t *testing.T) {
+	for _, status := range []string{"pass", "skip"} {
+		events := fmt.Sprintf("{\"Action\":\"run\",\"Test\":\"TestBridgeEmptyOwnership\"}\n{\"Action\":\"run\",\"Test\":\"TestBridgeEmptyOwnership/strict\"}\n{\"Action\":\"output\",\"Test\":\"TestBridgeEmptyOwnership/strict\",\"Output\":\"epoch=live revocation selected=2 deleted=2 remaining=0\"}\n{\"Action\":%q,\"Test\":\"TestBridgeEmptyOwnership/strict\"}\n{\"Action\":\"pass\",\"Test\":\"TestBridgeEmptyOwnership\"}\n", status)
+		got, e := ReadEvents(strings.NewReader(events))
+		if e != nil || len(got) != 1 || !strings.Contains(got[0].Detail, "epoch=live") {
+			t.Fatal(got, e)
+		}
+		e = CheckRequired(Report{Scenarios: got}, []string{"TestBridgeEmptyOwnership"})
+		if (e == nil) != (status == "pass") {
+			t.Fatal("skipped variant accepted", got, e)
+		}
+	}
+}
+func TestDuplicateTopLevelRunRejected(t *testing.T) {
+	events := "{\"Action\":\"run\",\"Test\":\"required\"}\n{\"Action\":\"pass\",\"Test\":\"required\"}\n{\"Action\":\"run\",\"Test\":\"required\"}\n{\"Action\":\"pass\",\"Test\":\"required\"}\n"
+	if _, e := ReadEvents(strings.NewReader(events)); e == nil {
+		t.Fatal("duplicate observed test hidden")
+	}
+}
+
 func TestReportPreservesIncompleteAndSkippedResults(t *testing.T) {
 	r := Report{Kernel: "test-kernel", Go: "test-go", Libraries: map[string]string{"netlink": "v1.3.1"}, Scenarios: []ScenarioResult{{Name: "partial", Status: "fail", Selected: 2, Deleted: 1, Remaining: 1}, {Name: "not opted in", Status: "skipped"}, {Name: "kernel feature", Status: "unsupported"}, {Name: "observed", Status: "pass"}}}
 	var out bytes.Buffer
