@@ -603,8 +603,14 @@ func TestBridgeEmptyOwnership(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/agent=%v", mode, removeAgent), func(t *testing.T) {
 				withBridge(t, mode, false, func(l *liveFixture) {
 					l.update(t)
+					var controls []net.Conn
 					for i := range kerneltest.Sources {
 						l.open(t, i, "tcp", 443)
+						controls = append(controls, l.open(t, i, "tcp", 9000))
+					}
+					old := ownedConntracks(t, l.x)
+					if len(old) < 2 {
+						t.Fatal("no dual-stack marked ownership to withdraw", old)
 					}
 					l.in.Bindings = nil
 					if removeAgent {
@@ -615,6 +621,21 @@ func TestBridgeEmptyOwnership(t *testing.T) {
 					st := l.c.State()
 					if !st.Empty || st.Faulted || mode == networkplan.Strict && st.Cleanup.Remaining != 0 {
 						t.Fatal(st)
+					}
+					if mode == networkplan.Strict && (st.Cleanup.Selected < 2 || st.Cleanup.Deleted < 2) {
+						t.Fatal("strict empty transition did not delete observed ownership", st.Cleanup)
+					}
+					remaining := ownedConntracks(t, l.x)
+					for _, before := range old {
+						found := slices.ContainsFunc(remaining, func(after *netlink.ConntrackFlow) bool {
+							return before.Mark == after.Mark && before.Zone == after.Zone && before.FamilyType == after.FamilyType && sameObservedTuple(before.Forward, after.Forward) && sameObservedTuple(before.Reverse, after.Reverse)
+						})
+						if found != (mode == networkplan.Graceful) {
+							t.Fatal("empty transition historical tuple mismatch", mode, before, remaining)
+						}
+					}
+					for _, control := range controls {
+						exchangeBridge(t, control, true)
 					}
 					if e := l.b.ConfirmAbsent(context.Background()); e != nil {
 						t.Fatal(e)
@@ -629,6 +650,26 @@ func TestBridgeEmptyOwnership(t *testing.T) {
 			})
 		}
 	}
+}
+
+func ownedConntracks(t *testing.T, x *kerneltest.Topology) []*netlink.ConntrackFlow {
+	t.Helper()
+	var result []*netlink.ConntrackFlow
+	for _, family := range []netlink.InetFamily{netlink.FAMILY_V4, netlink.FAMILY_V6} {
+		flows, e := x.CT.ConntrackTableList(netlink.ConntrackTable, family)
+		if e != nil {
+			t.Fatal(e)
+		}
+		for _, flow := range flows {
+			if flow.Mark == nftbackend.TestMark {
+				result = append(result, flow)
+			}
+		}
+	}
+	return result
+}
+func sameObservedTuple(a, b netlink.IPTuple) bool {
+	return a.SrcIP.Equal(b.SrcIP) && a.DstIP.Equal(b.DstIP) && a.SrcPort == b.SrcPort && a.DstPort == b.DstPort && a.Protocol == b.Protocol
 }
 func TestBridgeNAT(t *testing.T) {
 	withBridge(t, networkplan.Strict, true, func(l *liveFixture) {

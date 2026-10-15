@@ -108,6 +108,18 @@ func TestRuleConfirmationIgnoresOnlyCountersAndLookupID(t *testing.T) {
 		t.Fatal("different permission set confirmed")
 	}
 }
+
+func TestRuleConfirmationNormalizesKernelRegisterAliases(t *testing.T) {
+	actual := []expr.Any{&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4}, &expr.Lookup{SourceRegister: 1, SetName: "picketx_allow_0"}, &expr.NAT{Type: expr.NATTypeDestNAT, Family: 2, RegAddrMin: 1, RegProtoMin: 2}}
+	expected := []expr.Any{&expr.Payload{DestRegister: 8, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4}, &expr.Lookup{SourceRegister: 8, SetName: "picketx_allow_0"}, &expr.NAT{Type: expr.NATTypeDestNAT, Family: 2, RegAddrMin: 8, RegProtoMin: 12}}
+	if !sameExpressions(actual, expected) {
+		t.Fatal("kernel legacy register alias falsely rejected", expressionDifference(actual, expected))
+	}
+	expected[0] = &expr.Payload{DestRegister: 9, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4}
+	if sameExpressions(actual, expected) {
+		t.Fatal("different register accepted as alias")
+	}
+}
 func TestMissingReceiptCannotConfirm(t *testing.T) {
 	if e := New(&nftables.Conn{}).Confirm(context.Background(), Receipt{}); e == nil {
 		t.Fatal("fabricated receipt confirmed")

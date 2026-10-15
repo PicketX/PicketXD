@@ -126,12 +126,60 @@ func expressionDifference(a, b []expr.Any) string {
 		return fmt.Sprintf("expression count %d/%d", len(a), len(b))
 	}
 	normalized := func(e expr.Any) expr.Any {
+		// NFT_REG_1..4 are legacy 128-bit aliases of the same register bank
+		// exposed by NFT_REG32_00..15. Kernel dumps prefer legacy numbers at
+		// aligned boundaries; compare byte locations, preserving other fields.
+		reg := func(v uint32) uint32 {
+			if v >= 1 && v <= 4 {
+				return 8 + (v-1)*4
+			}
+			return v
+		}
 		switch v := e.(type) {
 		case *expr.Counter:
 			return &expr.Counter{}
 		case *expr.Lookup:
 			c := *v
 			c.SetID = 0
+			c.SourceRegister = reg(c.SourceRegister)
+			c.DestRegister = reg(c.DestRegister)
+			return &c
+		case *expr.Payload:
+			c := *v
+			c.DestRegister = reg(c.DestRegister)
+			c.SourceRegister = reg(c.SourceRegister)
+			return &c
+		case *expr.Meta:
+			c := *v
+			c.Register = reg(c.Register)
+			return &c
+		case *expr.Immediate:
+			c := *v
+			c.Register = reg(c.Register)
+			return &c
+		case *expr.Bitwise:
+			c := *v
+			c.SourceRegister = reg(c.SourceRegister)
+			c.DestRegister = reg(c.DestRegister)
+			return &c
+		case *expr.Cmp:
+			c := *v
+			c.Register = reg(c.Register)
+			return &c
+		case *expr.Range:
+			c := *v
+			c.Register = reg(c.Register)
+			return &c
+		case *expr.Ct:
+			c := *v
+			c.Register = reg(c.Register)
+			return &c
+		case *expr.NAT:
+			c := *v
+			c.RegAddrMin = reg(c.RegAddrMin)
+			c.RegAddrMax = reg(c.RegAddrMax)
+			c.RegProtoMin = reg(c.RegProtoMin)
+			c.RegProtoMax = reg(c.RegProtoMax)
 			return &c
 		}
 		return e

@@ -7,6 +7,7 @@ import (
 	"github.com/PicketX/PicketX/pkg/networkplan"
 	"github.com/PicketX/PicketXD/internal/validation/fixture"
 	"github.com/PicketX/PicketXD/internal/validation/nftbackend"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -105,5 +106,44 @@ func TestDriverNeverReplaysReplacedOrCanceledPlan(t *testing.T) {
 	time.Sleep(80 * time.Millisecond)
 	if s := c.State(); s.Generation != generation || len(s.Current.Allow) != 0 {
 		t.Fatal("apply after cancellation", s)
+	}
+}
+
+func TestSlowApplyCrossingBoundaryRematerializesBeforeCleanup(t *testing.T) {
+	f := &fakeEffects{at: testAt}
+	effects := f.effects()
+	applies := 0
+	effects.Apply = func(_ context.Context, s fixture.Snapshot, _ nftbackend.Options) (nftbackend.Receipt, error) {
+		applies++
+		f.calls = append(f.calls, "apply")
+		dispatched := f.at
+		if applies == 1 {
+			if len(s.Allow) != 0 || len(s.Deny) != 0 {
+				t.Fatal("future permission installed early")
+			}
+			f.at = testAt.Add(3 * time.Second)
+		} else if len(s.Allow) != 6 || len(s.Deny) != 3 {
+			t.Fatal("crossed boundaries were not materialized", s)
+		}
+		return nftbackend.Receipt{Emitted: s, DispatchedAt: dispatched, AcknowledgedAt: f.at}, nil
+	}
+	c, e := NewCoordinator(lifecycleScope(t, networkplan.Strict), effects)
+	if e != nil {
+		t.Fatal(e)
+	}
+	in := testInput(networkplan.Strict)
+	for i := range in.Logical.Grants {
+		in.Logical.Grants[i].Validity.NotBefore = testAt.Add(time.Second)
+	}
+	d := core.Deny(in.Logical.Grants[0])
+	d.ID = "future-deny"
+	d.Validity.NotBefore = testAt.Add(2 * time.Second)
+	in.Logical.Denies = []core.Deny{d}
+	st, e := c.Update(context.Background(), in)
+	if e != nil || applies != 2 || len(st.Current.Allow) != 6 || len(st.Current.Deny) != 3 {
+		t.Fatal(st, e, applies)
+	}
+	if !reflect.DeepEqual(f.calls, []string{"validate", "apply", "confirm", "validate", "apply", "confirm", "validate", "confirm", "revoke"}) {
+		t.Fatal("cleanup occurred before fresh boundary application", f.calls)
 	}
 }
