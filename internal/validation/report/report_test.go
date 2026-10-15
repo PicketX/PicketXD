@@ -110,3 +110,19 @@ func TestReadEventsPreservesActualPartialFailureRecord(t *testing.T) {
 		}
 	}
 }
+
+func TestHostGateRequiresEveryExecutedSuccess(t *testing.T) {
+	r := Report{}
+	for _, name := range RequiredHostScenarios {
+		r.Scenarios = append(r.Scenarios, ScenarioResult{Name: name, Status: "pass"})
+	}
+	if e := CheckRequired(r, RequiredHostScenarios); e != nil {
+		t.Fatal(e)
+	}
+	for _, status := range []string{"skipped", "fail", ""} {
+		r.Scenarios[0].Status = status
+		if e := CheckRequired(r, RequiredHostScenarios); e == nil {
+			t.Fatalf("accepted host scenario status %q", status)
+		}
+	}
+}

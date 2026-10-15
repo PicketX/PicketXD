@@ -15,7 +15,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type Options struct{ FixtureNAT bool }
+type Options struct{ FixtureNAT, HostInputFixture bool }
 
 // ApplyError distinguishes a proven rejection from an uncertain transaction.
 type ApplyError struct {
@@ -60,6 +60,9 @@ func cloneSnapshot(s fixture.Snapshot) fixture.Snapshot {
 	return fixture.Snapshot{Protected: slices.Clone(s.Protected), Allow: slices.Clone(s.Allow), Deny: slices.Clone(s.Deny)}
 }
 func (b *Backend) ApplyReceipt(ctx context.Context, s fixture.Snapshot, opts Options) (Receipt, error) {
+	if opts.FixtureNAT && opts.HostInputFixture {
+		return Receipt{}, &ApplyError{true, fmt.Errorf("host INPUT and transit NAT fixtures cannot mix")}
+	}
 	if e := fixture.Validate(s); e != nil {
 		return Receipt{}, &ApplyError{true, e}
 	}

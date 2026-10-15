@@ -122,3 +122,9 @@ var RequiredScenarios = []string{
 var RequiredBridgeScenarios = []string{
 	"TestBridgeGiteaIndependentDeadlines", "TestBridgeDenyAndRevocation", "TestBridgeUDP", "TestBridgeNativeExpiry", "TestBridgeFutureBoundaries", "TestBridgeReplayLateApply", "TestBridgeHistoricalStrictCleanup", "TestBridgeStrictPreservation", "TestBridgeApplyFailure", "TestBridgeConfirmationFailure", "TestBridgePartialCleanup", "TestBridgeBindingOwnership", "TestBridgeEmptyOwnership", "TestBridgeNAT", "TestBridgeInterruptedDump", "TestBridgeBackendDispatchDeadline", "TestBridgeBackendSubmillisecondReceipt", "TestBridgeNATAtomicRejection", "TestBridgeRejectsPermanentNativeMutation",
 }
+
+// RequiredHostScenarios execute accepted static publications on the real INPUT
+// path. Transit bridge evidence cannot substitute for these host observations.
+var RequiredHostScenarios = []string{
+	"TestHostConfigurationDefaultDeny", "TestHostConfigurationSourcesAndDeny", "TestHostConfigurationExpiryWithInvalidReload", "TestHostConfigurationRecoveryDeadline", "TestHostOriginalDestinationDNAT", "TestHostUntrackedProtectedTraffic", "TestHostInputDoesNotClaimTransit",
+}

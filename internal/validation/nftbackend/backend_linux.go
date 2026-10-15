@@ -76,7 +76,11 @@ func (b *Backend) queueBatch(ctx context.Context, c *nftables.Conn, s fixture.Sn
 	}
 	tab := c.AddTable(&nftables.Table{Name: "picketx", Family: nftables.TableFamilyINet})
 	priority := nftables.ChainPriority(-110)
-	main := addChain(&nftables.Chain{Name: "picketx_admission", Table: tab, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookPrerouting, Priority: &priority})
+	hook := nftables.ChainHookPrerouting
+	if opts.HostInputFixture {
+		hook = nftables.ChainHookInput
+	}
+	main := addChain(&nftables.Chain{Name: "picketx_admission", Table: tab, Type: nftables.ChainTypeFilter, Hooknum: hook, Priority: &priority})
 	type entry struct {
 		rule fixture.Rule
 		set  *nftables.Set
@@ -108,10 +112,20 @@ func (b *Backend) queueBatch(ctx context.Context, c *nftables.Conn, s fixture.Sn
 	}
 	for i, e := range s.Protected {
 		chain := addChain(&nftables.Chain{Name: fmt.Sprintf("picketx_scope_%d", i), Table: tab})
-		addRule(&nftables.Rule{Table: tab, Chain: main, Exprs: append(endpointMatch(e), &expr.Verdict{Kind: expr.VerdictJump, Chain: chain.Name})})
+		match := endpointMatch(e)
+		permissionLookup := lookup
+		if opts.HostInputFixture {
+			// Original tuple reads cannot match untracked traffic. Protect the
+			// current tuple explicitly before relying on conntrack dispatch.
+			guard := append(endpointMatch(e), untrackedDrop()...)
+			addRule(&nftables.Rule{Table: tab, Chain: main, Exprs: guard})
+			match = hostEndpointMatch(e)
+			permissionLookup = hostLookup
+		}
+		addRule(&nftables.Rule{Table: tab, Chain: main, Exprs: append(match, &expr.Verdict{Kind: expr.VerdictJump, Chain: chain.Name})})
 		for _, en := range denies {
 			if en.rule.Source.Addr().Is4() == e.Destination.Addr().Is4() {
-				addRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: append(lookup(en.rule, en.set), &expr.Verdict{Kind: expr.VerdictDrop})})
+				addRule(&nftables.Rule{Table: tab, Chain: chain, Exprs: append(permissionLookup(en.rule, en.set), &expr.Verdict{Kind: expr.VerdictDrop})})
 			}
 		}
 		// Preserve established authorized traffic on graceful expiry. Explicit denies above win.
@@ -124,7 +138,7 @@ func (b *Backend) queueBatch(ctx context.Context, c *nftables.Conn, s fixture.Sn
 			if en.rule.Source.Addr().Is4() != e.Destination.Addr().Is4() {
 				continue
 			}
-			ex := lookup(en.rule, en.set)
+			ex := permissionLookup(en.rule, en.set)
 			if en.rule.Endpoint.Protocol == 6 {
 				// An old ACK/PSH must not recreate authorization after conntrack deletion.
 				ex = append(ex, &expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 13, Len: 1}, &expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 1, Mask: []byte{0x12}, Xor: []byte{0}}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{0x02}})

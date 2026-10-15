@@ -37,7 +37,7 @@ func run() error {
 			r.Libraries[f[0]] = f[1]
 		}
 	}
-	for _, name := range []string{"nft.json", "ct.json", "bridge.json"} {
+	for _, name := range []string{"nft.json", "ct.json", "bridge.json", "host.json"} {
 		f, err := os.Open(filepath.Join(dir, name))
 		if err != nil {
 			return err
@@ -61,9 +61,9 @@ func run() error {
 	if closeErr != nil {
 		return closeErr
 	}
-	if err := errors.Join(report.CheckRequired(r, report.RequiredScenarios), report.CheckRequired(r, report.RequiredBridgeScenarios)); err != nil {
+	if err := errors.Join(report.CheckRequired(r, report.RequiredScenarios), report.CheckRequired(r, report.RequiredBridgeScenarios), report.CheckRequired(r, report.RequiredHostScenarios)); err != nil {
 		return err
 	}
-	fmt.Printf("M0 + bridge observed kernel=%s Go=%s M0=%d bridge=%d passed\n", r.Kernel, r.Go, len(report.RequiredScenarios), len(report.RequiredBridgeScenarios))
+	fmt.Printf("M0 + bridge + host observed kernel=%s Go=%s M0=%d bridge=%d host=%d passed\n", r.Kernel, r.Go, len(report.RequiredScenarios), len(report.RequiredBridgeScenarios), len(report.RequiredHostScenarios))
 	return nil
 }

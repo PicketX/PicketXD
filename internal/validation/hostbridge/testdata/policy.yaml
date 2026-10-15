@@ -1,0 +1,44 @@
+apiVersion: picketx.io/v1alpha1
+kind: Resource
+metadata: {name: gitea, uid: resource-gitea-v1}
+spec:
+  endpoints:
+    - name: https
+      network: {protocol: TCP, port: 443}
+    - name: ssh
+      network: {protocol: TCP, port: 22}
+---
+apiVersion: picketx.io/v1alpha1
+kind: Grant
+metadata: {name: browser, uid: grant-browser-v1}
+spec:
+  subject: {type: source, cidr: 198.51.100.9}
+  scopes:
+    - resourceRef: {name: gitea, uid: resource-gitea-v1}
+      endpointNames: [https]
+  validity: {mode: bounded, expiresAt: '2026-10-15T10:00:00Z'}
+---
+apiVersion: picketx.io/v1alpha1
+kind: Grant
+metadata: {name: ssh6, uid: grant-ssh6-v1}
+spec:
+  subject: {type: source, cidr: 2001:db8:1::9}
+  scopes:
+    - resourceRef: {name: gitea, uid: resource-gitea-v1}
+      endpointNames: [ssh]
+  validity: {mode: bounded, expiresAt: '2026-10-15T12:00:00Z'}
+---
+apiVersion: picketx.io/v1alpha1
+kind: EnforcementBinding
+metadata: {name: gitea-host, uid: binding-gitea-v1}
+spec:
+  resources:
+    - resourceRef: {name: gitea, uid: resource-gitea-v1}
+  agents:
+    - agentRef: {name: agent-a}
+  enforcement:
+    profileRef: host
+    class: host-local
+    stage: original-destination
+    allowedDestinations: [192.0.2.100, '2001:db8::100']
+    handling: graceful
