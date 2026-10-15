@@ -3,6 +3,7 @@ module github.com/PicketX/PicketXD
 go 1.27.0
 
 require (
+	github.com/PicketX/PicketX v0.0.0-20261015081000-e39f96e27871
 	github.com/google/nftables v0.3.0
 	github.com/vishvananda/netlink v1.3.1
 	github.com/vishvananda/netns v0.0.5
