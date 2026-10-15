@@ -120,6 +120,21 @@ func TestRuleConfirmationNormalizesKernelRegisterAliases(t *testing.T) {
 		t.Fatal("different register accepted as alias")
 	}
 }
+
+func TestConntrackWriteDirectionSurvivesReadbackCodec(t *testing.T) {
+	want := &expr.Ct{Key: expr.CtKeyMARK, Register: 1, SourceRegister: true}
+	raw, e := expr.MarshalExprData(byte(nftables.TableFamilyINet), want)
+	if e != nil {
+		t.Fatal(e)
+	}
+	got := &expr.Ct{}
+	if e := expr.Unmarshal(byte(nftables.TableFamilyINet), raw, got); e != nil {
+		t.Fatal(e)
+	}
+	if !sameExpressions([]expr.Any{got}, []expr.Any{want}) {
+		t.Fatal("dependency decoder lost conntrack write semantics", got, want)
+	}
+}
 func TestMissingReceiptCannotConfirm(t *testing.T) {
 	if e := New(&nftables.Conn{}).Confirm(context.Background(), Receipt{}); e == nil {
 		t.Fatal("fabricated receipt confirmed")
