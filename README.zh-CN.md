@@ -2,9 +2,11 @@
 
 > [English (default)](README.md) | 简体中文
 
-PicketX 的 Linux 执行 Agent。当前仓库仅包含**内部 M0 验证基础设施**，尚不是生产 Agent。
+PicketX 的 Linux 执行 Agent。当前仓库包含**内部 M0 验证基础设施及 M1.3A 规划层夹具编译器**，尚不是生产 Agent。
 
 已评审的 [M0 计划](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.zh-CN.md)要求先验证 nftables 准入/过期和 conntrack 定向撤销，再推进完整 Agent/Controller 流程。
+
+M1.3A 的 [`planbridge`](internal/validation/planbridge)依据固定声明夹具范围校验完整共享计划，物化显式时间 TCP/UDP 成员，保留 Grant/Deny 分域来源及绝对期限，并校验包括明确移除 Agent 在内的完整替换。共享依赖固定为 `v0.0.0-20261015081000-e39f96e27871`。构造范围不证明实际拓扑，编译输出不证明实际应用。运行时应用/读回、实际发出历史、严格清理、空表删除、边界驱动及新增桥接报文证据仍属 M1.3B/C。详见[切片记录](docs/validation/M1.3A.zh-CN.md)、[实施计划](docs/superpowers/plans/2026-10-15-planbridge-compiler.zh-CN.md)及[四层/七层/管理端交付路线](docs/DELIVERY.zh-CN.md)。
 
 ## 开发
 
