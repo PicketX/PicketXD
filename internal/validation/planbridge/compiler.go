@@ -43,6 +43,7 @@ type Prepared struct {
 	plan        *networkplan.Plan
 	withdrawals []networkplan.Withdrawal
 	removed     bool
+	empty       bool
 }
 
 func Prepare(scope *Scope, previous *Prepared, input networkplan.Input) (*Prepared, error) {
@@ -80,6 +81,17 @@ func Prepare(scope *Scope, previous *Prepared, input networkplan.Input) (*Prepar
 			}
 		}
 	}
+	// Replace can include withdrawals for many Agents; this fixture owns one.
+	withdrawals = slices.DeleteFunc(withdrawals, func(w networkplan.Withdrawal) bool {
+		return w.Former.Protection.Key.AgentRef != scope.identity.AgentRef
+	})
+	known := slices.ContainsFunc(input.Agents, func(a networkplan.Agent) bool { return a.Name == scope.identity.AgentRef })
+	if !known {
+		if previous == nil || (!previous.empty && len(withdrawals) == 0) {
+			return nil, fmt.Errorf("absent fixture Agent requires accepted replacement withdrawal or explicit empty predecessor")
+		}
+		return &Prepared{scope: scope, plan: plan, withdrawals: withdrawals, removed: true, empty: true}, nil
+	}
 	inventory, err := plan.Inventory(scope.identity.AgentRef)
 	if err != nil {
 		return nil, err
@@ -87,8 +99,8 @@ func Prepare(scope *Scope, previous *Prepared, input networkplan.Input) (*Prepar
 	for _, target := range inventory {
 		p := target.Protection
 		c := p.Context
-		// Binding requests may narrow the proven boundary, never enlarge it.
-		c.Destinations = scope.context.Destinations
+		// Identity and resolved context facts remain fixed; Endpoint addresses
+		// can narrow the physical matches within that boundary.
 		if !sameContext(c, scope.context) {
 			return nil, fmt.Errorf("selected target has unsupported fixture context")
 		}
@@ -98,12 +110,18 @@ func Prepare(scope *Scope, previous *Prepared, input networkplan.Input) (*Prepar
 			}
 		}
 	}
-	return &Prepared{scope: scope, plan: plan, withdrawals: withdrawals}, nil
+	return &Prepared{scope: scope, plan: plan, withdrawals: withdrawals, empty: len(inventory) == 0}, nil
 }
 
 func (p *Prepared) Materialize(at time.Time) (Materialized, error) {
 	if p == nil || p.plan == nil || p.scope == nil || !p.scope.valid {
 		return Materialized{}, fmt.Errorf("candidate is not prepared")
+	}
+	if at.IsZero() {
+		return Materialized{}, fmt.Errorf("evaluation time must not be zero")
+	}
+	if p.removed {
+		return Materialized{Identity: p.scope.identity, At: at.Round(0).UTC(), Withdrawals: cloneWithdrawals(p.withdrawals), AgentRemoved: true}, nil
 	}
 	projection, err := p.plan.Projection(p.scope.identity.AgentRef, at)
 	if err != nil {
@@ -113,7 +131,7 @@ func (p *Prepared) Materialize(at time.Time) (Materialized, error) {
 	if err != nil {
 		return Materialized{}, err
 	}
-	out := Materialized{Identity: p.scope.identity, At: projection.At, NextChange: projection.NextChange, Inventory: inventory}
+	out := Materialized{Identity: p.scope.identity, At: projection.At, NextChange: projection.NextChange, Inventory: inventory, Withdrawals: cloneWithdrawals(p.withdrawals)}
 	bindings := make(map[networkplan.TargetKey][]string)
 	seen := make(map[fixture.Endpoint]bool)
 	for _, protection := range projection.Protected {
@@ -154,4 +172,22 @@ func endpoint(m networkplan.Match) fixture.Endpoint {
 
 func sameContext(a, b networkplan.ExecutionContext) bool {
 	return a.AgentRef == b.AgentRef && a.ProfileRef == b.ProfileRef && a.ID == b.ID && a.NetworkSpaceID == b.NetworkSpaceID && a.Class == b.Class && a.Stage == b.Stage && a.Handling == b.Handling && slices.Equal(a.Destinations, b.Destinations)
+}
+
+func cloneWithdrawals(in []networkplan.Withdrawal) []networkplan.Withdrawal {
+	out := slices.Clone(in)
+	for i := range out {
+		t := &out[i].Former
+		t.Protection.BindingIDs = slices.Clone(t.Protection.BindingIDs)
+		t.Protection.Matches = slices.Clone(t.Protection.Matches)
+		t.Protection.Context.Destinations = slices.Clone(t.Protection.Context.Destinations)
+		c := &t.Protection.Required
+		c.Classes = slices.Clone(c.Classes)
+		c.Protocols = slices.Clone(c.Protocols)
+		c.Families = slices.Clone(c.Families)
+		c.Handling = slices.Clone(c.Handling)
+		t.Grants = slices.Clone(t.Grants)
+		t.Denies = slices.Clone(t.Denies)
+	}
+	return out
 }

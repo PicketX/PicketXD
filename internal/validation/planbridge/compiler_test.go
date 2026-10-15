@@ -38,7 +38,7 @@ func compilerInput() networkplan.Input {
 			grant("v6", "2001:db8:1:0:1::10/128", "", "11:00"),
 			grant("ssh", "192.0.2.10/32", "ssh", "12:00"),
 		}},
-		Networks: []networkplan.NetworkDefinition{{Entry: networkplan.EntryRef{"gitea", "https"}, Protocol: networkplan.TCP, Port: 443}, {Entry: networkplan.EntryRef{"gitea", "ssh"}, Protocol: networkplan.TCP, Port: 22}},
+		Networks: []networkplan.NetworkDefinition{{Entry: networkplan.EntryRef{ResourceName: "gitea", EndpointName: "https"}, Protocol: networkplan.TCP, Port: 443}, {Entry: networkplan.EntryRef{ResourceName: "gitea", EndpointName: "ssh"}, Protocol: networkplan.TCP, Port: 22}},
 		Agents:   []networkplan.Agent{{Name: id.AgentRef, Capabilities: &networkplan.CapabilityProfile{Classes: []networkplan.TrafficClass{networkplan.Transit}, Protocols: []networkplan.Protocol{networkplan.TCP, networkplan.UDP}, Families: []networkplan.Family{networkplan.IPv4, networkplan.IPv6}, Handling: []networkplan.HandlingMode{networkplan.Graceful, networkplan.Strict}, OriginalDestination: true}}},
 		Contexts: []networkplan.ExecutionContext{c},
 		Bindings: []networkplan.Binding{{ID: "binding-a", Resources: []networkplan.ResourceSelection{{ResourceName: "gitea", Endpoints: core.EndpointSelection{Mode: core.SelectionNames, Names: []string{"https", "ssh"}}}}, Agents: []networkplan.AgentSelection{{AgentRef: id.AgentRef}}, Context: networkplan.ContextRequest{ProfileRef: c.ProfileRef, Class: c.Class, Stage: c.Stage, Handling: c.Handling, AllowedDestinations: slices.Clone(c.Destinations)}}},
@@ -103,6 +103,10 @@ func TestMaterializeIndependentDualStackMembership(t *testing.T) {
 		if m.Domain == DenyDomain {
 			end = at("10:30")
 		}
+		wantSource := map[string]netip.Prefix{"exact": prefix("192.0.2.10/32"), "wide": prefix("192.0.2.0/26"), "v6": prefix("2001:db8:1:0:1::10/128"), "ssh": prefix("192.0.2.10/32")}[m.ID]
+		if m.Rule.Source != wantSource {
+			t.Fatalf("source range changed: %+v", m)
+		}
 		if !m.Validity.ExpiresAt.Equal(end) || !m.Rule.ExpiresAt.Equal(end) {
 			t.Fatalf("deadline changed: %+v", m)
 		}
@@ -123,7 +127,7 @@ func TestMaterializeIndependentDualStackMembership(t *testing.T) {
 		u.Logical.Resources[0].Endpoints = []core.Endpoint{{Name: "echo"}}
 		u.Logical.Grants = []core.Grant{grant("udp", "192.0.2.10/32", "", "10:00")}
 		u.Logical.Denies = nil
-		u.Networks = []networkplan.NetworkDefinition{{Entry: networkplan.EntryRef{"gitea", "echo"}, Protocol: networkplan.UDP, Port: 8002}}
+		u.Networks = []networkplan.NetworkDefinition{{Entry: networkplan.EntryRef{ResourceName: "gitea", EndpointName: "echo"}, Protocol: networkplan.UDP, Port: 8002}}
 		u.Bindings[0].Resources[0].Endpoints = core.EndpointSelection{}
 		v := materializeOK(t, prepareOK(t, scopeOK(t, u, Ordinary), nil, u), at("09:00"))
 		if len(v.Snapshot.Protected) != 2 || len(v.Snapshot.Allow) != 1 {
@@ -272,7 +276,7 @@ func TestPrepareRejectsUnsupportedTargets(t *testing.T) {
 		{"bounded-zero", func(i *networkplan.Input) { i.Logical.Grants[0].Validity.ExpiresAt = time.Time{} }},
 		{"invalid-unbound", func(i *networkplan.Input) {
 			i.Logical.Resources[0].Endpoints = append(i.Logical.Resources[0].Endpoints, core.Endpoint{Name: "unbound"})
-			i.Networks = append(i.Networks, networkplan.NetworkDefinition{Entry: networkplan.EntryRef{"gitea", "unbound"}, Protocol: networkplan.TCP, Port: 0})
+			i.Networks = append(i.Networks, networkplan.NetworkDefinition{Entry: networkplan.EntryRef{ResourceName: "gitea", EndpointName: "unbound"}, Protocol: networkplan.TCP, Port: 0})
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
