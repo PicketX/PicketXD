@@ -1,0 +1,481 @@
+{
+  "run": 38759897095,
+  "source_commit": "04335f0d48555c9ceb5f38d1e795a0c0c9447986",
+  "artifact_id": 11984658856,
+  "artifact_sha256": "af035508311fa8282c005b3b1a2615eefb2c225d32dfa3bc3ba8e5e7b6c282c9",
+  "kernel": "6.17.0-1022-azure",
+  "go": "go1.27.0",
+  "libraries": {
+    "github.com/PicketX/PicketX": "v0.0.0-20261015145159-81daf5abb831",
+    "github.com/cpuguy83/go-md2man/v2": "v2.0.6",
+    "github.com/google/go-cmp": "v0.6.0",
+    "github.com/google/nftables": "v0.3.1-0.20250606091825-8a8ad2be8103",
+    "github.com/inconshreveable/mousetrap": "v1.1.0",
+    "github.com/labstack/echo/v5": "v5.4.0",
+    "github.com/mdlayher/netlink": "v1.7.3-0.20250113171957-fbb4dce95f42",
+    "github.com/mdlayher/socket": "v0.5.0",
+    "github.com/russross/blackfriday/v2": "v2.1.0",
+    "github.com/spf13/cobra": "v1.10.2",
+    "github.com/spf13/pflag": "v1.0.9",
+    "github.com/vishvananda/netlink": "v1.3.1",
+    "github.com/vishvananda/netns": "v0.0.5",
+    "go.yaml.in/yaml/v3": "v3.0.5",
+    "golang.org/x/crypto": "v0.36.0",
+    "golang.org/x/net": "v0.38.0",
+    "golang.org/x/sync": "v0.6.0",
+    "golang.org/x/sys": "v0.31.0",
+    "golang.org/x/term": "v0.30.0",
+    "golang.org/x/text": "v0.23.0",
+    "gopkg.in/check.v1": "v0.0.0-20161208181325-20d25e280405"
+  },
+  "required_m0": 17,
+  "required_bridge": 19,
+  "required_host": 7,
+  "observed_top_level_passes": 63,
+  "failed": 0,
+  "skipped": 0,
+  "scope": "Isolated fixtures; production preparation CLI does not enforce policy. Kernel job passed; whole run failed the former FIFO timing guard, corrected subsequently.",
+  "scenarios": [
+    {
+      "Name": "TestDefaultDenyDualStack",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestScopedAllowDualStack",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestDenyPrecedence",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestConcatenatedIntervalSets",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestOverlapRetainsMembership",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestIndependentDeadlines",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestNativeTimeoutWithoutController",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestGracefulExpiry",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestRestartPreservesDeadline",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestInvalidBatchPreservesPreviousState",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestApplyRejectsInvalidSnapshotBeforeFlush",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestMembershipUsesRemainingAbsoluteDeadline",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestBridgeBackendDispatchDeadline",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestBridgeBackendSubmillisecondReceipt",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestBridgeNATAtomicRejection",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestBridgeRejectsPermanentNativeMutation",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestOriginalDirectionReadbackCodec",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestHostOriginalTupleExpressions",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestHostAndTransitNATOptionsCannotMix",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestSlowPreparationRechecksDeadlineAtDispatch",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestBoundedConfirmationRejectsPermanentNativeElement",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestReceiptRejectsCallerMutationBeforeReadback",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestReceiptReportsExpiredAndSubmillisecondOmissions",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestApplyReadsFreshClockAfterLock",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestRuleConfirmationIgnoresOnlyCountersAndLookupID",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestRuleConfirmationNormalizesKernelRegisterAliases",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestConntrackWriteDirectionSurvivesReadbackCodec",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestFixtureNATDeclaresExactSingleAddressAndPort",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestMissingReceiptCannotConfirm",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestExplicitEmptyAfterCleansOnlyHistoricalOwnedFlows",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestRevokeReportsInterruptedDump",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestRevokeReportsPartialDeletion",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestRevokeNeverFlushesTable",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestSelectWithdrawn",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestStrictRevokeDualStack",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestStrictRevokePreservesOtherGrant",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestStrictRevokePreservesUnrelatedFlow",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestOldTCPPacketsCannotResurrect",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestUDPAfterDeletionRequiresCurrentAllow",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestNATScopedDeletion",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestApplyFailureDoesNotTriggerDeletion",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestBridgeGiteaIndependentDeadlines",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestBridgeDenyAndRevocation",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeUDP",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeNativeExpiry",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestBridgeFutureBoundaries",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeReplayLateApply",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestBridgeHistoricalStrictCleanup",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeStrictPreservation",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeApplyFailure",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeConfirmationFailure",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgePartialCleanup",
+      "Status": "pass",
+      "Selected": 1,
+      "Deleted": 1,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeBindingOwnership",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeEmptyOwnership",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeNAT",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestBridgeInterruptedDump",
+      "Status": "pass",
+      "Selected": 2,
+      "Deleted": 2,
+      "Remaining": 0
+    },
+    {
+      "Name": "TestHostConfigurationDefaultDeny",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestHostConfigurationSourcesAndDeny",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestHostConfigurationExpiryWithInvalidReload",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestHostConfigurationRecoveryDeadline",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestHostOriginalDestinationDNAT",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestHostUntrackedProtectedTraffic",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    },
+    {
+      "Name": "TestHostInputDoesNotClaimTransit",
+      "Status": "pass",
+      "Selected": 0,
+      "Deleted": 0,
+      "Remaining": -1
+    }
+  ]
+}

@@ -196,10 +196,7 @@ func TestCacheRejectsFIFOWithoutBlockingStartup(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() {
-		s, e := New(c)
-		if s != nil {
-			s.Close()
-		}
+		_, _, e := readJournal(c.Path)
 		done <- e
 	}()
 	select {
@@ -207,8 +204,19 @@ func TestCacheRejectsFIFOWithoutBlockingStartup(t *testing.T) {
 		if e == nil {
 			t.Fatal("FIFO cache accepted")
 		}
-	case <-time.After(150 * time.Millisecond):
-		t.Fatal("FIFO blocked startup before regular-file validation")
+	case <-time.After(time.Second):
+		// Release a regressed blocking reader before failing the test.
+		f, e := os.OpenFile(c.Path, os.O_WRONLY|unix.O_NONBLOCK, 0)
+		if e == nil {
+			f.Close()
+			<-done
+		}
+		t.Fatal("FIFO blocked journal read before regular-file validation")
+	}
+	// Startup also rejects it, but durable ancestor sync has no 150ms SLA.
+	if s, e := New(c); e == nil {
+		s.Close()
+		t.Fatal("FIFO cache accepted at startup")
 	}
 }
 
