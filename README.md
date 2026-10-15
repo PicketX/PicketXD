@@ -29,7 +29,7 @@ PICKETX_KERNEL_TESTS=1 scripts/test-kernel.sh
 
 See [M0 findings and acceptance](docs/validation/M0.md) for observed versions, test coverage and remaining limits.
 
-The [M1.3 bridge implementation](docs/validation/M13.md) pins the shared Core/planner, converts proven fixture intent, confirms actual emission, retains historical ownership and drives future boundaries. Its ordinary tests pass locally; **new privileged acceptance is pending**. The extended runner requires all 17 M0 cases plus 19 bridge cases and writes `bridge.json`. Existing M0 evidence does not prove the new bridge.
+The [M1.3 bridge implementation](docs/validation/M13.md) pins the shared Core/planner, converts proven fixture intent, confirms actual emission, retains historical ownership and drives future boundaries. [Privileged CI](https://github.com/PicketX/PicketXD/actions/runs/38749800479) passes all 17 M0 + 19 bridge required cases on the tested revision. The extended runner requires all 17 M0 cases plus 19 bridge cases and writes `bridge.json`. Existing M0 evidence does not prove the new bridge.
 
 ## License
 

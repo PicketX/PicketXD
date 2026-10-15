@@ -12,7 +12,7 @@
 
 **Integration ruling:** Reuse the existing M1.3A PR #2 compiler and all its tests, and target the new PR at that branch. Retaining competing compiler APIs would create merge conflicts and weaken replacement validation; the cost is one additional compiler/coordinator interface regression check.
 
-**Execution status:** Tasks 1–4 implemented and locally verified. Task 5 case implementation, runner integration and independent review are complete; privileged execution/acceptance and PR publication await remote CI after the user authorized push. See [current evidence](../../validation/M13.md).
+**Execution status:** Tasks 1–5 implemented, reviewed and verified. PR #3 is published; real CI run 38749800479 passes all 17 M0 + 19 bridge required cases. See [current evidence](../../validation/M13.md).
 
 ## Global constraints
 
@@ -85,5 +85,5 @@ Interface: `Run(context.Context) error` reads the latest accepted plan under coo
 - [x] Extend topology with literal TCP/443 and TCP/22 and prove fixture identity/transit paths before policy.
 - [x] Add required `TestBridge*` kernel cases: independent Gitea deadlines, deny/revocation/UDP, native expiry, future boundaries, replay/late apply, historical strict preservation, failed apply/confirmation, interrupted cleanup, Binding/empty-Agent withdrawal and atomic original-tuple NAT. Log actual time, context, membership and cleanup counts.
 - [x] Compile bridge integration binary in the runner; require every named bridge case and all existing M0 cases. Clear stale artifacts; preserve failed-run evidence.
-- [ ] Run `go test ./...`, `go test -race ./...`, `go vet ./...`, `go build ./...` and privileged CI. Inspect dependency graph for unwanted Controller imports.
-- [ ] Final fresh branch review, resolve important findings, synchronize bilingual validation status, publish reviewable PR with observed evidence.
+- [x] Run `go test ./...`, `go test -race ./...`, `go vet ./...`, `go build ./...` and privileged CI. Inspect dependency graph for unwanted Controller imports.
+- [x] Final fresh branch review, resolve important findings, synchronize bilingual validation status, publish reviewable PR with observed evidence.

@@ -10,7 +10,7 @@ M1.3A 的 [`planbridge`](internal/validation/planbridge)依据固定声明夹具
 
 ## 开发
 
-[M1.3 桥接实现与状态](docs/validation/M13.zh-CN.md)固定共享 Core/planner 版本，将已证明的夹具策略转换为规则，确认实际发出的成员，保留历史所有权并驱动未来时间边界。普通测试已在本地通过；**新的特权验收仍待执行**。扩展脚本要求原 17 项 M0 加 19 项桥接场景全部通过，并输出 `bridge.json`。原 M0 证据不能证明新桥接已验收。
+[M1.3 桥接实现与状态](docs/validation/M13.zh-CN.md)固定共享 Core/planner 版本，将已证明的夹具策略转换为规则，确认实际发出的成员，保留历史所有权并驱动未来时间边界。[特权 CI](https://github.com/PicketX/PicketXD/actions/runs/38749800479) 在已测版本上通过原 17 项 M0 和新增 19 项桥接必需场景。扩展脚本要求原 17 项 M0 加 19 项桥接场景全部通过，并输出 `bridge.json`。原 M0 证据不能证明新桥接已验收。
 
 使用 Go 1.27.0 和 Linux。运行无特权检查：
 
