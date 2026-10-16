@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Package hostowner owns only a nonfiltering kernel marker, never permissions.
+// Package hostowner owns namespace-bound host admission and its durable recovery journal.
 package hostowner
 
 import (
@@ -26,6 +26,7 @@ type namespace struct {
 type observation struct {
 	Exists bool
 	Marker string
+	Image  string
 }
 type kernel interface {
 	Observe(context.Context) (observation, error)
@@ -41,17 +42,18 @@ type environment struct {
 	release    func() error
 }
 type record struct {
-	Marks      *markstate.State `json:"marks,omitempty"`
-	Version    int              `json:"version"`
-	Phase      string           `json:"phase"`
-	ProviderID string           `json:"providerID"`
-	AgentRef   string           `json:"agentRef"`
-	RuntimeKey string           `json:"runtimeKey"`
-	OwnerID    string           `json:"ownerID"`
-	Epoch      string           `json:"epoch"`
-	BootID     string           `json:"bootID"`
-	Device     uint64           `json:"device"`
-	Inode      uint64           `json:"inode"`
+	Application *applicationRecord `json:"application,omitempty"`
+	Marks       *markstate.State   `json:"marks,omitempty"`
+	Version     int                `json:"version"`
+	Phase       string             `json:"phase"`
+	ProviderID  string             `json:"providerID"`
+	AgentRef    string             `json:"agentRef"`
+	RuntimeKey  string             `json:"runtimeKey"`
+	OwnerID     string             `json:"ownerID"`
+	Epoch       string             `json:"epoch"`
+	BootID      string             `json:"bootID"`
+	Device      uint64             `json:"device"`
+	Inode       uint64             `json:"inode"`
 }
 type Status struct {
 	OwnershipConfirmed   bool      `json:"ownershipConfirmed"`
@@ -61,15 +63,16 @@ type Status struct {
 	ObservedAt           time.Time `json:"observedAt"`
 }
 type Session struct {
-	mu               sync.Mutex
-	record           record
-	backend          kernel
-	revalidate       func() error
-	releases         []func() error
-	closed, verified bool
-	faulted          bool
-	persist          func(record) error
-	observedAt       time.Time
+	mu                  sync.Mutex
+	record              record
+	backend             kernel
+	revalidate          func() error
+	releases            []func() error
+	closed, verified    bool
+	faulted             bool
+	applicationVerified bool
+	persist             func(record) error
+	observedAt          time.Time
 }
 
 func scopeRecord(c Config, n namespace) record {
@@ -90,7 +93,7 @@ func hexID(s string) bool {
 	return err == nil && len(b) == 16 && hex.EncodeToString(b) == s
 }
 func validRecord(r record) error {
-	if (r.Version != 1 && r.Version != 2) || (r.Version == 2) != (r.Marks != nil) || (r.Phase != "pending" && r.Phase != "confirmed") || !bounded(r.ProviderID) || !bounded(r.AgentRef) || !bounded(r.RuntimeKey) || !bounded(r.BootID) || r.Device == 0 || r.Inode == 0 || !hexID(r.OwnerID) || !hexID(r.Epoch) {
+	if (r.Version < 1 || r.Version > 3) || (r.Version >= 2) != (r.Marks != nil) || (r.Version == 3) != (r.Application != nil) || (r.Phase != "pending" && r.Phase != "confirmed") || !bounded(r.ProviderID) || !bounded(r.AgentRef) || !bounded(r.RuntimeKey) || !bounded(r.BootID) || r.Device == 0 || r.Inode == 0 || !hexID(r.OwnerID) || !hexID(r.Epoch) {
 		return fmt.Errorf("invalid ownership journal identity/version/phase")
 	}
 	if r.Marks != nil {
@@ -103,7 +106,7 @@ func validRecord(r record) error {
 			}
 		}
 	}
-	return nil
+	return validateApplication(r)
 }
 func markerFor(r record) string {
 	scope := struct {
@@ -162,6 +165,9 @@ func openWith(ctx context.Context, c Config, e environment) (out *Session, err e
 	if err = s.check(ctx); err != nil {
 		return nil, err
 	}
+	if err = configureImages(e.backend, r, newBoot); err != nil {
+		return nil, err
+	}
 	live, err := e.backend.Observe(ctx)
 	observedAt := time.Now().Round(0).UTC()
 	if err != nil {
@@ -181,6 +187,7 @@ func openWith(ctx context.Context, c Config, e environment) (out *Session, err e
 	if !exists || newBoot {
 		owner := r.OwnerID
 		marks := r.Marks
+		application := r.Application
 		r = scopeRecord(c, e.namespace)
 		if marks != nil {
 			r.Version = 2
@@ -191,6 +198,10 @@ func openWith(ctx context.Context, c Config, e environment) (out *Session, err e
 			if err != nil {
 				return nil, err
 			}
+		}
+		if application != nil {
+			r.Version = 3
+			r.Application = &applicationRecord{Attempt: application.Attempt, Baseline: application.Baseline}
 		}
 		r.OwnerID = owner
 		r.Epoch, err = randomID()
@@ -229,6 +240,9 @@ func openWith(ctx context.Context, c Config, e environment) (out *Session, err e
 	if err = s.check(ctx); err != nil {
 		return nil, err
 	}
+	if err = recoverApplication(&r, live, newBoot, save, c.StatePath); err != nil {
+		return nil, err
+	}
 	if r.Phase != "confirmed" {
 		r.Phase = "confirmed"
 		if err = save(c.StatePath, r); err != nil {
@@ -240,6 +254,8 @@ func openWith(ctx context.Context, c Config, e environment) (out *Session, err e
 	}
 	s.record = r
 	s.verified = true
+	s.applicationVerified = r.Application != nil && r.Application.Confirmed != nil && live.Image == r.Application.Confirmed.Digest()
+	configureImages(s.backend, r, false)
 	s.observedAt = observedAt
 	return s, nil
 }
@@ -259,7 +275,7 @@ func (s *Session) check(ctx context.Context) error {
 	return nil
 }
 func (s *Session) status() Status {
-	return Status{OwnershipConfirmed: s.verified && !s.closed && !s.faulted, OwnerID: s.record.OwnerID, Epoch: s.record.Epoch, ObservedAt: s.observedAt}
+	return Status{OwnershipConfirmed: s.verified && !s.closed && !s.faulted, EnforcementConfirmed: s.verified && s.applicationVerified && !s.closed && !s.faulted, OwnerID: s.record.OwnerID, Epoch: s.record.Epoch, ObservedAt: s.observedAt}
 }
 func (s *Session) Status() Status { s.mu.Lock(); defer s.mu.Unlock(); return s.status() }
 func (s *Session) Verify(ctx context.Context) (Status, error) {
@@ -269,6 +285,7 @@ func (s *Session) Verify(ctx context.Context) (Status, error) {
 }
 func (s *Session) verifyLocked(ctx context.Context) (Status, error) {
 	s.verified = false
+	s.applicationVerified = false
 	if err := s.check(ctx); err != nil {
 		return s.status(), err
 	}
@@ -276,13 +293,14 @@ func (s *Session) verifyLocked(ctx context.Context) (Status, error) {
 	if err != nil {
 		return s.status(), err
 	}
-	if !live.Exists || live.Marker != markerFor(s.record) {
+	if !live.Exists || live.Marker != markerFor(s.record) || live.Image != confirmedDigest(s.record) {
 		return s.status(), fmt.Errorf("ownership drift detected")
 	}
 	if err = s.check(ctx); err != nil {
 		return s.status(), err
 	}
 	s.verified = true
+	s.applicationVerified = s.record.Application != nil && s.record.Application.Confirmed != nil
 	s.observedAt = time.Now().Round(0).UTC()
 	return s.status(), nil
 }

@@ -53,13 +53,20 @@ func (r *strictNetlink) Close() error { return r.conn.Close() }
 // The dedicated inspector socket is never read concurrently by Conn.Receive.
 func (r *strictNetlink) Dump(ctx context.Context, cmd uint16, attrs []nl.Attribute) ([]nl.Message, error) {
 	var result []nl.Message
-	err := r.query(ctx, uint16(unix.NFNL_SUBSYS_NFTABLES<<8)|cmd, uint16(unix.NFNL_SUBSYS_NFTABLES<<8)|(cmd-1), unix.NFPROTO_INET, attrs, 4<<20, func(messages []nl.Message) error { result = append(result, messages...); return nil })
+	if cmd == unix.NFT_MSG_GETGEN {
+		err := r.queryFlags(ctx, uint16(unix.NFNL_SUBSYS_NFTABLES<<8)|cmd, uint16(unix.NFNL_SUBSYS_NFTABLES<<8)|unix.NFT_MSG_NEWGEN, unix.NFPROTO_UNSPEC, nil, 1<<20, nl.Request, func(messages []nl.Message) error { result = append(result, messages...); return nil })
+		return result, err
+	}
+	err := r.query(ctx, uint16(unix.NFNL_SUBSYS_NFTABLES<<8)|cmd, uint16(unix.NFNL_SUBSYS_NFTABLES<<8)|(cmd-1), unix.NFPROTO_INET, attrs, 32<<20, func(messages []nl.Message) error { result = append(result, messages...); return nil })
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 func (r *strictNetlink) query(ctx context.Context, request, response uint16, family uint8, attrs []nl.Attribute, maxBytes int, consume func([]nl.Message) error) error {
+	return r.queryFlags(ctx, request, response, family, attrs, maxBytes, nl.Request|nl.Dump, consume)
+}
+func (r *strictNetlink) queryFlags(ctx context.Context, request, response uint16, family uint8, attrs []nl.Attribute, maxBytes int, requestFlags nl.HeaderFlags, consume func([]nl.Message) error) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -76,7 +83,7 @@ func (r *strictNetlink) query(ctx context.Context, request, response uint16, fam
 	if err != nil {
 		return err
 	}
-	req, err := r.conn.Send(nl.Message{Header: nl.Header{Type: nl.HeaderType(request), Flags: nl.Request | nl.Dump}, Data: append([]byte{family, 0, 0, 0}, data...)})
+	req, err := r.conn.Send(nl.Message{Header: nl.Header{Type: nl.HeaderType(request), Flags: requestFlags}, Data: append([]byte{family, 0, 0, 0}, data...)})
 	if err != nil {
 		return err
 	}
@@ -86,28 +93,11 @@ func (r *strictNetlink) query(ctx context.Context, request, response uint16, fam
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-		var n, flags int
-		var from unix.Sockaddr
-		var recvErr error
-		err = r.raw.Read(func(fd uintptr) bool {
-			for {
-				n, _, flags, from, recvErr = unix.Recvmsg(int(fd), buffer, nil, 0)
-				if errors.Is(recvErr, unix.EINTR) {
-					continue
-				}
-				return !errors.Is(recvErr, unix.EAGAIN) && !errors.Is(recvErr, unix.EWOULDBLOCK)
-			}
-		})
+		data, err := r.receiveRaw(buffer)
 		if err != nil {
 			return err
 		}
-		if recvErr != nil {
-			return recvErr
-		}
-		peer, ok := from.(*unix.SockaddrNetlink)
-		if !ok || peer.Pid != 0 || peer.Groups != 0 || flags&(unix.MSG_TRUNC|unix.MSG_CTRUNC) != 0 || n == 0 {
-			return fmt.Errorf("invalid/truncated Netlink datagram")
-		}
+		n := len(data)
 		total += n
 		if total > maxBytes {
 			return fmt.Errorf("Netlink dump exceeds bound")
@@ -124,11 +114,38 @@ func (r *strictNetlink) query(ctx context.Context, request, response uint16, fam
 		if err = consume(msgs); err != nil {
 			return err
 		}
-		if done {
+		if done || requestFlags&nl.Dump == 0 && len(msgs) > 0 {
 			return nil
 		}
 	}
 }
+
+func (r *strictNetlink) receiveRaw(buffer []byte) ([]byte, error) {
+	var n, flags int
+	var from unix.Sockaddr
+	var recvErr error
+	err := r.raw.Read(func(fd uintptr) bool {
+		for {
+			n, _, flags, from, recvErr = unix.Recvmsg(int(fd), buffer, nil, 0)
+			if errors.Is(recvErr, unix.EINTR) {
+				continue
+			}
+			return !errors.Is(recvErr, unix.EAGAIN) && !errors.Is(recvErr, unix.EWOULDBLOCK)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	if recvErr != nil {
+		return nil, recvErr
+	}
+	peer, ok := from.(*unix.SockaddrNetlink)
+	if !ok || peer.Pid != 0 || peer.Groups != 0 || flags&(unix.MSG_TRUNC|unix.MSG_CTRUNC) != 0 || n == 0 {
+		return nil, fmt.Errorf("invalid/truncated Netlink datagram")
+	}
+	return buffer[:n], nil
+}
+
 func decodeDumpDatagram(data []byte, req nl.Message) ([]nl.Message, bool, error) {
 	raw, err := syscall.ParseNetlinkMessage(data)
 	if err != nil {
@@ -176,6 +193,9 @@ func decodeDumpDatagram(data []byte, req nl.Message) ([]nl.Message, bool, error)
 	return out, done, nil
 }
 func rawFields(data []byte) (map[uint16][]byte, error) {
+	if err := validateConntrackEnvelopes(data); err != nil {
+		return nil, err
+	}
 	d, err := nl.NewAttributeDecoder(data)
 	if err != nil {
 		return nil, err
