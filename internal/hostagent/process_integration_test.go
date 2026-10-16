@@ -11,11 +11,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/PicketX/PicketX/pkg/configuration"
+	"github.com/PicketX/PicketXD/internal/hostowner"
+	"github.com/PicketX/PicketXD/internal/markstate"
 	"github.com/google/nftables"
 	"github.com/google/nftables/expr"
 	vnet "github.com/vishvananda/netlink"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -378,13 +382,7 @@ func TestEnforceProcessFutureDeny(t *testing.T) {
 		processServers(t)
 		start := time.Now().Add(2 * time.Second).UTC()
 		end := start.Add(2 * time.Second)
-		raw := example(t)
-		parts := strings.Split(raw, "---\n")
-		for _, grant := range parts[1:3] {
-			deny := strings.ReplaceAll(strings.ReplaceAll(grant, "kind: Grant", "kind: Deny"), "grant-loopback", "deny-loopback")
-			deny = strings.ReplaceAll(deny, "validity: {mode: permanent}", "validity: {mode: bounded, notBefore: '"+start.Format(time.RFC3339Nano)+"', expiresAt: '"+end.Format(time.RFC3339Nano)+"'}")
-			raw += "---\n" + deny
-		}
+		raw := futureDeny(example(t), start, end)
 		args := processArgs(t, raw)
 		p := startCommand(t, args)
 		p.until(t, confirmed)
@@ -554,5 +552,43 @@ func TestEnforceExampleIndependentOfWorkingDirectory(t *testing.T) {
 	t.Chdir(t.TempDir())
 	if raw := example(t); !strings.Contains(raw, "uid: resource-demo-v1") {
 		t.Fatal("embedded process fixture is not the runnable policy")
+	}
+}
+
+func futureDeny(raw string, start, end time.Time) string {
+	parts := strings.Split(raw, "---\n")
+	for _, grant := range parts[1:3] {
+		deny := strings.ReplaceAll(strings.ReplaceAll(grant, "kind: Grant", "kind: NetworkDeny"), "grant-loopback", "deny-loopback")
+		deny = strings.ReplaceAll(deny, "validity: {mode: permanent}", "validity: {mode: bounded, notBefore: '"+start.Format(time.RFC3339Nano)+"', expiresAt: '"+end.Format(time.RFC3339Nano)+"'}")
+		raw += "---\n" + deny
+	}
+	return raw
+}
+
+func TestEnforceFixturePublicationsCompile(t *testing.T) {
+	start := time.Now().Add(time.Hour).UTC()
+	c := Config{PolicyPath: "policy.yaml", StateDir: t.TempDir(), ProviderID: "test", AgentRef: "node", Profile: "host", Destinations: []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32"), netip.MustParsePrefix("::1/128")}, Marks: markstate.Range{First: 100, Last: 107}, Poll: time.Second}
+	c, e := c.normalized()
+	if e != nil {
+		t.Fatal(e)
+	}
+	facts, _, e := c.facts(hostowner.RuntimeScope{BootID: "fixture-boot", NetworkSpaceID: "fixture-net"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	for name, raw := range map[string]string{"permanent": example(t), "no grants": noGrants(example(t)), "empty": emptyPublication(), "future deny": futureDeny(example(t), start, start.Add(time.Hour))} {
+		t.Run(name, func(t *testing.T) {
+			bundle, e := configuration.Decode([]byte(raw))
+			if e != nil {
+				t.Fatal(e)
+			}
+			candidate, e := configuration.Compile(bundle, facts)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if name == "future deny" && len(candidate.Input().Logical.Denies) != 2 {
+				t.Fatal("missing independent dual-stack denies")
+			}
+		})
 	}
 }
