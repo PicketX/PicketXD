@@ -16,6 +16,7 @@ import (
 	"github.com/PicketX/PicketX/pkg/configuration"
 	"github.com/PicketX/PicketX/pkg/networkplan"
 	"github.com/PicketX/PicketXD/internal/agentstate"
+	"github.com/PicketX/PicketXD/internal/hostpolicy"
 	"github.com/PicketX/PicketXD/internal/validation/fixture"
 	"github.com/PicketX/PicketXD/internal/validation/kerneltest"
 	"github.com/PicketX/PicketXD/internal/validation/nftbackend"
@@ -81,53 +82,58 @@ func publication(t *testing.T, until4, until6 time.Time, grants bool) []byte {
 	}
 	return []byte(s)
 }
-func materialize(t *testing.T, s *agentstate.Store) fixture.Snapshot {
+
+// The test-only adapter feeds the existing fixture engine from production
+// compiler output. It proves input semantics, not a production apply path.
+func materialize(t *testing.T, h *hostCase) fixture.Snapshot {
 	t.Helper()
-	c := s.Current()
+	c := h.store.Current()
 	if c == nil {
 		t.Fatal("no accepted desired state")
 	}
-	p, e := c.Plan().Projection("agent-a", time.Now())
+	scope, e := hostpolicy.NewScope(h.cfg.ProviderID, h.cfg.Facts.Contexts[0])
+	if e != nil {
+		t.Fatal(e)
+	}
+	policy, e := hostpolicy.Compile(c.Plan(), scope)
+	if e != nil {
+		t.Fatal(e)
+	}
+	snapshot, e := policy.Evaluate(time.Now())
 	if e != nil {
 		t.Fatal(e)
 	}
 	out := fixture.Snapshot{}
-	endpoint := func(m networkplan.Match) fixture.Endpoint {
-		protocol := uint8(6)
-		if m.Protocol == networkplan.UDP {
-			protocol = 17
-		}
-		return fixture.Endpoint{Destination: m.Destination, Protocol: protocol, PortFirst: m.Port, PortLast: m.Port}
+	endpoint := func(e hostpolicy.Endpoint) fixture.Endpoint {
+		return fixture.Endpoint{Destination: e.Destination, Protocol: e.Protocol, PortFirst: e.Port, PortLast: e.Port}
 	}
-	for _, protection := range p.Protected {
-		if protection.Context.Class != networkplan.HostLocal {
-			t.Fatal("non-host target")
+	for _, target := range snapshot.Targets {
+		for _, e := range target.Protected {
+			out.Protected = append(out.Protected, endpoint(e))
 		}
-		for _, m := range protection.Matches {
-			out.Protected = append(out.Protected, endpoint(m))
-		}
-	}
-	for _, domain := range []struct {
-		members []networkplan.Membership
-		deny    bool
-	}{{p.Allow, false}, {p.Deny, true}} {
-		for _, m := range domain.members {
-			r := fixture.Rule{Source: m.Contribution.Source, Endpoint: endpoint(m.Match), ExpiresAt: m.Contribution.Validity.ExpiresAt}
-			if domain.deny {
-				out.Deny = append(out.Deny, r)
-			} else {
-				out.Allow = append(out.Allow, r)
+		for _, domain := range []struct {
+			members []hostpolicy.Member
+			deny    bool
+		}{{target.Allow, false}, {target.Deny, true}} {
+			for _, m := range domain.members {
+				r := fixture.Rule{Source: m.Source, Endpoint: endpoint(m.Endpoint), ExpiresAt: m.Validity.ExpiresAt}
+				if domain.deny {
+					out.Deny = append(out.Deny, r)
+				} else {
+					out.Allow = append(out.Allow, r)
+				}
 			}
 		}
 	}
 	return out
 }
+
 func (h *hostCase) apply(t *testing.T, raw []byte) {
 	t.Helper()
 	if e := h.store.Accept(context.Background(), raw); e != nil {
 		t.Fatal(e)
 	}
-	receipt, e := h.backend.ApplyReceipt(context.Background(), materialize(t, h.store), nftbackend.Options{HostInputFixture: true})
+	receipt, e := h.backend.ApplyReceipt(context.Background(), materialize(t, h), nftbackend.Options{HostInputFixture: true})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -309,7 +315,7 @@ func TestHostInputDoesNotClaimTransit(t *testing.T) {
 			t.Fatal(e)
 		}
 		b := nftbackend.New(c)
-		r, e := b.ApplyReceipt(context.Background(), materialize(t, h.store), nftbackend.Options{HostInputFixture: true})
+		r, e := b.ApplyReceipt(context.Background(), materialize(t, h), nftbackend.Options{HostInputFixture: true})
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -321,5 +327,26 @@ func TestHostInputDoesNotClaimTransit(t *testing.T) {
 			packet(t, h.x, i, false, "udp", 22, true)
 		}
 		t.Log(fmt.Sprintf("INPUT-only fixture did not claim forwarded service coverage; namespace=%s", h.x.Enforcement.UniqueId()))
+	})
+}
+
+// The production compiler must preserve both transports and non-example ports.
+func TestHostPolicyCompilerPorts(t *testing.T) {
+	withHost(t, func(h *hostCase) {
+		for i := range kerneltest.Sources {
+			packet(t, h.x, i, false, "tcp", 8001, true)
+			packet(t, h.x, i, false, "udp", 8002, true)
+			packet(t, h.x, i, true, "tcp", 8001, true)
+			packet(t, h.x, i, true, "udp", 8002, true)
+		}
+		raw := strings.NewReplacer("port: 443", "port: 8001", "port: 22", "port: 8002").Replace(string(publication(t, time.Now().Add(time.Minute), time.Now().Add(time.Minute), true)))
+		h.apply(t, []byte(raw))
+		for i := range kerneltest.Sources {
+			packet(t, h.x, i, false, "tcp", 8001, true)
+			packet(t, h.x, i, false, "udp", 8002, true)
+			packet(t, h.x, i, true, "tcp", 8001, false)
+			packet(t, h.x, i, true, "udp", 8002, false)
+			packet(t, h.x, i, true, "tcp", 9000, true)
+		}
 	})
 }

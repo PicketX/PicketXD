@@ -126,7 +126,7 @@ var RequiredBridgeScenarios = []string{
 // RequiredHostScenarios execute accepted static publications on the real INPUT
 // path. Transit bridge evidence cannot substitute for these host observations.
 var RequiredHostScenarios = []string{
-	"TestHostConfigurationDefaultDeny", "TestHostConfigurationSourcesAndDeny", "TestHostConfigurationExpiryWithInvalidReload", "TestHostConfigurationRecoveryDeadline", "TestHostOriginalDestinationDNAT", "TestHostUntrackedProtectedTraffic", "TestHostInputDoesNotClaimTransit",
+	"TestHostConfigurationDefaultDeny", "TestHostConfigurationSourcesAndDeny", "TestHostConfigurationExpiryWithInvalidReload", "TestHostConfigurationRecoveryDeadline", "TestHostOriginalDestinationDNAT", "TestHostUntrackedProtectedTraffic", "TestHostInputDoesNotClaimTransit", "TestHostPolicyCompilerPorts",
 }
 
 // RequiredOwnerScenarios prove only marker ownership and process recovery,
