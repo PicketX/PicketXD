@@ -17,6 +17,7 @@ artifacts_dir=$(CDPATH= cd -- "$artifacts_dir" && pwd)
 # Keep repeat runs from reusing stale successes.
 rm -f "$artifacts_dir/nft.json" "$artifacts_dir/ct.json" "$artifacts_dir/bridge.json" "$artifacts_dir/host.json" "$artifacts_dir/owner.json" "$artifacts_dir/agent.json" "$artifacts_dir/report.json"
 cmp examples/prepare/policy.yaml internal/validation/hostbridge/testdata/policy.yaml
+cmp examples/enforce/policy.yaml internal/hostagent/testdata/policy.yaml
 go mod download
 CGO_ENABLED=0 go test -c -tags=integration -o "$artifacts_dir/nft.test" ./internal/validation/nftbackend
 CGO_ENABLED=0 go test -c -tags=integration -o "$artifacts_dir/ct.test" ./internal/validation/ctbackend

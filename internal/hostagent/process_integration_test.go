@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -140,14 +141,15 @@ func processEcho(t *testing.T, connections []net.Conn) {
 		c.SetDeadline(time.Time{})
 	}
 }
+
+//go:embed testdata/policy.yaml
+var processPolicy string
+
 func example(t *testing.T) string {
 	t.Helper()
-	b, e := os.ReadFile("../../examples/enforce/policy.yaml")
-	if e != nil {
-		t.Fatal(e)
-	}
-	return string(b)
+	return processPolicy
 }
+
 func noGrants(raw string) string {
 	parts := strings.Split(raw, "---\n")
 	return parts[0] + "---\n" + parts[len(parts)-1]
@@ -546,4 +548,11 @@ func TestEnforceProcessForeignAndInvalidOnce(t *testing.T) {
 		processProbe(t, true)
 		t.Log("actual once refused foreign/invalid startup; valid once retained filtering after exit; invalid cached once emitted retained proof and exited nonzero")
 	})
+}
+
+func TestEnforceExampleIndependentOfWorkingDirectory(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if raw := example(t); !strings.Contains(raw, "uid: resource-demo-v1") {
+		t.Fatal("embedded process fixture is not the runnable policy")
+	}
 }
