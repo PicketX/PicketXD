@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/PicketX/PicketXD/internal/markstate"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -40,16 +41,17 @@ type environment struct {
 	release    func() error
 }
 type record struct {
-	Version    int    `json:"version"`
-	Phase      string `json:"phase"`
-	ProviderID string `json:"providerID"`
-	AgentRef   string `json:"agentRef"`
-	RuntimeKey string `json:"runtimeKey"`
-	OwnerID    string `json:"ownerID"`
-	Epoch      string `json:"epoch"`
-	BootID     string `json:"bootID"`
-	Device     uint64 `json:"device"`
-	Inode      uint64 `json:"inode"`
+	Marks      *markstate.State `json:"marks,omitempty"`
+	Version    int              `json:"version"`
+	Phase      string           `json:"phase"`
+	ProviderID string           `json:"providerID"`
+	AgentRef   string           `json:"agentRef"`
+	RuntimeKey string           `json:"runtimeKey"`
+	OwnerID    string           `json:"ownerID"`
+	Epoch      string           `json:"epoch"`
+	BootID     string           `json:"bootID"`
+	Device     uint64           `json:"device"`
+	Inode      uint64           `json:"inode"`
 }
 type Status struct {
 	OwnershipConfirmed   bool      `json:"ownershipConfirmed"`
@@ -65,6 +67,8 @@ type Session struct {
 	revalidate       func() error
 	releases         []func() error
 	closed, verified bool
+	faulted          bool
+	persist          func(record) error
 	observedAt       time.Time
 }
 
@@ -86,8 +90,18 @@ func hexID(s string) bool {
 	return err == nil && len(b) == 16 && hex.EncodeToString(b) == s
 }
 func validRecord(r record) error {
-	if r.Version != 1 || (r.Phase != "pending" && r.Phase != "confirmed") || !bounded(r.ProviderID) || !bounded(r.AgentRef) || !bounded(r.RuntimeKey) || !bounded(r.BootID) || r.Device == 0 || r.Inode == 0 || !hexID(r.OwnerID) || !hexID(r.Epoch) {
+	if (r.Version != 1 && r.Version != 2) || (r.Version == 2) != (r.Marks != nil) || (r.Phase != "pending" && r.Phase != "confirmed") || !bounded(r.ProviderID) || !bounded(r.AgentRef) || !bounded(r.RuntimeKey) || !bounded(r.BootID) || r.Device == 0 || r.Inode == 0 || !hexID(r.OwnerID) || !hexID(r.Epoch) {
 		return fmt.Errorf("invalid ownership journal identity/version/phase")
+	}
+	if r.Marks != nil {
+		if err := r.Marks.Validate(); err != nil {
+			return fmt.Errorf("invalid ownership mark ledger: %w", err)
+		}
+		for _, assignment := range r.Marks.Entries {
+			if assignment.Target.Key.AgentRef != r.AgentRef {
+				return fmt.Errorf("mark ledger Agent differs from owner")
+			}
+		}
 	}
 	return nil
 }
@@ -163,9 +177,15 @@ func openWith(ctx context.Context, c Config, e environment) (out *Session, err e
 	if save == nil {
 		save = func(_ string, r record) error { return journal.write(r, nil) }
 	}
+	s.persist = func(r record) error { return save(c.StatePath, r) }
 	if !exists || newBoot {
 		owner := r.OwnerID
+		marks := r.Marks
 		r = scopeRecord(c, e.namespace)
+		if marks != nil {
+			r.Version = 2
+			r.Marks = marks
+		}
 		if owner == "" {
 			owner, err = randomID()
 			if err != nil {
@@ -227,6 +247,9 @@ func (s *Session) check(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if s.faulted {
+		return fmt.Errorf("ownership journal durability is uncertain; close and reopen")
+	}
 	if s.closed {
 		return fmt.Errorf("ownership session closed")
 	}
@@ -236,12 +259,15 @@ func (s *Session) check(ctx context.Context) error {
 	return nil
 }
 func (s *Session) status() Status {
-	return Status{OwnershipConfirmed: s.verified && !s.closed, OwnerID: s.record.OwnerID, Epoch: s.record.Epoch, ObservedAt: s.observedAt}
+	return Status{OwnershipConfirmed: s.verified && !s.closed && !s.faulted, OwnerID: s.record.OwnerID, Epoch: s.record.Epoch, ObservedAt: s.observedAt}
 }
 func (s *Session) Status() Status { s.mu.Lock(); defer s.mu.Unlock(); return s.status() }
 func (s *Session) Verify(ctx context.Context) (Status, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.verifyLocked(ctx)
+}
+func (s *Session) verifyLocked(ctx context.Context) (Status, error) {
 	s.verified = false
 	if err := s.check(ctx); err != nil {
 		return s.status(), err

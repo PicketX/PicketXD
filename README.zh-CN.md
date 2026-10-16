@@ -50,3 +50,7 @@ GPL-3.0-or-later，详见 [LICENSE](LICENSE)。独立 OEM/商业条款需要与�
 ## M2C2 生产主机策略编译器
 
 [`internal/hostpolicy`](internal/hostpolicy) 将共享计划编译为不可变的 host-local/original-destination/graceful 期望输入，支持任意双栈 TCP/UDP 目标。按可信范围校验全部选中目标，保留 UID/Binding 来源、独立绝对期限和完整非活跃库存。host 内核测试转换器已接入该生产编译器，内核引擎仍为验证夹具。全部 51 项必需内核场景已在 Linux `6.17.0-1022-azure` / Go `1.27.0` 通过，包括新增端口场景；unit/race/vet/build/静态冒烟也通过。详见[设计](docs/superpowers/specs/2026-10-16-host-policy-design.zh-CN.md)、[计划](docs/superpowers/plans/2026-10-16-host-policy.zh-CN.md)、[记录](docs/validation/M2C2.zh-CN.md)。本批不增加生产过滤命令或应用凭据。
+
+## M2C3 持久 mark 保留
+
+hostpolicy.MarkTargets 和 [markstate](internal/markstate) 提取物理目标身份，从操作者明确保留的范围分配不复用 mark。已持有的 hostowner 会话确认标记结构、完整扫描双族 conntrack 后，在原私有日志中持久升级为 v2，才返回分配；退休/重建不复用旧值，发布错误须重开。本批不安装流量规则、不写/删 CT mark。保留原门禁并新增四项，共 55 项，真实验收待 CI。详见[设计](docs/superpowers/specs/2026-10-16-mark-reservations-design.zh-CN.md)、[计划](docs/superpowers/plans/2026-10-16-mark-reservations.zh-CN.md)、[记录](docs/validation/M2C3.zh-CN.md)。

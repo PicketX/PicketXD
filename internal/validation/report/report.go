@@ -134,4 +134,5 @@ var RequiredHostScenarios = []string{
 var RequiredOwnerScenarios = []string{
 	"TestOwnerKernelSocketExclusion",
 	"TestOwnerKernelFreshAndRestart", "TestOwnerKernelForeignTable", "TestOwnerKernelUnexpectedStructure", "TestOwnerKernelExclusiveCreate", "TestOwnerKernelProcessLock", "TestOwnerKernelPendingRecovery",
+	"TestOwnerKernelMarkLifecycle", "TestOwnerKernelMarkCollision", "TestOwnerKernelMarkProcessRecovery", "TestOwnerKernelMarkDrift",
 }

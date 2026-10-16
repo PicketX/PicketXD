@@ -52,32 +52,39 @@ func (r *strictNetlink) Close() error { return r.conn.Close() }
 // Receive raw datagrams before netlink.Conn can discard DONE and its flags.
 // The dedicated inspector socket is never read concurrently by Conn.Receive.
 func (r *strictNetlink) Dump(ctx context.Context, cmd uint16, attrs []nl.Attribute) ([]nl.Message, error) {
+	var result []nl.Message
+	err := r.query(ctx, uint16(unix.NFNL_SUBSYS_NFTABLES<<8)|cmd, uint16(unix.NFNL_SUBSYS_NFTABLES<<8)|(cmd-1), unix.NFPROTO_INET, attrs, 4<<20, func(messages []nl.Message) error { result = append(result, messages...); return nil })
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+func (r *strictNetlink) query(ctx context.Context, request, response uint16, family uint8, attrs []nl.Attribute, maxBytes int, consume func([]nl.Message) error) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return err
 	}
 	deadline := time.Now().Add(5 * time.Second)
 	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
 		deadline = d
 	}
 	if err := r.conn.SetDeadline(deadline); err != nil {
-		return nil, err
+		return err
 	}
 	data, err := nl.MarshalAttributes(attrs)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	req, err := r.conn.Send(nl.Message{Header: nl.Header{Type: nl.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | cmd), Flags: nl.Request | nl.Dump}, Data: append([]byte{unix.NFPROTO_INET, 0, 0, 0}, data...)})
+	req, err := r.conn.Send(nl.Message{Header: nl.Header{Type: nl.HeaderType(request), Flags: nl.Request | nl.Dump}, Data: append([]byte{family, 0, 0, 0}, data...)})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var result []nl.Message
 	total := 0
 	buffer := make([]byte, 1<<20)
 	for {
 		if err = ctx.Err(); err != nil {
-			return nil, err
+			return err
 		}
 		var n, flags int
 		var from unix.Sockaddr
@@ -92,31 +99,33 @@ func (r *strictNetlink) Dump(ctx context.Context, cmd uint16, attrs []nl.Attribu
 			}
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if recvErr != nil {
-			return nil, recvErr
+			return recvErr
 		}
 		peer, ok := from.(*unix.SockaddrNetlink)
 		if !ok || peer.Pid != 0 || peer.Groups != 0 || flags&(unix.MSG_TRUNC|unix.MSG_CTRUNC) != 0 || n == 0 {
-			return nil, fmt.Errorf("invalid/truncated Netlink datagram")
+			return fmt.Errorf("invalid/truncated Netlink datagram")
 		}
 		total += n
-		if total > 4<<20 {
-			return nil, fmt.Errorf("ownership dump exceeds bound")
+		if total > maxBytes {
+			return fmt.Errorf("Netlink dump exceeds bound")
 		}
 		msgs, done, err := decodeDumpDatagram(buffer[:n], req)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for _, m := range msgs {
-			if m.Header.Type != nl.HeaderType((unix.NFNL_SUBSYS_NFTABLES<<8)|(cmd-1)) || len(m.Data) < 4 || m.Data[0] != unix.NFPROTO_INET || m.Data[1] != 0 {
-				return nil, fmt.Errorf("unexpected ownership dump message")
+			if m.Header.Type != nl.HeaderType(response) || len(m.Data) < 4 || m.Data[0] != family || m.Data[1] != 0 {
+				return fmt.Errorf("unexpected Netlink dump message")
 			}
 		}
-		result = append(result, msgs...)
+		if err = consume(msgs); err != nil {
+			return err
+		}
 		if done {
-			return result, nil
+			return nil
 		}
 	}
 }
