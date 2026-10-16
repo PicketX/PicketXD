@@ -40,3 +40,9 @@ GPL-3.0-or-later，详见 [LICENSE](LICENSE)。独立 OEM/商业条款需要与�
 新增 `picketxd prepare`：有界完整配置加载、共享校验替换、来源绑定的私有原子缓存、排他文件锁、重启恢复、独立期限求值和真实错误/新鲜度状态。参见[可运行示例](examples/prepare/README.zh-CN.md)。它不修改内核，状态始终明确未确认执行。
 
 测试专用 HostInputFixture 验证实际 INPUT、双栈原始 conntrack 元组（包括 DNAT）、invalid/untracked 拒绝；新增 7 项 host 必需门禁，保留原 17 M0+19 bridge。当前分支真实 CI 状态见 PR；不得把未执行或 skip 当成兼容证据。生产所有权/mark、严格恢复、失联未来限制、容器发布、Controller/L7/管理端仍待完成。详见[设计](docs/superpowers/specs/2026-10-15-static-lifecycle.zh-CN.md)。
+
+## M2C1 所有权基础（内核验收待运行）
+
+[`internal/hostowner`](internal/hostowner) 新增非过滤型所有权会话：持有 namespace 描述符、跨挂载 namespace 的抽象 socket 互斥、私有 pending/confirmed 持久日志、排他建表及严格原始 Netlink 读回。外来/不支持表及同 boot 漂移均拒绝，关闭保留标记。不安装入站规则、不分配 conntrack mark，始终报告未确认执行。`picketxd prepare` 不变，尚无生产执行命令。
+
+Runner 要求原 43 项加 7 项所有权场景（共 50 项），包括进程退出及不同 `/run` 挂载。本地 Go/race/vet/build 和集成编译通过；真实所有权内核执行仍待验收，本地 namespace/socket 权限与远端发布拦截阻止了 CI。详见[设计](docs/superpowers/specs/2026-10-16-host-ownership-design.zh-CN.md)、[计划](docs/superpowers/plans/2026-10-16-host-ownership.zh-CN.md)、[验收记录](docs/validation/M2C1.zh-CN.md)。待运行测试不是兼容证据。

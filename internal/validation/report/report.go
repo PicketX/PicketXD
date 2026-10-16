@@ -128,3 +128,10 @@ var RequiredBridgeScenarios = []string{
 var RequiredHostScenarios = []string{
 	"TestHostConfigurationDefaultDeny", "TestHostConfigurationSourcesAndDeny", "TestHostConfigurationExpiryWithInvalidReload", "TestHostConfigurationRecoveryDeadline", "TestHostOriginalDestinationDNAT", "TestHostUntrackedProtectedTraffic", "TestHostInputDoesNotClaimTransit",
 }
+
+// RequiredOwnerScenarios prove only marker ownership and process recovery,
+// never admission. They supplement all prior packet/conformance gates.
+var RequiredOwnerScenarios = []string{
+	"TestOwnerKernelSocketExclusion",
+	"TestOwnerKernelFreshAndRestart", "TestOwnerKernelForeignTable", "TestOwnerKernelUnexpectedStructure", "TestOwnerKernelExclusiveCreate", "TestOwnerKernelProcessLock", "TestOwnerKernelPendingRecovery",
+}
