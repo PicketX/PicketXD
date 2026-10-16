@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PicketX/PicketXD/internal/markstate"
 	"github.com/google/nftables"
 	"github.com/google/nftables/expr"
 	"golang.org/x/sys/unix"
@@ -234,7 +235,15 @@ func TestOwnerKernelHelper(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	if err = json.NewEncoder(os.Stdout).Encode(s.Status()); err != nil {
+	var ready any = s.Status()
+	if os.Getenv("PICKETX_OWNER_HELPER_MARKS") == "1" {
+		marks, e := s.ReconcileMarks(context.Background(), kernelMarkRange(), []markstate.Target{markTarget("a")})
+		if e != nil {
+			t.Fatal(e)
+		}
+		ready = markHelperReady{Owner: s.Status(), Marks: marks}
+	}
+	if err = json.NewEncoder(os.Stdout).Encode(ready); err != nil {
 		t.Fatal(err)
 	}
 	var one [1]byte
