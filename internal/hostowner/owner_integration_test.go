@@ -236,6 +236,9 @@ func TestOwnerKernelHelper(t *testing.T) {
 	}
 	defer s.Close()
 	var ready any = s.Status()
+	if os.Getenv("PICKETX_OWNER_HELPER_ADMISSION") == "1" {
+		ready = applyAdmission(t, s, dualAdmissionPolicy(t, true, false))
+	}
 	if os.Getenv("PICKETX_OWNER_HELPER_MARKS") == "1" {
 		marks, e := s.ReconcileMarks(context.Background(), kernelMarkRange(), []markstate.Target{markTarget("a")})
 		if e != nil {

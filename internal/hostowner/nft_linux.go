@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/PicketX/PicketXD/internal/hostrules"
 	"github.com/google/nftables"
 	"github.com/google/nftables/expr"
 )
@@ -20,6 +21,8 @@ const ownerChain = "picketx__owner"
 type nftKernel struct {
 	conn   *nftables.Conn
 	reader dumpReader
+	marker string
+	images []hostrules.Image
 }
 
 // Open claims a marker-only table. Ownership is not traffic enforcement.
@@ -111,6 +114,9 @@ func inspectShape(tab *nftables.Table, chains []*nftables.Chain, rules []*nftabl
 func (b *nftKernel) Observe(ctx context.Context) (observation, error) {
 	if b.reader == nil {
 		return observation{}, fmt.Errorf("strict ownership reader required")
+	}
+	if len(b.images) > 0 {
+		return inspectImages(ctx, b.reader, b.marker, b.images)
 	}
 	return strictObserve(ctx, b.reader)
 }

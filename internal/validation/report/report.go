@@ -129,10 +129,11 @@ var RequiredHostScenarios = []string{
 	"TestHostConfigurationDefaultDeny", "TestHostConfigurationSourcesAndDeny", "TestHostConfigurationExpiryWithInvalidReload", "TestHostConfigurationRecoveryDeadline", "TestHostOriginalDestinationDNAT", "TestHostUntrackedProtectedTraffic", "TestHostInputDoesNotClaimTransit", "TestHostPolicyCompilerPorts",
 }
 
-// RequiredOwnerScenarios prove only marker ownership and process recovery,
-// never admission. They supplement all prior packet/conformance gates.
+// RequiredOwnerScenarios prove ownership, mark history and the production
+// Session admission engine. They supplement all prior packet/conformance gates.
 var RequiredOwnerScenarios = []string{
 	"TestOwnerKernelSocketExclusion",
 	"TestOwnerKernelFreshAndRestart", "TestOwnerKernelForeignTable", "TestOwnerKernelUnexpectedStructure", "TestOwnerKernelExclusiveCreate", "TestOwnerKernelProcessLock", "TestOwnerKernelPendingRecovery",
+	"TestOwnerKernelAdmissionUDPFutureAllow", "TestOwnerKernelAdmissionOriginalDNAT", "TestOwnerKernelAdmissionDualStack", "TestOwnerKernelAdmissionAbsoluteTime", "TestOwnerKernelAdmissionFutureDeny", "TestOwnerKernelAdmissionRecoveryAndDrift", "TestOwnerKernelAdmissionAtomicRejection", "TestOwnerKernelAdmissionWithdrawal", "TestOwnerKernelAdmissionProcessRecovery",
 	"TestOwnerKernelMarkLifecycle", "TestOwnerKernelMarkCollision", "TestOwnerKernelMarkProcessRecovery", "TestOwnerKernelMarkDrift",
 }

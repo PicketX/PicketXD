@@ -26,6 +26,9 @@ func (s *Session) ReconcileMarks(ctx context.Context, reservation markstate.Rang
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.reconcileMarksLocked(ctx, reservation, targets, false)
+}
+func (s *Session) reconcileMarksLocked(ctx context.Context, reservation markstate.Range, targets []markstate.Target, applying bool) (MarkStatus, error) {
 	if err := s.check(ctx); err != nil {
 		return MarkStatus{}, err
 	}
@@ -36,8 +39,18 @@ func (s *Session) ReconcileMarks(ctx context.Context, reservation markstate.Rang
 	}
 	// Validate the complete candidate before native observations, but do not
 	// publish this speculative result or return assignments yet.
-	if _, err := markstate.Reconcile(s.record.Marks, reservation, targets, nil); err != nil {
+	candidate, err := markstate.Reconcile(s.record.Marks, reservation, targets, nil)
+	if err != nil {
 		return MarkStatus{}, err
+	}
+	if !applying && s.record.Application != nil && s.record.Application.Confirmed != nil {
+		for _, target := range s.record.Application.Confirmed.Targets {
+			for _, a := range candidate.Entries {
+				if a.Mark == target.Mark && a.Retired {
+					return MarkStatus{}, fmt.Errorf("cannot retire an applied mark outside ApplyPolicy")
+				}
+			}
+		}
 	}
 	observer, ok := s.backend.(markObserver)
 	if !ok || s.persist == nil {
@@ -61,7 +74,9 @@ func (s *Session) ReconcileMarks(ctx context.Context, reservation markstate.Rang
 	if s.record.Marks == nil || !reflect.DeepEqual(*s.record.Marks, next) {
 		updated := s.record
 		stored := next.Clone()
-		updated.Version = 2
+		if updated.Version < 2 {
+			updated.Version = 2
+		}
 		updated.Marks = &stored
 		if err = s.check(ctx); err != nil {
 			return MarkStatus{}, err

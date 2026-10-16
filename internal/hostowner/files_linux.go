@@ -18,7 +18,7 @@ import (
 
 // Accepted 256-byte identities may expand sixfold in canonical JSON.
 // This covers all 4096 entries even at the maximum escaped identity size.
-const maxRecordBytes = 32 << 20
+const maxRecordBytes = 64 << 20
 
 type publicationError struct {
 	Published bool
