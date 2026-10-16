@@ -37,7 +37,7 @@ func run() error {
 			r.Libraries[f[0]] = f[1]
 		}
 	}
-	for _, name := range []string{"nft.json", "ct.json", "bridge.json", "host.json", "owner.json"} {
+	for _, name := range []string{"nft.json", "ct.json", "bridge.json", "host.json", "owner.json", "agent.json"} {
 		f, err := os.Open(filepath.Join(dir, name))
 		if err != nil {
 			return err
@@ -61,9 +61,9 @@ func run() error {
 	if closeErr != nil {
 		return closeErr
 	}
-	if err := errors.Join(report.CheckRequired(r, report.RequiredScenarios), report.CheckRequired(r, report.RequiredBridgeScenarios), report.CheckRequired(r, report.RequiredHostScenarios), report.CheckRequired(r, report.RequiredOwnerScenarios)); err != nil {
+	if err := errors.Join(report.CheckRequired(r, report.RequiredScenarios), report.CheckRequired(r, report.RequiredBridgeScenarios), report.CheckRequired(r, report.RequiredHostScenarios), report.CheckRequired(r, report.RequiredOwnerScenarios), report.CheckRequired(r, report.RequiredAgentScenarios)); err != nil {
 		return err
 	}
-	fmt.Printf("M0 + bridge + host + ownership observed kernel=%s Go=%s M0=%d bridge=%d host=%d ownership=%d passed\n", r.Kernel, r.Go, len(report.RequiredScenarios), len(report.RequiredBridgeScenarios), len(report.RequiredHostScenarios), len(report.RequiredOwnerScenarios))
+	fmt.Printf("M0 + bridge + host + ownership observed kernel=%s Go=%s M0=%d bridge=%d host=%d ownership=%d agent=%d passed\n", r.Kernel, r.Go, len(report.RequiredScenarios), len(report.RequiredBridgeScenarios), len(report.RequiredHostScenarios), len(report.RequiredOwnerScenarios), len(report.RequiredAgentScenarios))
 	return nil
 }

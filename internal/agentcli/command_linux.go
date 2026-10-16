@@ -18,7 +18,7 @@ import (
 )
 
 func New(out io.Writer, logger *slog.Logger) *cobra.Command {
-	root := &cobra.Command{Use: "picketxd", Short: "PicketXD static desired-state preparation", SilenceUsage: true, SilenceErrors: true}
+	root := &cobra.Command{Use: "picketxd", Short: "PicketXD static host policy preparation and enforcement", SilenceUsage: true, SilenceErrors: true}
 	root.SetOut(out)
 	var policy, state, provider, agent, profile string
 	var destinations []string
@@ -93,6 +93,6 @@ func New(out io.Writer, logger *slog.Logger) *cobra.Command {
 	for _, name := range []string{"policy", "state", "provider", "agent", "destination"} {
 		_ = prepare.MarkFlagRequired(name)
 	}
-	root.AddCommand(prepare)
+	root.AddCommand(prepare, enforceCommand(logger))
 	return root
 }
