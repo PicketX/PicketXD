@@ -49,8 +49,9 @@ type Scope struct {
 	context   networkplan.ExecutionContext
 }
 type Policy struct {
-	scope *Scope
-	plan  *networkplan.Plan
+	scope     *Scope
+	plan      *networkplan.Plan
+	inputJSON []byte
 }
 
 func NewScope(authorityID string, context networkplan.ExecutionContext) (*Scope, error) {

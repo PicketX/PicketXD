@@ -94,11 +94,43 @@ func compareRawExpressions(actual []byte, expected []expr.Any) error {
 			}
 			continue
 		}
+		actualExpression := a.Data
+		if _, ok := expected[i].(*expr.Bitwise); ok {
+			body, e := attributeMap(f[unix.NFTA_EXPR_DATA])
+			if e != nil {
+				return e
+			}
+			if op, exists := body[6]; exists {
+				if len(op.Data) != 4 || binary.BigEndian.Uint32(op.Data) != 0 {
+					return fmt.Errorf("unexpected bitwise operation")
+				}
+				delete(body, 6)
+				var attrs []nl.Attribute
+				for _, key := range []uint16{1, 2, 3, 4, 5} {
+					if v, ok := body[key]; ok {
+						attrs = append(attrs, v)
+						delete(body, key)
+					}
+				}
+				// Retain unexpected attributes so the semantic comparison rejects them.
+				for _, v := range body {
+					attrs = append(attrs, v)
+				}
+				data, e := nl.MarshalAttributes(attrs)
+				if e != nil {
+					return e
+				}
+				actualExpression, e = nl.MarshalAttributes([]nl.Attribute{{Type: unix.NFTA_EXPR_NAME, Data: f[unix.NFTA_EXPR_NAME]}, {Type: unix.NFTA_EXPR_DATA | unix.NLA_F_NESTED, Data: data}})
+				if e != nil {
+					return e
+				}
+			}
+		}
 		want, e := expr.Marshal(unix.NFPROTO_INET, expected[i])
 		if e != nil {
 			return e
 		}
-		if e = compareAttributes(a.Data, want); e != nil {
+		if e = compareAttributes(actualExpression, want); e != nil {
 			return fmt.Errorf("expression %d (%s): %w", i, strings.TrimRight(string(f[unix.NFTA_EXPR_NAME]), "\x00"), e)
 		}
 	}
@@ -140,6 +172,13 @@ func inspectImages(ctx context.Context, r dumpReader, marker string, images []ho
 		return observation{}, e
 	}
 	if tab == nil {
+		after, e := generation(ctx, r)
+		if e != nil {
+			return observation{}, e
+		}
+		if before != after {
+			return observation{}, fmt.Errorf("nft generation changed during absence inspection")
+		}
 		return observation{}, nil
 	}
 	live := rawImage{chains: map[string]map[uint16][]byte{}, rules: map[string][]map[uint16][]byte{}}
@@ -230,6 +269,9 @@ func inspectImages(ctx context.Context, r dumpReader, marker string, images []ho
 	layout := hostrules.Layout{Table: tab, Chains: []*nftables.Chain{owner}, Rules: []*nftables.Rule{{Table: tab, Chain: owner, UserData: []byte(marker), Exprs: []expr.Any{&expr.Counter{}}}}}
 	if e = live.matches(layout); e == nil {
 		return observation{Exists: true, Marker: marker}, nil
+	}
+	if mismatch == nil {
+		mismatch = e
 	}
 	return observation{}, fmt.Errorf("unrecognized admission table: %w", mismatch)
 }

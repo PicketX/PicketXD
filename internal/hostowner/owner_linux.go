@@ -201,7 +201,7 @@ func openWith(ctx context.Context, c Config, e environment) (out *Session, err e
 		}
 		if application != nil {
 			r.Version = 3
-			r.Application = &applicationRecord{Attempt: application.Attempt}
+			r.Application = &applicationRecord{Attempt: application.Attempt, Baseline: application.Baseline}
 		}
 		r.OwnerID = owner
 		r.Epoch, err = randomID()

@@ -21,7 +21,7 @@ func policy(t *testing.T) *hostpolicy.Policy {
 	c := networkplan.ExecutionContext{AgentRef: "node", ProfileRef: "host", ID: "ctx", NetworkSpaceID: "space", Class: networkplan.HostLocal, Stage: networkplan.OriginalDestination, Handling: networkplan.Graceful, Destinations: []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32"), netip.MustParsePrefix("::1/128")}}
 	v := core.Validity{Mode: core.LifetimeBounded, NotBefore: time.Unix(2000000000, 0).UTC(), ExpiresAt: time.Unix(2000000060, 0).UTC()}
 	in := networkplan.Input{AuthorityID: "static", Logical: core.Snapshot{Resources: []core.Resource{{Name: "uid", Endpoints: []core.Endpoint{{Name: "web"}}}}, Grants: []core.Grant{{ID: "future", Source: netip.MustParsePrefix("127.0.0.0/8"), Scopes: []core.Scope{{ResourceName: "uid"}}, Validity: v}, {ID: "revoked", Source: netip.MustParsePrefix("::1/128"), Scopes: []core.Scope{{ResourceName: "uid"}}, Validity: core.Validity{Mode: core.LifetimePermanent}, Revoked: true}}, Denies: []core.Deny{{ID: "future-deny", Source: netip.MustParsePrefix("127.0.0.1/32"), Scopes: []core.Scope{{ResourceName: "uid"}}, Validity: v}}}, Networks: []networkplan.NetworkDefinition{{Entry: networkplan.EntryRef{ResourceName: "uid", EndpointName: "web"}, Protocol: networkplan.TCP, Port: 8443}}, Agents: []networkplan.Agent{{Name: "node", Capabilities: &networkplan.CapabilityProfile{Classes: []networkplan.TrafficClass{networkplan.HostLocal}, Protocols: []networkplan.Protocol{networkplan.TCP, networkplan.UDP}, Families: []networkplan.Family{networkplan.IPv4, networkplan.IPv6}, Handling: []networkplan.HandlingMode{networkplan.Graceful}, OriginalDestination: true}}}, Contexts: []networkplan.ExecutionContext{c}, Bindings: []networkplan.Binding{{ID: "binding", Resources: []networkplan.ResourceSelection{{ResourceName: "uid"}}, Agents: []networkplan.AgentSelection{{AgentRef: "node"}}, Context: networkplan.ContextRequest{ProfileRef: "host", Class: c.Class, Stage: c.Stage, Handling: c.Handling, AllowedDestinations: c.Destinations}}}}
-	plan, e := networkplan.Compile(in)
+	_, e := networkplan.Compile(in)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -29,7 +29,7 @@ func policy(t *testing.T) *hostpolicy.Policy {
 	if e != nil {
 		t.Fatal(e)
 	}
-	p, e := hostpolicy.Compile(plan, scope)
+	p, e := hostpolicy.CompileInput(in, scope)
 	if e != nil {
 		t.Fatal(e)
 	}

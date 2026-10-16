@@ -3,8 +3,11 @@ package hostowner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/PicketX/PicketX/pkg/networkplan"
 	"math"
+	"reflect"
 	"time"
 
 	"github.com/PicketX/PicketXD/internal/hostpolicy"
@@ -13,9 +16,10 @@ import (
 )
 
 type applicationRecord struct {
-	Attempt   uint64           `json:"attempt"`
-	Confirmed *hostrules.Image `json:"confirmed,omitempty"`
-	Pending   *hostrules.Image `json:"pending,omitempty"`
+	Baseline  *networkplan.Input `json:"baseline,omitempty"`
+	Attempt   uint64             `json:"attempt"`
+	Confirmed *hostrules.Image   `json:"confirmed,omitempty"`
+	Pending   *hostrules.Image   `json:"pending,omitempty"`
 }
 type ApplicationStatus struct {
 	Phase                string    `json:"phase"`
@@ -34,6 +38,25 @@ func validateApplication(r record) error {
 		return nil
 	}
 	a := r.Application
+	if a.Baseline != nil {
+		data, e := json.Marshal(a.Baseline)
+		if e != nil || len(data) > hostrules.MaxImageBytes {
+			return fmt.Errorf("invalid application baseline size")
+		}
+		plan, e := networkplan.Compile(*a.Baseline)
+		if e != nil {
+			return e
+		}
+		if a.Baseline.AuthorityID != r.ProviderID {
+			return fmt.Errorf("baseline authority differs from owner")
+		}
+		if _, e = plan.Inventory(r.AgentRef); e != nil {
+			return e
+		}
+	}
+	if a.Confirmed != nil && (a.Baseline == nil || !reflect.DeepEqual(*a.Baseline, a.Confirmed.Input)) {
+		return fmt.Errorf("confirmed image differs from replacement baseline")
+	}
 	if (a.Confirmed != nil || a.Pending != nil) && a.Attempt == 0 {
 		return fmt.Errorf("application image without attempt identity")
 	}
@@ -98,6 +121,7 @@ func recoverApplication(r *record, live observation, newBoot bool, save func(str
 	want := confirmedDigest(*r)
 	if a.Pending != nil && live.Image == a.Pending.Digest() {
 		a.Confirmed = a.Pending
+		a.Baseline = &a.Pending.Input
 		a.Pending = nil
 	} else if live.Image == want {
 		a.Pending = nil
@@ -129,6 +153,9 @@ func (s *Session) applicationStatus() ApplicationStatus {
 	}
 	st.EnforcementConfirmed = s.applicationVerified && s.verified && !s.closed && !s.faulted
 	if (s.faulted || !s.verified || s.closed) && st.Phase == "confirmed" {
+		st.Phase = "unknown"
+	}
+	if s.faulted {
 		st.Phase = "unknown"
 	}
 	return st
@@ -170,6 +197,15 @@ func (s *Session) ApplyPolicy(ctx context.Context, p *hostpolicy.Policy, reserva
 	if im.AuthorityID != s.record.ProviderID || im.Context.AgentRef != s.record.AgentRef {
 		return s.applicationStatus(), fmt.Errorf("policy scope differs from owner")
 	}
+	if s.record.Application != nil && s.record.Application.Baseline != nil {
+		previous, e := networkplan.Compile(*s.record.Application.Baseline)
+		if e != nil {
+			return s.applicationStatus(), e
+		}
+		if _, e = networkplan.Replace(previous, im.Input); e != nil {
+			return s.applicationStatus(), fmt.Errorf("invalid policy replacement: %w", e)
+		}
+	}
 	if s.record.Application != nil && s.record.Application.Attempt == math.MaxUint64 {
 		return s.applicationStatus(), fmt.Errorf("application attempt counter exhausted")
 	}
@@ -186,6 +222,7 @@ func (s *Session) ApplyPolicy(ctx context.Context, p *hostpolicy.Policy, reserva
 	if old := s.record.Application; old != nil {
 		a.Attempt = old.Attempt
 		a.Confirmed = old.Confirmed
+		a.Baseline = old.Baseline
 	}
 	a.Attempt++
 	updated := s.record
@@ -225,6 +262,7 @@ func (s *Session) ApplyPolicy(ctx context.Context, p *hostpolicy.Policy, reserva
 	}
 	confirmed := a
 	confirmed.Confirmed = &im
+	confirmed.Baseline = &im.Input
 	confirmed.Pending = nil
 	updated.Application = &confirmed
 	if e = s.persist(updated); e != nil {

@@ -163,3 +163,53 @@ func TestStrictImageGenerationAndDrift(t *testing.T) {
 		})
 	}
 }
+func TestNativeMarkerOnlyGenerationBracket(t *testing.T) {
+	c, e, _ := setup(t)
+	s := mustOpen(t, c, e)
+	defer s.Close()
+	marker := markerFor(s.record)
+	for _, changed := range []bool{false, true} {
+		gen := 0
+		r := dumpFunc(func(_ context.Context, cmd uint16, _ []nl.Attribute) ([]nl.Message, error) {
+			msg := func(a ...nl.Attribute) []nl.Message {
+				return []nl.Message{{Data: append([]byte{unix.NFPROTO_INET, 0, 0, 0}, wire(t, a...)...)}}
+			}
+			switch cmd {
+			case unix.NFT_MSG_GETGEN:
+				gen++
+				id := uint32(7)
+				if changed && gen > 1 {
+					id++
+				}
+				return msg(nl.Attribute{Type: unix.NFTA_GEN_ID, Data: be32(id)}), nil
+			case unix.NFT_MSG_GETTABLE:
+				return msg(nl.Attribute{Type: unix.NFTA_TABLE_NAME, Data: []byte("picketx\x00")}, nl.Attribute{Type: unix.NFTA_TABLE_FLAGS, Data: make([]byte, 4)}), nil
+			case unix.NFT_MSG_GETCHAIN:
+				return msg(nl.Attribute{Type: unix.NFTA_CHAIN_TABLE, Data: []byte("picketx\x00")}, nl.Attribute{Type: unix.NFTA_CHAIN_NAME, Data: []byte(ownerChain + "\x00")}), nil
+			case unix.NFT_MSG_GETRULE:
+				b, _ := expr.Marshal(unix.NFPROTO_INET, &expr.Counter{})
+				return msg(nl.Attribute{Type: unix.NFTA_RULE_TABLE, Data: []byte("picketx\x00")}, nl.Attribute{Type: unix.NFTA_RULE_CHAIN, Data: []byte(ownerChain + "\x00")}, nl.Attribute{Type: unix.NFTA_RULE_USERDATA, Data: []byte(marker)}, nl.Attribute{Type: unix.NFTA_RULE_EXPRESSIONS, Data: wire(t, nl.Attribute{Type: unix.NFTA_LIST_ELEM, Data: b})}), nil
+			}
+			return nil, nil
+		})
+		b := &nftKernel{reader: r}
+		b.ConfigureImages(marker, nil)
+		got, err := b.Observe(context.Background())
+		if gen < 2 || changed && err == nil || !changed && (err != nil || !got.Exists) {
+			t.Fatalf("marker-only generation proof absent changed=%v calls=%d got=%+v err=%v", changed, gen, got, err)
+		}
+	}
+}
+func TestExplicitDefaultBitwiseOperation(t *testing.T) {
+	ex := &expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: []byte{255, 255, 255, 0}, Xor: make([]byte, 4)}
+	encoded, _ := expr.Marshal(unix.NFPROTO_INET, ex)
+	f, _ := rawFields(encoded)
+	for _, op := range []uint32{0, 1, 99} {
+		body := append(append([]byte{}, f[unix.NFTA_EXPR_DATA]...), wire(t, nl.Attribute{Type: 6, Data: be32(op)})...)
+		actual := wire(t, nl.Attribute{Type: unix.NFTA_LIST_ELEM, Data: wire(t, nl.Attribute{Type: unix.NFTA_EXPR_NAME, Data: f[unix.NFTA_EXPR_NAME]}, nl.Attribute{Type: unix.NFTA_EXPR_DATA | unix.NLA_F_NESTED, Data: body})})
+		err := compareRawExpressions(actual, []expr.Any{ex})
+		if op == 0 && err != nil || op != 0 && err == nil {
+			t.Fatalf("explicit default bitwise operation %d: %v", op, err)
+		}
+	}
+}

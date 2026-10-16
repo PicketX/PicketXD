@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/netip"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -32,10 +33,31 @@ type Image struct {
 	AuthorityID string
 	Context     networkplan.ExecutionContext
 	Targets     []Target
+	Input       networkplan.Input
 }
 
 func Build(p *hostpolicy.Policy, marks markstate.State) (Image, error) {
 	if e := marks.Validate(); e != nil {
+		return Image{}, e
+	}
+	assignments := map[markstate.Target]uint32{}
+	for _, a := range marks.Entries {
+		if !a.Retired {
+			assignments[a.Target] = a.Mark
+		}
+	}
+	out, e := materialize(p, assignments)
+	if e != nil {
+		return Image{}, e
+	}
+	if e = out.Validate(); e != nil {
+		return Image{}, e
+	}
+	return out, nil
+}
+func materialize(p *hostpolicy.Policy, assignments map[markstate.Target]uint32) (Image, error) {
+	input, e := p.Input()
+	if e != nil {
 		return Image{}, e
 	}
 	desired, e := p.MarkTargets()
@@ -50,15 +72,10 @@ func Build(p *hostpolicy.Policy, marks markstate.State) (Image, error) {
 	if e != nil {
 		return Image{}, e
 	}
-	out := Image{Version: 1, AuthorityID: snapshot.AuthorityID, Context: snapshot.Context}
+	out := Image{Version: 1, AuthorityID: snapshot.AuthorityID, Context: snapshot.Context, Input: input}
 	for i, item := range inv {
 		identity := desired[i]
-		var assigned uint32
-		for _, a := range marks.Entries {
-			if !a.Retired && a.Target == identity {
-				assigned = a.Mark
-			}
-		}
+		assigned := assignments[identity]
 		if assigned == 0 {
 			return Image{}, fmt.Errorf("target has no active matching mark reservation")
 		}
@@ -88,9 +105,6 @@ func Build(p *hostpolicy.Policy, marks markstate.State) (Image, error) {
 			}
 		}
 		out.Targets = append(out.Targets, target)
-	}
-	if e := out.Validate(); e != nil {
-		return Image{}, e
 	}
 	return out, nil
 }
@@ -173,6 +187,25 @@ func (im Image) Validate() error {
 	}
 	if len(b) > MaxImageBytes {
 		return fmt.Errorf("rule image exceeds serialized bound")
+	}
+	sc, e := hostpolicy.NewScope(im.AuthorityID, im.Context)
+	if e != nil {
+		return e
+	}
+	p, e := hostpolicy.CompileInput(im.Input, sc)
+	if e != nil {
+		return e
+	}
+	assignments := map[markstate.Target]uint32{}
+	for _, t := range im.Targets {
+		assignments[t.Identity] = t.Mark
+	}
+	expected, e := materialize(p, assignments)
+	if e != nil {
+		return e
+	}
+	if !reflect.DeepEqual(im, expected) {
+		return fmt.Errorf("rule image differs from complete compiled input")
 	}
 	return nil
 }

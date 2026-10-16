@@ -30,7 +30,7 @@ func admissionPolicy(t *testing.T, allow, empty bool, edit ...func(*networkplan.
 	for _, fn := range edit {
 		fn(&in)
 	}
-	plan, e := networkplan.Compile(in)
+	_, e := networkplan.Compile(in)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -38,7 +38,7 @@ func admissionPolicy(t *testing.T, allow, empty bool, edit ...func(*networkplan.
 	if e != nil {
 		t.Fatal(e)
 	}
-	p, e := hostpolicy.Compile(plan, scope)
+	p, e := hostpolicy.CompileInput(in, scope)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -147,7 +147,7 @@ func TestApplicationUncertainPhases(t *testing.T) {
 				}
 			}
 			st, err := s.ApplyPolicy(context.Background(), admissionPolicy(t, true, false), markRange())
-			if !errors.Is(err, boom) || st.EnforcementConfirmed || s.Status().EnforcementConfirmed {
+			if !errors.Is(err, boom) || st.EnforcementConfirmed || s.Status().EnforcementConfirmed || st.Phase != "unknown" {
 				t.Fatal("ambiguous application reported success", st, err)
 			}
 			if _, err = s.ApplyPolicy(context.Background(), admissionPolicy(t, true, false), markRange()); err == nil {
@@ -264,6 +264,48 @@ func TestApplicationJournalTampering(t *testing.T) {
 			}
 			if validRecord(r) == nil {
 				t.Fatal("tampered application journal accepted")
+			}
+		})
+	}
+}
+func TestApplicationRejectsRetargetedContributionAfterRestart(t *testing.T) {
+	for _, which := range []string{"active", "revoked", "withdrawn", "new-boot"} {
+		t.Run(which, func(t *testing.T) {
+			c, e, k := applicationSetup(t)
+			s := mustOpen(t, c, e)
+			editOld := func(in *networkplan.Input) {
+				if which == "revoked" {
+					in.Logical.Grants[0].Revoked = true
+				}
+				if which == "withdrawn" {
+					in.Bindings = nil
+				}
+			}
+			if _, err := s.ApplyPolicy(context.Background(), admissionPolicy(t, true, false, editOld), markRange()); err != nil {
+				t.Fatal(err)
+			}
+			s.Close()
+			if which == "new-boot" {
+				e.namespace.BootID = "boot-2"
+				e.namespace.Inode++
+				k.observation = observation{}
+			}
+			s = mustOpen(t, c, e)
+			defer s.Close()
+			before, _ := os.ReadFile(c.StatePath)
+			count := k.applies
+			scans := k.scans
+			p := admissionPolicy(t, true, false, func(in *networkplan.Input) { in.Networks[0].Port = 18444 })
+			if st, err := s.ApplyPolicy(context.Background(), p, markRange()); err == nil {
+				t.Fatal("retained ID retarget authorized", st)
+			}
+			after, _ := os.ReadFile(c.StatePath)
+			if !reflect.DeepEqual(before, after) || k.applies != count || k.scans != scans {
+				t.Fatal("retarget rejection had effects")
+			}
+			fresh := admissionPolicy(t, true, false, func(in *networkplan.Input) { in.Networks[0].Port = 18444; in.Logical.Grants[0].ID = "fresh" })
+			if _, err := s.ApplyPolicy(context.Background(), fresh, markRange()); err != nil {
+				t.Fatal("fresh-ID reissue rejected", err)
 			}
 		})
 	}

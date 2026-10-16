@@ -54,3 +54,11 @@ GPL-3.0-or-later，详见 [LICENSE](LICENSE)。独立 OEM/商业条款需要与�
 ## M2C3 持久 mark 保留
 
 hostpolicy.MarkTargets 和 [markstate](internal/markstate) 提取物理目标身份，从操作者明确保留的范围分配不复用 mark。已持有的 hostowner 会话确认标记结构、完整扫描双族 conntrack 后，在原私有日志中持久升级为 v2，才返回分配；退休/重建不复用旧值，发布错误须重开。本批不安装流量规则、不写/删 CT mark。全部 55 项必需内核场景已在 Linux `6.17.0-1022-azure` / Go `1.27.0` 通过，包括新增四项 mark 场景；unit/race/vet/build/静态冒烟也通过。详见[设计](docs/superpowers/specs/2026-10-16-mark-reservations-design.zh-CN.md)、[计划](docs/superpowers/plans/2026-10-16-mark-reservations.zh-CN.md)、[记录](docs/validation/M2C3.zh-CN.md)。
+
+## M2C4：可恢复主机准入
+
+[`hostrules`](internal/hostrules) 和 `hostowner.Session.ApplyPolicy` 新增独立的生产包路径，执行真实 host INPUT/original-destination/graceful 双栈 TCP/UDP。完整类型化映像将未来生效和绝对到期交给内核；日志 v3 在原子事务前保存旧确认与待执行映像，经代数保护的完整严格回读和持久确认后才返回生效凭据。重开仅确认已知完整现场，包括显式空清单撤销。关闭不撤销过滤。新增真实门禁验证双栈 TCP/UDP、无进程时间边界、DNAT 原始端口、原子失败保留、漂移、待执行及 SIGKILL 恢复；真实运行完成后记录验收证据。
+
+本批是包引擎增量。`prepare` 仍不修改过滤；生产执行命令、期望发布重载循环、strict 清理、L7 和管理接口随后接入。依赖显式 mark 预留范围、受信任的特权写入独占、正确系统时钟及文件系统持久性。见[设计](docs/superpowers/specs/2026-10-16-host-admission-design.zh-CN.md)和[计划](docs/superpowers/plans/2026-10-16-host-admission.zh-CN.md)。
+
+应用必须使用 `hostpolicy.CompileInput`，以便日志保留并重验完整替换来源，覆盖撤销/休眠成员及未绑定入口。基线跨撤销和重启保留；仅旋转 mark 不会授权保留 Grant ID 的端点迁移。

@@ -115,7 +115,7 @@ func (b *nftKernel) Observe(ctx context.Context) (observation, error) {
 	if b.reader == nil {
 		return observation{}, fmt.Errorf("strict ownership reader required")
 	}
-	if len(b.images) > 0 {
+	if validMarker(b.marker) {
 		return inspectImages(ctx, b.reader, b.marker, b.images)
 	}
 	return strictObserve(ctx, b.reader)

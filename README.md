@@ -2,7 +2,7 @@
 
 > English (default) | [简体中文](README.zh-CN.md)
 
-Linux enforcement Agent for PicketX. This repository contains **static desired preparation/recovery plus private M0, shared-plan and host-input validation infrastructure**, not a production enforcement Agent.
+Linux enforcement Agent for PicketX. This repository contains **static desired preparation/recovery, a production host admission package, and private validation infrastructure**, not a production enforcement Agent.
 
 The approved [M0 plan](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.md) defines nftables admission/expiry and scoped conntrack revocation validation before the full Agent/Controller workflow.
 
@@ -54,3 +54,11 @@ All 50 required real-kernel cases pass (the original 43 plus seven ownership cas
 ## M2C3 durable mark reservation
 
 `hostpolicy.MarkTargets` and [`markstate`](internal/markstate) derive physical target identities and nonreusable marks from an explicit operator-reserved range. The held `hostowner` session verifies marker structure, completely scans both conntrack families, and durably upgrades the same private journal to v2 before returning assignments. Retirement/recreation never reuses an old mark; publication errors require reopen. No traffic rules or CT mark writes/deletes are introduced. All 55 required native cases pass on Linux `6.17.0-1022-azure` / Go `1.27.0`, including four new mark cases; unit/race/vet/build/static smoke also pass. See the [design](docs/superpowers/specs/2026-10-16-mark-reservations-design.md), [plan](docs/superpowers/plans/2026-10-16-mark-reservations.md) and [record](docs/validation/M2C3.md).
+
+## M2C4 recoverable host admission
+
+[`hostrules`](internal/hostrules) and `hostowner.Session.ApplyPolicy` add a separate production package path for real host INPUT/original-destination/graceful TCP/UDP. Complete typed images program future activation and absolute expiry in the kernel; journal v3 retains previous/pending images around atomic dispatch, strict generation-bracketed readback and durable confirmation. Reopen confirms only recognized complete live structure, including explicit empty withdrawal. Close leaves filtering installed. New native gates cover both families, TCP/UDP, process-free time boundaries, original DNAT ports, atomic rejection, drift, pending and SIGKILL recovery. Validation evidence is recorded after the native run completes.
+
+This is a package engine increment. `prepare` remains nonfiltering; a production enforcement command, desired publication reload loop, strict cleanup, L7 and management are subsequent work. It depends on an explicitly reserved mark range, trusted privileged writer exclusivity, a correct system clock and filesystem durability. See the [design](docs/superpowers/specs/2026-10-16-host-admission-design.md) and [plan](docs/superpowers/plans/2026-10-16-host-admission.md).
+
+Application requires `hostpolicy.CompileInput` so the journal can preserve and revalidate complete replacement provenance, including revoked/dormant members and unbound entries. The baseline survives withdrawal and reboot; rotating a mark alone never authorizes retained Grant IDs on a retargeted endpoint.
