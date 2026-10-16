@@ -46,3 +46,7 @@ GPL-3.0-or-later，详见 [LICENSE](LICENSE)。独立 OEM/商业条款需要与�
 [`internal/hostowner`](internal/hostowner) 新增非过滤型所有权会话：持有 namespace 描述符、跨挂载 namespace 的抽象 socket 互斥、私有 pending/confirmed 持久日志、排他建表及严格原始 Netlink 读回。外来/不支持表及同 boot 漂移均拒绝，关闭保留标记。不安装入站规则、不分配 conntrack mark，始终报告未确认执行。`picketxd prepare` 不变，尚无生产执行命令。
 
 全部 50 项必需真实内核场景（原 43 项加 7 项所有权案例）已在 Linux `6.17.0-1022-azure`、Go `1.27.0` 通过，包括进程退出及不同 `/run` 挂载。CI 的 test/race/vet/build 和静态准备冒烟也通过。准确提交、运行和归档证据见[设计](docs/superpowers/specs/2026-10-16-host-ownership-design.zh-CN.md)、[计划](docs/superpowers/plans/2026-10-16-host-ownership.zh-CN.md)、[验收记录](docs/validation/M2C1.zh-CN.md)。兼容声明仅限已记录环境。
+
+## M2C2 生产主机策略编译器
+
+[`internal/hostpolicy`](internal/hostpolicy) 将共享计划编译为不可变的 host-local/original-destination/graceful 期望输入，支持任意双栈 TCP/UDP 目标。按可信范围校验全部选中目标，保留 UID/Binding 来源、独立绝对期限和完整非活跃库存。host 内核测试转换器已接入该生产编译器，内核引擎仍为验证夹具。全部 51 项必需内核场景已在 Linux `6.17.0-1022-azure` / Go `1.27.0` 通过，包括新增端口场景；unit/race/vet/build/静态冒烟也通过。详见[设计](docs/superpowers/specs/2026-10-16-host-policy-design.zh-CN.md)、[计划](docs/superpowers/plans/2026-10-16-host-policy.zh-CN.md)、[记录](docs/validation/M2C2.zh-CN.md)。本批不增加生产过滤命令或应用凭据。
