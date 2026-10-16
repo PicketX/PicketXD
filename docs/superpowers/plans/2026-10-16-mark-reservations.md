@@ -72,6 +72,6 @@ Risk assessment: private record schema upgrade intentionally prevents downgrade;
 
 **Interfaces:** Consumes Tasks 1/2, uses actual NETLINK_NETFILTER CT create solely in disposable tests. Adds four required case names from the spec.
 
-- [ ] Add mandatory lifecycle, dual-family collision, standalone killed-helper recovery and drift cases. Before trusting collisions, verify inserted marks with independent test handle; preserve unrelated flows. Existing old packet cases remain mandatory.
-- [ ] Compile all integration packages, run independent whole-branch review once, fix Critical/Important with RED/GREEN regressions and a green suite; ledger any declined judgments/minors.
-- [ ] Publish PR; inspect all 55 required native results and zero fail/skip, download exact-head evidence and verify SHA-256, update bilingual records. Final-head checks and post-merge main CI must pass before completion.
+- [x] Add mandatory lifecycle, dual-family collision, standalone killed-helper recovery and drift cases. Before trusting collisions, verify inserted marks with independent test handle; preserve unrelated flows. Existing old packet cases remain mandatory.
+- [x] Compile all integration packages, run independent whole-branch review once, fix Critical/Important with RED/GREEN regressions and a green suite; ledger any declined judgments/minors.
+- [x] Publish PR; inspect all 55 required native results and zero fail/skip, download exact-head evidence and verify SHA-256, update bilingual records. Final-head checks and post-merge main CI must pass before completion.

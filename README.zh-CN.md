@@ -53,4 +53,4 @@ GPL-3.0-or-later，详见 [LICENSE](LICENSE)。独立 OEM/商业条款需要与�
 
 ## M2C3 持久 mark 保留
 
-hostpolicy.MarkTargets 和 [markstate](internal/markstate) 提取物理目标身份，从操作者明确保留的范围分配不复用 mark。已持有的 hostowner 会话确认标记结构、完整扫描双族 conntrack 后，在原私有日志中持久升级为 v2，才返回分配；退休/重建不复用旧值，发布错误须重开。本批不安装流量规则、不写/删 CT mark。保留原门禁并新增四项，共 55 项，真实验收待 CI。详见[设计](docs/superpowers/specs/2026-10-16-mark-reservations-design.zh-CN.md)、[计划](docs/superpowers/plans/2026-10-16-mark-reservations.zh-CN.md)、[记录](docs/validation/M2C3.zh-CN.md)。
+hostpolicy.MarkTargets 和 [markstate](internal/markstate) 提取物理目标身份，从操作者明确保留的范围分配不复用 mark。已持有的 hostowner 会话确认标记结构、完整扫描双族 conntrack 后，在原私有日志中持久升级为 v2，才返回分配；退休/重建不复用旧值，发布错误须重开。本批不安装流量规则、不写/删 CT mark。全部 55 项必需内核场景已在 Linux `6.17.0-1022-azure` / Go `1.27.0` 通过，包括新增四项 mark 场景；unit/race/vet/build/静态冒烟也通过。详见[设计](docs/superpowers/specs/2026-10-16-mark-reservations-design.zh-CN.md)、[计划](docs/superpowers/plans/2026-10-16-mark-reservations.zh-CN.md)、[记录](docs/validation/M2C3.zh-CN.md)。

@@ -37,6 +37,6 @@
 
 ## 任务 3：真实验收与交付
 
-- [ ] 新增必需 TestOwnerKernelMarkLifecycle、TestOwnerKernelMarkCollision、TestOwnerKernelMarkProcessRecovery、TestOwnerKernelMarkDrift，在可丢弃 namespace 验证双族 CT、无关流保留、退休/重开、独立进程强杀和漂移；先独立核对测试插入成功。
-- [ ] 全分支一次独立评审；Important/Critical 先红后绿修复，记录未判定事项和 minor。
-- [ ] 发布 PR，核对 55 项必需场景、零失败/跳过，下载准确 head 归档校验 SHA-256，同步中英文记录；最终提交和合并后主分支 CI 均通过再完成。
+- [x] 新增必需 TestOwnerKernelMarkLifecycle、TestOwnerKernelMarkCollision、TestOwnerKernelMarkProcessRecovery、TestOwnerKernelMarkDrift，在可丢弃 namespace 验证双族 CT、无关流保留、退休/重开、独立进程强杀和漂移；先独立核对测试插入成功。
+- [x] 全分支一次独立评审；Important/Critical 先红后绿修复，记录未判定事项和 minor。
+- [x] 发布 PR，核对 55 项必需场景、零失败/跳过，下载准确 head 归档校验 SHA-256，同步中英文记录；最终提交和合并后主分支 CI 均通过再完成。
