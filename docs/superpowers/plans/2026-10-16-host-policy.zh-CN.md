@@ -33,4 +33,4 @@
 - [x] 新增必需 TestHostPolicyCompilerPorts：双栈 TCP/8001、UDP/8002，基线可达、允许来源、无关来源拒绝和无关服务控制。
 - [x] 用生产编译器替换手工共享投影转换，保留测试内的 fixture 转换和已有命名门禁；生产代码不导入 validation。
 - [x] 全量本地检查、静态准备冒烟、集成编译；一次独立评审，Important/Critical 通过先红后绿回归修复。
-- [ ] 发布 PR，要求全部 51 项内核门禁及 unit/race/vet/build/static smoke，下载校验准确 head 归档，记录真实版本与结果；评审问题和 CI 解决后按用户明确授权合并。
+- [x] 发布 PR，要求全部 51 项内核门禁及 unit/race/vet/build/static smoke，下载校验准确 head 归档，记录真实版本与结果；评审问题和 CI 解决后按用户明确授权合并。
