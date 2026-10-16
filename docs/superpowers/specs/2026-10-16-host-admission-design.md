@@ -10,9 +10,9 @@ Continue the authorized production L4 work through a real, recoverable kernel ad
 
 Use a deterministic typed rule image, generated from complete `hostpolicy.Policy` inventory and durable marks. Do not adapt the private fixture backend. Replacing the whole owned table atomically is simpler than editing individual rules, but only after strict readback proves the entire previous table. Keeping marker-only ownership would prevent useful enforcement; adopting arbitrary tables based on marker alone would permit destructive replacement. Neither is acceptable.
 
-Rules use original conntrack destination/source/protocol/port, with current-tuple INVALID/UNTRACKED protection. Denies precede established marked acceptance; new TCP admission requires SYN without ACK. Target-specific marks preserve graceful established flows while retirement prevents reincarnation reuse. Default drop remains when the last Grant disappears. Explicit empty target inventory replaces protection with the marker-only structure, preserving installation ownership.
+Rules use original conntrack destination/source/protocol/port, with current-tuple INVALID/UNTRACKED protection. Denies precede established marked acceptance; new TCP admission requires SYN without ACK. Target-specific marks preserve graceful established flows while retirement prevents reincarnation reuse. Default drop remains when the last Grant disappears. Explicit empty target inventory replaces protection with an unhooked ownership image, preserving installation ownership.
 
-Kernel `NFT_META_TIME_NS` plus host-to-network byte order conversion and unsigned comparisons enforce complete absolute validity intervals, including future permits and denies. No process timer or relative timeout extension is needed. The intended nonzero timestamp range is Unix nanoseconds in [1, MaxInt64]; the current lower-bound check conservatively rejects the first positive Unix second (a deferred minor; modern dates are unaffected). reject unsupported dates before effects. Clock correctness and trusted NET_ADMIN exclusivity remain operator prerequisites. Native tests must prove future deny activation, allow expiry and recovery without a live scheduler.
+Kernel `NFT_META_TIME_NS` plus host-to-network byte order conversion and unsigned comparisons enforce complete absolute validity intervals, including future permits and denies. No process timer or relative timeout extension is needed. The intended nonzero timestamp range is Unix nanoseconds in [1, MaxInt64]; the current lower-bound check conservatively rejects the first positive Unix second (a deferred minor; modern dates are unaffected). Reject unsupported dates before effects. Clock correctness and trusted NET_ADMIN exclusivity remain operator prerequisites. Native tests must prove future deny activation, allow expiry and recovery without a live scheduler.
 
 ## Durable application contract
 
@@ -31,6 +31,7 @@ Each rule's semantic expression attributes are compared strictly to generated ex
 | Files | Responsibility |
 | --- | --- |
 | `internal/hostrules/{image,rules}_linux.go` | Typed bounded image and deterministic native expressions; imports hostpolicy, markstate, shared Core and nftables. No sockets or persistence. |
+| `internal/hostpolicy/input.go` | Retain immutable complete desired input for replacement provenance; projection-only Compile remains available. |
 | `internal/hostowner/{application,inspect}_linux.go` | Durable apply/recover and strict native full-image validation. |
 | `internal/hostowner/{owner,nft,raw,marks}_linux.go` | v3 journal integration, namespace-bound transactions and session exclusion. |
 | `internal/hostrules/*test.go`, `internal/hostowner/application_test.go` | Temporal/membership/validation, pending publication, ambiguous dispatch and recovery behavior. |

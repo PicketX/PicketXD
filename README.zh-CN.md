@@ -2,7 +2,7 @@
 
 > [English (default)](README.md) | 简体中文
 
-PicketX 的 Linux 执行 Agent。当前仓库包含**静态期望状态准备/恢复流程，以及 M0、共享桥接和主机 INPUT 验证基础设施**，尚不是生产执行 Agent。
+PicketX 的 Linux 执行 Agent。当前仓库包含**静态期望状态准备/恢复流程、生产主机准入包和私有验证基础设施**，尚不是生产执行 Agent。
 
 已评审的 [M0 计划](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.zh-CN.md)要求先验证 nftables 准入/过期和 conntrack 定向撤销，再推进完整 Agent/Controller 流程。
 
@@ -57,7 +57,7 @@ hostpolicy.MarkTargets 和 [markstate](internal/markstate) 提取物理目标身
 
 ## M2C4：可恢复主机准入
 
-[`hostrules`](internal/hostrules) 和 `hostowner.Session.ApplyPolicy` 新增独立的生产包路径，执行真实 host INPUT/original-destination/graceful 双栈 TCP/UDP。完整类型化映像将未来生效和绝对到期交给内核；日志 v3 在原子事务前保存旧确认与待执行映像，经代数保护的完整严格回读和持久确认后才返回生效凭据。重开仅确认已知完整现场，包括显式空清单撤销。关闭不撤销过滤。新增真实门禁验证双栈 TCP/UDP、无进程时间边界、DNAT 原始端口、原子失败保留、漂移、待执行及 SIGKILL 恢复；真实运行完成后记录验收证据。
+[`hostrules`](internal/hostrules) 和 `hostowner.Session.ApplyPolicy` 新增独立的生产包路径，执行真实 host INPUT/original-destination/graceful 双栈 TCP/UDP。完整类型化映像将未来生效和绝对到期交给内核；日志 v3 在原子事务前保存旧确认与待执行映像，经代数保护的完整严格回读和持久确认后才返回生效凭据。重开仅确认已知完整现场，包括显式空清单撤销。关闭不撤销过滤。新增真实门禁验证双栈 TCP/UDP、无进程时间边界、DNAT 原始端口、原子失败保留、漂移、待执行及 SIGKILL 恢复；Linux `6.17.0-1022-azure` / Go `1.27.0` 上 64 项必需门禁及 85 项顶层场景全部通过，零失败/跳过；本地 120 项测试及 race/vet/build/静态 smoke 也通过。见[精确验收记录](docs/validation/M2C4.zh-CN.md)。
 
 本批是包引擎增量。`prepare` 仍不修改过滤；生产执行命令、期望发布重载循环、strict 清理、L7 和管理接口随后接入。依赖显式 mark 预留范围、受信任的特权写入独占、正确系统时钟及文件系统持久性。见[设计](docs/superpowers/specs/2026-10-16-host-admission-design.zh-CN.md)和[计划](docs/superpowers/plans/2026-10-16-host-admission.zh-CN.md)。
 

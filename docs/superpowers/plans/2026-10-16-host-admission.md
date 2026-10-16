@@ -31,26 +31,26 @@ Files: new `internal/hostrules/{image,rules}_linux.go` and tests.
 
 Interfaces: `Build(*hostpolicy.Policy, markstate.State) (Image,error)`, `Image.Validate() error`, `Image.Digest() string`, `Image.Layout(marker string) (Layout,error)`. Image carries full semantic Target/membership validity; Layout carries complete chains and rules, no mutable sockets.
 
-- [ ] Write tests for full inventory future/revoked members, mark/shape mismatch, limits and unsupported dates, target isolation and absolute expression boundaries; observe missing-feature failure.
-- [ ] Implement bounded canonical image and deterministic INPUT rules with deny precedence, SYN guard, INVALID/UNTRACKED drop and distinct marks.
-- [ ] Run `go test ./...`; expect all pass. Commit.
+- [x] Write tests for full inventory future/revoked members, mark/shape mismatch, limits and unsupported dates, target isolation and absolute expression boundaries; observe missing-feature failure.
+- [x] Implement bounded canonical image and deterministic INPUT rules with deny precedence, SYN guard, INVALID/UNTRACKED drop and distinct marks.
+- [x] Run `go test ./...`; expect all pass. Commit.
 
 ### Task 2: durable Session apply and strict recovery
 
-Files: new `hostowner/{application,inspect}_linux.go`; modify owner/nft/raw/marks/files and add unit tests.
+Files: new `hostowner/{application,inspect}_linux.go`; modify owner/nft/raw/marks/files, add `hostpolicy/input.go` and unit tests.
 
 Interfaces: `Session.ApplyPolicy(context.Context,*hostpolicy.Policy,markstate.Range) (ApplicationStatus,error)`, `Session.ApplicationStatus() ApplicationStatus`. Private backend configures validated known images before inspection and applies one atomic image on its held namespace connection.
 
-- [ ] Write failing tests for pending-before-effects, dispatch/readback/save uncertainty, exact old/new recovery, new boot, no-op, scope mismatch and closed/faulted session.
-- [ ] Implement v3 validation, image bounds, strict generation-bracketed raw inspection, pending/confirmed lifecycle and fault handling. Reconcile marks under the same mutex; refuse retiring marks still referenced by a confirmed image outside ApplyPolicy.
-- [ ] Add malformed/unknown nested expression and generation-change regression tests; observe failures before corresponding implementation.
-- [ ] Run `go test ./...`, race/vet/build; expect all pass. Commit.
+- [x] Write failing tests for pending-before-effects, dispatch/readback/save uncertainty, exact old/new recovery, new boot, no-op, scope mismatch and closed/faulted session.
+- [x] Implement complete-input retention and shared replacement validation against a durable baseline; v3 validation, image bounds, strict generation-bracketed raw inspection, pending/confirmed lifecycle and fault handling. Reconcile marks under the same mutex; refuse retiring marks still referenced by a confirmed image outside ApplyPolicy.
+- [x] Add malformed/unknown nested expression and generation-change regression tests; observe failures before corresponding implementation.
+- [x] Run `go test ./...`, race/vet/build; expect all pass. Commit.
 
 ### Task 3: native admission acceptance and delivery
 
 Files: new `hostowner/admission_integration_test.go`; update report, README and bilingual validation record.
 
-- [ ] Write real dual-stack default-deny/allow/deny, process-free future boundaries, restart recovery, atomic rejection, drift and explicit withdrawal tests before claiming native support.
-- [ ] Compile integration binary; expect success. Fresh reviewer checks entire branch; fix Important/Critical findings with RED→GREEN and full green suite.
-- [ ] Publish draft PR using the exact local tree; run existing and new mandatory native CI. Verify artifact digest, every raw test stream, and actual module/kernel/toolchain versions. Record evidence and sync Chinese documentation.
+- [x] Write real dual-stack default-deny/allow/deny, process-free future boundaries, restart recovery, atomic rejection, drift and explicit withdrawal tests before claiming native support.
+- [x] Compile integration binary; expect success. Fresh reviewer checks entire branch; fix Important/Critical findings with RED→GREEN and full green suite.
+- [x] Publish draft PR using the exact local tree; run existing and new mandatory native CI. Verify artifact digest, every raw test stream, and actual module/kernel/toolchain versions. Record evidence and sync Chinese documentation.
 - [ ] Verify final PR head CI, merge expected SHA under standing authorization, verify main tree and post-merge CI. Remove only this plan's scratch workspace.

@@ -25,7 +25,8 @@ type nftKernel struct {
 	images []hostrules.Image
 }
 
-// Open claims a marker-only table. Ownership is not traffic enforcement.
+// Open claims fresh marker-only ownership or recovers a recorded live image.
+// Initial ownership alone is not traffic enforcement.
 // The fixed lock root prevents a different StatePath from evading exclusion.
 func Open(ctx context.Context, c Config) (*Session, error) {
 	if err := ctx.Err(); err != nil {
