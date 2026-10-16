@@ -137,3 +137,6 @@ var RequiredOwnerScenarios = []string{
 	"TestOwnerKernelAdmissionUDPFutureAllow", "TestOwnerKernelAdmissionOriginalDNAT", "TestOwnerKernelAdmissionDualStack", "TestOwnerKernelAdmissionAbsoluteTime", "TestOwnerKernelAdmissionFutureDeny", "TestOwnerKernelAdmissionRecoveryAndDrift", "TestOwnerKernelAdmissionAtomicRejection", "TestOwnerKernelAdmissionWithdrawal", "TestOwnerKernelAdmissionProcessRecovery",
 	"TestOwnerKernelMarkLifecycle", "TestOwnerKernelMarkCollision", "TestOwnerKernelMarkProcessRecovery", "TestOwnerKernelMarkDrift",
 }
+
+// RequiredAgentScenarios execute the actual prebuilt standalone command.
+var RequiredAgentScenarios = []string{"TestEnforceProcessReloadDualStack", "TestEnforceProcessExpiryAndRecovery", "TestEnforceProcessFutureDeny", "TestEnforceProcessFutureAllow", "TestEnforceProcessStartupRefusals", "TestEnforceProcessDrift", "TestEnforceProcessForeignAndInvalidOnce"}

@@ -2,7 +2,7 @@
 
 > English (default) | [简体中文](README.zh-CN.md)
 
-Linux enforcement Agent for PicketX. This repository contains **static desired preparation/recovery, a production host admission package, and private validation infrastructure**, not a production enforcement Agent.
+Linux enforcement Agent for PicketX. `picketxd enforce` provides standalone static host INPUT/original-destination/graceful TCP/UDP enforcement and recovery. See the [runnable example](examples/enforce/README.md). The full Agent/Controller workflow, strict cleanup, forwarding, L7 and administration remain in progress.
 
 The approved [M0 plan](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.md) defines nftables admission/expiry and scoped conntrack revocation validation before the full Agent/Controller workflow.
 
@@ -62,3 +62,9 @@ All 50 required real-kernel cases pass (the original 43 plus seven ownership cas
 This is a package engine increment. `prepare` remains nonfiltering; a production enforcement command, desired publication reload loop, strict cleanup, L7 and management are subsequent work. It depends on an explicitly reserved mark range, trusted privileged writer exclusivity, a correct system clock and filesystem durability. See the [design](docs/superpowers/specs/2026-10-16-host-admission-design.md) and [plan](docs/superpowers/plans/2026-10-16-host-admission.md).
 
 Application requires `hostpolicy.CompileInput` so the journal can preserve and revalidate complete replacement provenance, including revoked/dormant members and unbound entries. The baseline survives withdrawal and reboot; rotating a mark alone never authorizes retained Grant IDs on a retargeted endpoint.
+
+## M2C5 standalone static enforcement
+
+`picketxd enforce` connects accepted static publications to the recoverable host engine. It requires an explicit policy path, private absolute state directory, provider/Agent identity, destination bounds and operator-reserved mark range. Atomic valid reloads apply complete replacements; invalid reloads retain accepted state and report errors. JSON distinguishes accepted desired state, actual application receipt and their generation/hash association. SIGTERM and SIGKILL leave filtering installed; kernel absolute-time rules continue without a process. Restart requires matching identity and complete live readback. `prepare` remains nonfiltering.
+
+Use the [English example](examples/enforce/README.md) or [Chinese example](examples/enforce/README.zh-CN.md), and consult the [acceptance record](docs/validation/M2C5.md), [design](docs/superpowers/specs/2026-10-16-static-enforcement-design.md) and [plan](docs/superpowers/plans/2026-10-16-static-enforcement.md). This command is the explicit host-local/graceful slice; it depends on the recorded kernel environment, trusted privileged-writer exclusivity, correct clock, filesystem durability and a reserved mark range. It does not provide strict connection teardown, Controller synchronization, service packaging, container/FORWARD, L7 or management.

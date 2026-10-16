@@ -182,6 +182,17 @@ func (s *Store) Current() *configuration.Candidate {
 func (s *Store) Status(at time.Time) (Status, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.statusLocked(at)
+}
+
+// Snapshot associates one immutable Candidate with its generation/hash under the same lock.
+func (s *Store) Snapshot(at time.Time) (Status, *configuration.Candidate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st, e := s.statusLocked(at)
+	return st, s.current, e
+}
+func (s *Store) statusLocked(at time.Time) (Status, error) {
 	st := Status{State: "unprepared", ProviderID: s.cfg.ProviderID, AgentRef: s.cfg.AgentRef, At: at.Round(0).UTC(), Generation: s.record.Generation, PolicyHash: s.record.PolicyHash, AcceptedAt: s.record.AcceptedAt, LastAttemptAt: s.lastAttempt, LastError: s.lastError, Restored: s.restored, SameBoot: s.sameBoot, CacheFault: s.faulted}
 	if at.IsZero() {
 		return st, fmt.Errorf("status requires explicit time")

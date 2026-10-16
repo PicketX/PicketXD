@@ -2,7 +2,7 @@
 
 > [English (default)](README.md) | 简体中文
 
-PicketX 的 Linux 执行 Agent。当前仓库包含**静态期望状态准备/恢复流程、生产主机准入包和私有验证基础设施**，尚不是生产执行 Agent。
+PicketX 的 Linux 执行 Agent。`picketxd enforce` 提供独立静态 host INPUT/original-destination/graceful 双栈 TCP/UDP 执行与恢复，参见[可运行示例](examples/enforce/README.zh-CN.md)。完整 Agent/Controller 工作流、strict 清理、转发、L7 和管理端仍在推进。
 
 已评审的 [M0 计划](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.zh-CN.md)要求先验证 nftables 准入/过期和 conntrack 定向撤销，再推进完整 Agent/Controller 流程。
 
@@ -62,3 +62,9 @@ hostpolicy.MarkTargets 和 [markstate](internal/markstate) 提取物理目标身
 本批是包引擎增量。`prepare` 仍不修改过滤；生产执行命令、期望发布重载循环、strict 清理、L7 和管理接口随后接入。依赖显式 mark 预留范围、受信任的特权写入独占、正确系统时钟及文件系统持久性。见[设计](docs/superpowers/specs/2026-10-16-host-admission-design.zh-CN.md)和[计划](docs/superpowers/plans/2026-10-16-host-admission.zh-CN.md)。
 
 应用必须使用 `hostpolicy.CompileInput`，以便日志保留并重验完整替换来源，覆盖撤销/休眠成员及未绑定入口。基线跨撤销和重启保留；仅旋转 mark 不会授权保留 Grant ID 的端点迁移。
+
+## M2C5 独立静态执行
+
+`picketxd enforce` 将已接受静态发布接入可恢复主机引擎。必须明确指定策略路径、私有绝对状态目录、provider/Agent 身份、目标范围及操作者预留的 mark 区间。有效原子重载应用完整替换；无效重载保留已接受状态并报告错误。JSON 分离期望状态、实际应用凭据及其代数/hash 对应关系。SIGTERM、SIGKILL 均保留过滤；绝对时间规则无需进程继续执行。重启要求身份一致并完整回读现场。`prepare` 仍不修改过滤。
+
+参见[中文示例](examples/enforce/README.zh-CN.md)、[英文示例](examples/enforce/README.md)、[验收记录](docs/validation/M2C5.zh-CN.md)、[设计](docs/superpowers/specs/2026-10-16-static-enforcement-design.zh-CN.md)与[计划](docs/superpowers/plans/2026-10-16-static-enforcement.zh-CN.md)。命令仅覆盖明确的 host-local/graceful 范围，依赖已记录内核环境、可信特权写入独占、正确时钟、文件系统持久性及预留 mark 区间。strict 断连、Controller 同步、服务封装、容器/FORWARD、L7 和管理接口随后实现。

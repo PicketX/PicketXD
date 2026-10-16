@@ -1,0 +1,42 @@
+apiVersion: picketx.io/v1alpha1
+kind: Resource
+metadata: {name: demo, uid: resource-demo-v1}
+spec:
+  endpoints:
+    - name: web
+      network: {protocol: TCP, port: 18443}
+    - name: dns
+      network: {protocol: UDP, port: 18444}
+---
+apiVersion: picketx.io/v1alpha1
+kind: Grant
+metadata: {name: loopback4, uid: grant-loopback4-v1}
+spec:
+  subject: {type: source, cidr: 127.0.0.0/8}
+  scopes:
+    - resourceRef: {name: demo, uid: resource-demo-v1}
+  validity: {mode: permanent}
+---
+apiVersion: picketx.io/v1alpha1
+kind: Grant
+metadata: {name: loopback6, uid: grant-loopback6-v1}
+spec:
+  subject: {type: source, cidr: '::1/128'}
+  scopes:
+    - resourceRef: {name: demo, uid: resource-demo-v1}
+  validity: {mode: permanent}
+---
+apiVersion: picketx.io/v1alpha1
+kind: EnforcementBinding
+metadata: {name: demo-host, uid: binding-demo-v1}
+spec:
+  resources:
+    - resourceRef: {name: demo, uid: resource-demo-v1}
+  agents:
+    - agentRef: {name: node}
+  enforcement:
+    profileRef: host
+    class: host-local
+    stage: original-destination
+    allowedDestinations: [127.0.0.1, '::1']
+    handling: graceful

@@ -17,7 +17,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if e := agentcli.New(os.Stdout, logger).ExecuteContext(ctx); e != nil && !errors.Is(e, context.Canceled) {
-		logger.Error("preparation stopped", "error", e)
+		logger.Error("picketxd stopped", "error", e)
 		os.Exit(1)
 	}
 }
