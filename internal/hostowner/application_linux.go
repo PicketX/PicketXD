@@ -23,11 +23,12 @@ type applicationRecord struct {
 	Pending   *hostrules.Image   `json:"pending,omitempty"`
 }
 type ApplicationStatus struct {
-	Phase                string    `json:"phase"`
-	Attempt              uint64    `json:"attempt"`
-	ImageDigest          string    `json:"imageDigest,omitempty"`
-	EnforcementConfirmed bool      `json:"enforcementConfirmed"`
-	ObservedAt           time.Time `json:"observedAt"`
+	Handling             networkplan.HandlingMode `json:"handling,omitempty"`
+	Phase                string                   `json:"phase"`
+	Attempt              uint64                   `json:"attempt"`
+	ImageDigest          string                   `json:"imageDigest,omitempty"`
+	EnforcementConfirmed bool                     `json:"enforcementConfirmed"`
+	ObservedAt           time.Time                `json:"observedAt"`
 }
 type imageKernel interface {
 	ConfigureImages(string, []hostrules.Image)
@@ -65,7 +66,7 @@ func validateApplication(r record) error {
 		if im == nil {
 			continue
 		}
-		if e := im.Validate(); e != nil {
+		if e := im.ValidateMarks(*r.Marks); e != nil {
 			return e
 		}
 		if im.AuthorityID != r.ProviderID || im.Context.AgentRef != r.AgentRef {
@@ -149,6 +150,11 @@ func recoverApplication(r *record, live observation, newBoot bool, save func(str
 func (s *Session) applicationStatus() ApplicationStatus {
 	st := ApplicationStatus{Phase: "none", ObservedAt: s.observedAt}
 	if s.record.Application != nil {
+		if im := s.record.Application.Confirmed; im != nil {
+			st.Handling = im.Context.Handling
+		} else if im := s.record.Application.Pending; im != nil {
+			st.Handling = im.Context.Handling
+		}
 		st.Attempt = s.record.Application.Attempt
 		st.ImageDigest = confirmedDigest(s.record)
 		if st.ImageDigest != "" {

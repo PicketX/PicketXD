@@ -14,16 +14,19 @@ import (
 func enforceCommand(logger *slog.Logger) *cobra.Command {
 	var c hostagent.Config
 	var destinations []string
+	var handling string
 	cmd := &cobra.Command{Use: "enforce", Short: "Apply and recover static host INPUT policy in this network namespace", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		bounds, e := networkplan.ParseDestinations(destinations)
 		if e != nil {
 			return fmt.Errorf("destination bounds: %w", e)
 		}
 		c.Destinations = bounds
+		c.Handling = networkplan.HandlingMode(handling)
 		encoder := json.NewEncoder(cmd.OutOrStdout())
 		return hostagent.Run(cmd.Context(), c, hostagent.Dependencies{Logger: logger, Emit: func(st hostagent.Status) error { return encoder.Encode(st) }})
 	}}
 	f := cmd.Flags()
+	f.StringVar(&handling, "handling", "graceful", "Explicit host handling: graceful or strict; mode migration requires compatible deployment")
 	f.StringVar(&c.PolicyPath, "policy", "", "Complete atomic YAML publication")
 	f.StringVar(&c.StateDir, "state-dir", "", "Absolute private owner/desired state directory")
 	f.StringVar(&c.ProviderID, "provider", "", "Stable static authority identity")

@@ -80,7 +80,7 @@ func newPlan(history []hostrules.Image, current hostrules.Image, marks markstate
 	total := 0
 	seen := map[string]bool{}
 	for i, im := range append([]hostrules.Image{current}, history...) {
-		if e := im.Validate(); e != nil {
+		if e := im.ValidateMarks(marks); e != nil {
 			return nil, e
 		}
 		if im.AuthorityID != current.AuthorityID || !reflect.DeepEqual(im.Context, current.Context) {

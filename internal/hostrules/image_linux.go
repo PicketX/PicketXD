@@ -34,6 +34,7 @@ type Image struct {
 	Context     networkplan.ExecutionContext
 	Targets     []Target
 	Input       networkplan.Input
+	KnownMarks  []uint32 `json:"knownMarks,omitempty"`
 }
 
 func Build(p *hostpolicy.Policy, marks markstate.State) (Image, error) {
@@ -50,7 +51,14 @@ func Build(p *hostpolicy.Policy, marks markstate.State) (Image, error) {
 	if e != nil {
 		return Image{}, e
 	}
-	if e = out.Validate(); e != nil {
+	if out.Context.Handling == networkplan.Strict {
+		for _, a := range marks.Entries {
+			if a.Target.Key.AgentRef == out.Context.AgentRef && a.Target.Key.ContextID == out.Context.ID {
+				out.KnownMarks = append(out.KnownMarks, a.Mark)
+			}
+		}
+	}
+	if e = out.ValidateMarks(marks); e != nil {
 		return Image{}, e
 	}
 	return out, nil
@@ -73,6 +81,9 @@ func materialize(p *hostpolicy.Policy, assignments map[markstate.Target]uint32) 
 		return Image{}, e
 	}
 	out := Image{Version: 1, AuthorityID: snapshot.AuthorityID, Context: snapshot.Context, Input: input}
+	if out.Context.Handling == networkplan.Strict {
+		out.Version = 2
+	}
 	for i, item := range inv {
 		identity := desired[i]
 		assigned := assignments[identity]
@@ -129,7 +140,7 @@ func timestamp(t time.Time) bool {
 	return t.IsZero() || t.Unix() > 0 && t.Unix() <= 9223372036 && t.Equal(time.Unix(0, t.UnixNano()))
 }
 func (im Image) Validate() error {
-	if im.Version != 1 || !bounded(im.AuthorityID) {
+	if (im.Version != 1 && im.Version != 2) || !bounded(im.AuthorityID) || (im.Context.Handling == networkplan.Strict) != (im.Version == 2) {
 		return fmt.Errorf("invalid rule image version/authority")
 	}
 	if _, e := hostpolicy.NewScope(im.AuthorityID, im.Context); e != nil {
@@ -138,7 +149,20 @@ func (im Image) Validate() error {
 	if len(im.Targets) > markstate.MaxMarks {
 		return fmt.Errorf("too many rule targets")
 	}
+	if len(im.KnownMarks) > markstate.MaxMarks || im.Version == 1 && len(im.KnownMarks) != 0 {
+		return fmt.Errorf("invalid/bounded strict known marks")
+	}
+	var prior uint32
+	for _, mark := range im.KnownMarks {
+		if mark == 0 || mark <= prior {
+			return fmt.Errorf("invalid/duplicate strict known mark")
+		}
+		prior = mark
+	}
 	count := 2
+	if im.Version == 2 && len(im.Targets) > 0 {
+		count += len(im.KnownMarks) + 1
+	}
 	keys := map[networkplan.TargetKey]bool{}
 	marks := map[uint32]bool{}
 	var endpoints []hostpolicy.Endpoint
@@ -153,6 +177,17 @@ func (im Image) Validate() error {
 		keys[k] = true
 		marks[t.Mark] = true
 		count += 2 + 2*len(t.Protected) + len(t.Allow) + len(t.Deny)
+		if im.Version == 2 {
+			if !slices.Contains(im.KnownMarks, t.Mark) {
+				return fmt.Errorf("current strict target missing from known marks")
+			}
+			count-- // no unconditional established bypass
+			for _, m := range t.Allow {
+				if m.Endpoint.Protocol == 6 {
+					count++
+				}
+			}
+		}
 		if count > MaxRules {
 			return fmt.Errorf("rule image exceeds %d rules", MaxRules)
 		}
@@ -203,6 +238,9 @@ func (im Image) Validate() error {
 	expected, e := materialize(p, assignments)
 	if e != nil {
 		return e
+	}
+	if im.Version == 2 {
+		expected.KnownMarks = slices.Clone(im.KnownMarks)
 	}
 	if !reflect.DeepEqual(im, expected) {
 		return fmt.Errorf("rule image differs from complete compiled input")

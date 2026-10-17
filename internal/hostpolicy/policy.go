@@ -60,8 +60,8 @@ func NewScope(authorityID string, context networkplan.ExecutionContext) (*Scope,
 			return nil, fmt.Errorf("host scope requires bounded nonempty UTF-8 identities without NUL")
 		}
 	}
-	if context.Class != networkplan.HostLocal || context.Stage != networkplan.OriginalDestination || context.Handling != networkplan.Graceful {
-		return nil, fmt.Errorf("host compiler supports only explicit host-local/original-destination/graceful context")
+	if context.Class != networkplan.HostLocal || context.Stage != networkplan.OriginalDestination || (context.Handling != networkplan.Graceful && context.Handling != networkplan.Strict) {
+		return nil, fmt.Errorf("host compiler supports only explicit host-local/original-destination with explicit graceful or strict context")
 	}
 	c, err := networkplan.NormalizeExecutionContext(context)
 	if err != nil {
