@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Loopback demonstration. Review every ExecStart argument before deployment.
+[Unit]
+Description=PicketXD static host policy enforcement
+Documentation=https://github.com/PicketX/PicketXD/tree/main/deploy/systemd
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+# exec confirms execve, not policy readiness. Read the Agent JSON status.
+Type=exec
+User=root
+Group=root
+ExecStart=/usr/local/libexec/picketxd enforce \
+    --policy /etc/picketx/policy.yaml \
+    --state-dir /var/lib/picketx \
+    --provider static-demo --agent node --profile host \
+    --destination 127.0.0.1 --destination ::1 \
+    --mark-first 0x504a0000 --mark-last 0x504a003f \
+    --handling graceful --poll 5s
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+UMask=0077
+StateDirectory=picketx
+StateDirectoryMode=0700
+RuntimeDirectory=picketx
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=picketxd
+# No stop-time rule deletion: filtering and durable state survive stops.
+
+[Install]
+WantedBy=multi-user.target
