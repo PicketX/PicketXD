@@ -31,4 +31,4 @@ spec: {empty: true}
 
 SIGINT/SIGTERM 释放资源和锁而保留过滤；SIGKILL 同样保留过滤。重启严格完整回读后确认，不延长有效期。once 应用/核验并输出一份状态后退出，规则保留；若当前文件坏但缓存有效，once 可确认缓存，仍非零退出并报告 desired.lastError。prepare 保持不执行过滤。
 
-当前仅静态 host-local/original-destination/graceful TCP/UDP。strict 撤销、控制器、NFQUEUE/TPROXY、L7、转发/容器、服务打包及管理界面后续接入。内核兼容性只以真实验收记录为准。
+本例使用静态 host-local/original-destination/graceful TCP/UDP。[strict 示例](../strict/README.zh-CN.md)说明严格模式，[systemd 部署](../../deploy/systemd/README.zh-CN.md)提供服务封装。控制器、NFQUEUE/TPROXY、L7、转发/容器及管理界面后续接入。内核兼容性只以真实验收记录为准。

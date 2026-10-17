@@ -20,6 +20,8 @@ jobs:
       - run: go build ./...
       - name: Static preparation binary and restart smoke
         run: scripts/test-prepare.sh
+      - name: Offline systemd unit verification
+        run: scripts/verify-systemd.sh
   kernel:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -33,6 +35,8 @@ jobs:
         env:
           PICKETX_KERNEL_TESTS: '1'
         run: scripts/test-kernel.sh
+      - name: Real isolated systemd service lifecycle
+        run: sudo --non-interactive env PICKETX_SYSTEMD_TESTS=1 python3 scripts/test-systemd.py --binary "$PWD/artifacts/picketxd" --artifacts "$PWD/artifacts"
       - name: Print native evidence metadata and report
         if: always()
         run: |

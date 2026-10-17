@@ -2,7 +2,7 @@
 
 > English (default) | [简体中文](README.zh-CN.md)
 
-Linux execution Agent for PicketX. `picketxd enforce` provides standalone static host INPUT/original-destination dual-stack TCP/UDP enforcement and recovery, with default graceful handling and explicit strict mode. See the [graceful example](examples/enforce/README.md) and [strict example](examples/strict/README.md). The full Agent/Controller workflow, container forwarding, L7 and management remain in progress.
+Linux execution Agent for PicketX. `picketxd enforce` provides standalone static host INPUT/original-destination dual-stack TCP/UDP enforcement and recovery, with default graceful handling and explicit strict mode. See the [graceful example](examples/enforce/README.md), [strict example](examples/strict/README.md) and [systemd deployment](deploy/systemd/README.md). The full Agent/Controller workflow, container forwarding, L7 and management remain in progress.
 
 The approved [M0 plan](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.md) defines nftables admission/expiry and scoped conntrack revocation validation before the full Agent/Controller workflow.
 
@@ -97,3 +97,7 @@ All87 mandatory native gates and108 recorded top-level cases pass with zero fail
 On strict restart or a changed desired generation, the driver first cleans withdrawn owned flows against the retained actual image, then applies the candidate and confirms its current cleanup. This prevents a fresh Grant from preserving already-expired old TCP. Cleanup failure or remaining flows stop replacement; continuous independent permissions are preserved. JSON `strict.previousCleanup` identifies only the previous image observation; current desired confirmation remains separate. Normal polls retain verify/current-cleanup behavior. Startup/replacement costs an extra full dual-family cleanup pass.
 
 See [M2C9 acceptance](docs/validation/M2C9.md). This is ordering recovery for flows already withdrawn at observation, not a persisted revocation barrier across every missed permission gap. Journal/image schemas, dependencies and graceful behavior remain unchanged.
+
+## M2C10 systemd deployment
+
+The existing static command has a [service template and bilingual installation/upgrade guide](deploy/systemd/README.md), retaining private state and filtering on stop. Active is not policy readiness; boot protection and full M2 remain incomplete. See the [acceptance record](docs/validation/M2C10.md).

@@ -97,3 +97,7 @@ strict 将保护本地地址/端口专用于服务，主动出站客户端须使
 strict 重启或 desired 代数变化时，driver 先按真实保留映像清理撤回自有连接，再应用候选并确认当前清理，防止新 Grant 保留已到期旧 TCP。清理失败或残留阻止替换，持续独立授权保留。JSON `strict.previousCleanup` 只标识旧映像观察，当前 desired 确认仍独立。普通轮询仍为验证/当前清理；启动或替换增加一次完整双族清理成本。
 
 详见 [M2C9 验收](docs/validation/M2C9.zh-CN.md)。此恢复顺序覆盖观察时已撤回的连接，不是跨所有遗漏权限间隔的持久撤销屏障。日志/映像 schema、依赖和 graceful 行为不变。
+
+## M2C10 systemd 部署
+
+现有静态执行命令提供[服务模板与双语安装/升级说明](deploy/systemd/README.zh-CN.md)，保留私有状态和停止后的过滤；active 不等于策略就绪，开机保护与完整 M2 仍未完成。参见[验收记录](docs/validation/M2C10.zh-CN.md)。
