@@ -8,8 +8,9 @@ StartLimitIntervalSec=60
 StartLimitBurst=3
 
 [Service]
-# exec confirms execve, not policy readiness. Read the Agent JSON status.
-Type=exec
+# Startup completes only after a clean current-policy confirmation.
+Type=notify
+NotifyAccess=main
 User=root
 Group=root
 ExecStart=/usr/local/libexec/picketxd enforce \
@@ -18,10 +19,11 @@ ExecStart=/usr/local/libexec/picketxd enforce \
     --provider static-demo --agent node --profile host \
     --destination 127.0.0.1 --destination ::1 \
     --mark-first 0x504a0000 --mark-last 0x504a003f \
-    --handling graceful --poll 5s
+    --handling graceful --poll 5s --systemd-notify
 Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=30s
+TimeoutStartSec=60s
 KillSignal=SIGTERM
 UMask=0077
 StateDirectory=picketx

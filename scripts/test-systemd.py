@@ -78,6 +78,9 @@ def acceptance(binary, artifacts):
     token = work.name
     unit = token + ".service"
     unit_path = Path("/run/systemd/system") / unit
+    dependent = token + "-dependent.service"
+    dependent_path = Path("/run/systemd/system") / dependent
+    dependent_marker = work / "dependent-ready"
     state = Path("/var/lib") / token
     peer = None
     namespace_created = False
@@ -88,6 +91,15 @@ def acceptance(binary, artifacts):
 
     def property_value(name):
         return systemctl("show", unit, "--property=" + name, "--value").stdout.strip()
+
+    def wait_property(name, predicate):
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            value = property_value(name)
+            if predicate(value):
+                return value
+            time.sleep(0.1)
+        raise AssertionError("Unexpected systemd property " + name + "=" + value)
 
     def statuses(pid):
         journal = command("journalctl", "--unit=" + unit, "--no-pager", "--output=json").stdout
@@ -150,6 +162,9 @@ def acceptance(binary, artifacts):
         assert peer.stdout.readline().strip() == "ready", "Echo peer setup failed"
         packets(True)  # Unfiltered baseline and both-family server readiness.
         systemctl("start", unit)
+        assert property_value("Type") == "notify"
+        assert property_value("ActiveState") == "active"
+        assert property_value("StatusText").startswith("Confirmed host policy generation ")
         pid, first = wait_status(lambda st: st["enforcementConfirmed"] and not st["desired"].get("lastError"))
         proc = dict(line.split(":", 1) for line in Path(f"/proc/{pid}/status").read_text().splitlines() if ":" in line)
         assert int(proc["CapEff"], 16) == 1 << 12, proc["CapEff"]  # CAP_NET_ADMIN only.
@@ -174,6 +189,8 @@ def acceptance(binary, artifacts):
 
         publish("invalid publication\n")
         _, rejected = wait_status(lambda st: bool(st["desired"].get("lastError")))
+        wait_property("StatusText", lambda value: value == "Publication rejected; accepted policy retained")
+        assert property_value("ActiveState") == "active"  # READY is not an ongoing health signal.
         assert rejected["desired"]["generation"] == first["desired"]["generation"]
         assert rejected["appliedPolicyHash"] == first["appliedPolicyHash"]
         packets(True)
@@ -181,7 +198,8 @@ def acceptance(binary, artifacts):
 
         # Keep Resource/Binding, remove both Grants. Fresh connections must be denied.
         documents = policy.split("---\n")
-        publish("---\n".join(d for d in documents if "kind: Grant\n" not in d))
+        deny_policy = "---\n".join(d for d in documents if "kind: Grant\n" not in d)
+        publish(deny_policy)
         _, denied = wait_status(lambda st: st["enforcementConfirmed"] and st["desired"]["generation"] > first["desired"]["generation"])
         packets(False)
         evidence["scenarios"].append("atomic-grant-removal-denies-new-dual-stack-flows")
@@ -199,11 +217,63 @@ def acceptance(binary, artifacts):
         assert before == {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in state.glob("*.json")}
         packets(False)
         evidence["scenarios"].append("manual-restart-retains-deny-and-journal-bytes")
+
+        # A confirmed cached image with an invalid current publication must not
+        # release startup ordering. The dependent runs only after a clean reload.
+        # Reset while active: systemd can unload an unreferenced stopped unit,
+        # and ResetFailedUnit intentionally does not load it again.
+        systemctl("reset-failed", unit)  # Reset earlier test starts, not shipped rate limits.
+        systemctl("stop", unit)
+        publish("invalid startup publication\n")
+        dependent_path.write_text("[Unit]\nRequires=" + unit + "\nAfter=" + unit +
+                                  "\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/usr/bin/touch " +
+                                  str(dependent_marker) + "\n")
+        systemctl("daemon-reload")
+        systemctl("start", "--no-block", dependent)
+        _, waiting = wait_status(lambda st: bool(st["desired"].get("lastError")))
+        wait_property("StatusText", lambda value: value == "Publication rejected; accepted policy retained")
+        assert waiting["enforcementConfirmed"] and waiting["desired"]["restored"]
+        assert waiting["desired"]["generation"] == final["desired"]["generation"]
+        for _ in range(3):
+            assert property_value("ActiveState") == "activating"
+            assert not dependent_marker.exists()
+            time.sleep(0.2)
+        packets(False)
+        evidence["scenarios"].append("invalid-current-publication-blocks-startup-readiness")
+        publish(deny_policy)
+        systemctl("start", unit)  # Wait for the real READY notification.
+        systemctl("start", dependent)
+        assert property_value("ActiveState") == "active" and dependent_marker.exists()
+        _, clean = wait_status(lambda st: st["enforcementConfirmed"] and not st["desired"].get("lastError"))
+        assert clean["desired"]["generation"] == final["desired"]["generation"]
+        evidence["scenarios"].append("ordered-dependent-starts-only-after-clean-confirmation")
+        evidence["readinessStatus"] = clean
+
+        # Shorten only the test deadline, retaining the shipped sandbox, notify
+        # access and automatic-restart policy. Observe timeout before the 5s retry.
+        systemctl("stop", dependent)
+        systemctl("reset-failed", unit)
+        systemctl("stop", unit)
+        publish("invalid timeout publication\n")
+        unit_path.write_text(service.replace("TimeoutStartSec=60s", "TimeoutStartSec=2s"))
+        systemctl("daemon-reload")
+        systemctl("start", "--no-block", unit)
+        wait_property("Result", lambda value: value == "timeout")
+        assert property_value("ActiveState") != "active"
+        wait_property("SubState", lambda value: value in {"auto-restart", "failed"})
+        wait_property("MainPID", lambda value: value == "0")
+        systemctl("stop", unit)  # Cancel the pending restart after observing timeout.
+        assert before == {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in state.glob("*.json")}
+        packets(False)
+        evidence["scenarios"].append("startup-timeout-retains-filtering-and-state")
+        evidence["startupTimeoutResult"] = "timeout"
+        evidence["readinessType"] = "notify"
         evidence["status"] = "pass"
         evidence["firstStatus"] = first
         evidence["finalStatus"] = final
     finally:
         output.append(command("journalctl", "--unit=" + unit, "--no-pager", "--output=short-precise", check=False).stdout)
+        systemctl("stop", dependent, check=False)
         systemctl("stop", unit, check=False)
         if peer is not None:
             peer.terminate()
@@ -216,8 +286,10 @@ def acceptance(binary, artifacts):
         if namespace_created:
             command("ip", "netns", "delete", token)
         unit_path.unlink(missing_ok=True)
+        dependent_path.unlink(missing_ok=True)
         systemctl("daemon-reload", check=False)
         systemctl("reset-failed", unit, check=False)
+        systemctl("reset-failed", dependent, check=False)
         shutil.rmtree(state, ignore_errors=True)
         shutil.rmtree(work)
         (artifacts / "systemd-journal.txt").write_text("\n".join(output))
