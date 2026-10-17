@@ -282,3 +282,36 @@ func strictPhysicalEchoDenied(t *testing.T, s *Session, c net.Conn) {
 	}
 	c.SetDeadline(time.Time{})
 }
+
+// Conntrack can pick up a connection from the server side after an exact delete.
+// Exercise that original/reply orientation explicitly, without flushing the table.
+func TestOwnerKernelStrictReverseReconstruction(t *testing.T) {
+	isolated(t, func() {
+		cleanupServers(t)
+		c := kernelConfig(t)
+		s := openKernel(t, c)
+		defer s.Close()
+		applyAdmission(t, s, strictAdmission(t, 1))
+		clients := historyClients(t, 1)
+		b := s.backend.(*nftKernel)
+		before := cleanupSnapshot(t, b)
+		applyAdmission(t, s, strictAdmission(t, 3))
+		r, e := s.RevokeRecorded(context.Background())
+		if e != nil || r.Selected != 4 || r.Deleted != 4 || r.Remaining != 0 {
+			t.Fatal(r, e)
+		}
+		for _, f := range before {
+			if f.Original.Protocol != 17 || f.Original.DestinationPort != 18444 {
+				continue
+			}
+			f.Original, f.Reply = f.Reply, f.Original
+			f.Mark = 0
+			seedCleanupFlow(t, b, f)
+		}
+		for _, client := range clients {
+			if client.LocalAddr().Network() == "udp" {
+				strictPhysicalEchoDenied(t, s, client)
+			}
+		}
+	})
+}
