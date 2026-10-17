@@ -11,11 +11,14 @@ import (
 	"github.com/PicketX/PicketX/pkg/networkplan"
 	"github.com/PicketX/PicketXD/internal/hostpolicy"
 	"github.com/PicketX/PicketXD/internal/hostrevoke"
+	"io"
+	"net"
 	"net/netip"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func strictAdmission(t *testing.T, phase int, edit ...func(*networkplan.Input)) *hostpolicy.Policy {
@@ -151,7 +154,7 @@ func TestOwnerKernelStrictPhysicalReplacement(t *testing.T) {
 			t.Fatal(r, e)
 		}
 		for _, client := range clients {
-			cleanupEcho(t, client, false)
+			strictPhysicalEchoDenied(t, s, client)
 		}
 		t.Log("strict physical replacement retained four authorized flows through two retired and two current known marks; later withdrawal selected/deleted4 remaining0")
 	})
@@ -257,4 +260,19 @@ func TestStrictNativeInputs(t *testing.T) {
 	if _, err := s.ApplyPolicy(context.Background(), strictAdmission(t, 3, change), markRange()); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Preserve the failing packet's actual tuples/mark for native diagnosis.
+func strictPhysicalEchoDenied(t *testing.T, s *Session, c net.Conn) {
+	t.Helper()
+	c.SetDeadline(time.Now().Add(250 * time.Millisecond))
+	_, e := c.Write([]byte("q"))
+	var b [1]byte
+	if e == nil {
+		_, e = io.ReadFull(c, b[:])
+	}
+	if e == nil {
+		t.Fatalf("strict post-delete packet passed protocol=%s local=%s remote=%s byte=%q current=%+v native=%+v", c.LocalAddr().Network(), c.LocalAddr(), c.RemoteAddr(), b, s.record.Application.Confirmed, cleanupSnapshot(t, s.backend.(*nftKernel)))
+	}
+	c.SetDeadline(time.Time{})
 }

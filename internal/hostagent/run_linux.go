@@ -170,6 +170,9 @@ func Run(ctx context.Context, c Config, d Dependencies) (err error) {
 		if e != nil {
 			return errors.Join(applyErr, e)
 		}
+		if strict != nil && applyErr == nil && !strict.ValidUntil.IsZero() && !current.At.Before(strict.ValidUntil) {
+			applyErr = fmt.Errorf("membership boundary crossed before final strict status; reopen and retry")
+		}
 		report := Status{At: current.At, Desired: desired(current), Ownership: owner.Status(), Application: owner.ApplicationStatus(), History: owner.HistoryStatus(), AppliedGeneration: generation, AppliedPolicyHash: hash}
 		report.EnforcementConfirmed = applyErr == nil && !current.CacheFault && current.Prepared && generation == current.Generation && hash == current.PolicyHash && report.Application.EnforcementConfirmed && report.Ownership.OwnershipConfirmed
 		if strict != nil {

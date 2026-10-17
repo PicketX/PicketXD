@@ -179,3 +179,24 @@ func TestStrictVerifyFailureSkipsCleanup(t *testing.T) {
 		t.Fatal(o.calls, st)
 	}
 }
+
+func TestStrictFinalSnapshotBoundaryCannotConfirm(t *testing.T) {
+	c, d, o, reports := strictRunSetup(t)
+	now := time.Date(2026, 10, 15, 9, 59, 59, 0, time.UTC)
+	cleaned, reads := false, 0
+	o.onCleanup = func() { cleaned = true }
+	d.Now = func() time.Time {
+		if cleaned {
+			reads++
+			if reads > 1 {
+				return now.Add(time.Second)
+			}
+		}
+		return now
+	}
+	e := Run(context.Background(), c, d)
+	st := (*reports)[len(*reports)-1]
+	if e == nil || st.EnforcementConfirmed || st.Strict.CleanupConfirmed {
+		t.Fatal("final snapshot crossed membership boundary but retained strict confirmation", e, st)
+	}
+}
