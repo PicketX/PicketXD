@@ -13,15 +13,16 @@ import (
 
 func TestRunExpiresCurrentStateDespiteInvalidReload(t *testing.T) {
 	c := testConfig(t)
-	c.Now = time.Now
+	now := time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)
+	c.Now = func() time.Time { return now }
 	s := open(t, c)
-	deadline := time.Now().Add(220 * time.Millisecond).UTC()
+	deadline := now.Add(time.Hour)
 	raw := strings.Replace(string(policy(t)), "2026-10-15T10:00:00Z", deadline.Format(time.RFC3339Nano), 1)
 	path := filepath.Join(t.TempDir(), "policy.yaml")
 	if e := os.WriteFile(path, []byte(raw), 0600); e != nil {
 		t.Fatal(e)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	sawLive, sawExpired := false, false
 	e := s.Run(ctx, path, 20*time.Millisecond, func(st Status) error {
@@ -30,8 +31,9 @@ func TestRunExpiresCurrentStateDespiteInvalidReload(t *testing.T) {
 			if e := os.WriteFile(path, []byte("invalid"), 0600); e != nil {
 				return e
 			}
+			now = deadline
 		}
-		if sawLive && st.LastError != "" && !time.Now().Before(deadline) && len(st.Projection.Allow) == 0 {
+		if sawLive && st.LastError != "" && !now.Before(deadline) && len(st.Projection.Allow) == 0 {
 			sawExpired = true
 			cancel()
 		}

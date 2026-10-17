@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/PicketX/PicketX/pkg/core"
 	"github.com/PicketX/PicketX/pkg/networkplan"
 	"github.com/PicketX/PicketXD/internal/hostpolicy"
@@ -125,6 +126,11 @@ func TestOwnerKernelStrictMembership(t *testing.T) {
 	})
 }
 func TestOwnerKernelStrictPhysicalReplacement(t *testing.T) {
+	for i := 0; i < 5; i++ {
+		t.Run(fmt.Sprint(i), strictPhysicalReplacement)
+	}
+}
+func strictPhysicalReplacement(t *testing.T) {
 	isolated(t, func() {
 		cleanupServers(t)
 		c := kernelConfig(t)
