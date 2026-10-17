@@ -220,8 +220,10 @@ def acceptance(binary, artifacts):
 
         # A confirmed cached image with an invalid current publication must not
         # release startup ordering. The dependent runs only after a clean reload.
+        # Reset while active: systemd can unload an unreferenced stopped unit,
+        # and ResetFailedUnit intentionally does not load it again.
+        systemctl("reset-failed", unit)  # Reset earlier test starts, not shipped rate limits.
         systemctl("stop", unit)
-        systemctl("reset-failed", unit)  # Reset the earlier lifecycle starts, not shipped rate limits.
         publish("invalid startup publication\n")
         dependent_path.write_text("[Unit]\nRequires=" + unit + "\nAfter=" + unit +
                                   "\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/usr/bin/touch " +
@@ -250,8 +252,8 @@ def acceptance(binary, artifacts):
         # Shorten only the test deadline, retaining the shipped sandbox, notify
         # access and automatic-restart policy. Observe timeout before the 5s retry.
         systemctl("stop", dependent)
-        systemctl("stop", unit)
         systemctl("reset-failed", unit)
+        systemctl("stop", unit)
         publish("invalid timeout publication\n")
         unit_path.write_text(service.replace("TimeoutStartSec=60s", "TimeoutStartSec=2s"))
         systemctl("daemon-reload")
