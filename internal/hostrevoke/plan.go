@@ -63,6 +63,10 @@ type Plan struct {
 }
 
 func New(history []hostrules.Image, current hostrules.Image, marks markstate.State) (*Plan, error) {
+	return newPlan(history, current, marks, false)
+}
+
+func newPlan(history []hostrules.Image, current hostrules.Image, marks markstate.State, retiredCurrent bool) (*Plan, error) {
 	if len(history) > MaxHistoryImages {
 		return nil, fmt.Errorf("too many history images")
 	}
@@ -85,7 +89,7 @@ func New(history []hostrules.Image, current hostrules.Image, marks markstate.Sta
 		for _, t := range im.Targets {
 			found := false
 			for _, a := range marks.Entries {
-				if a.Target == t.Identity && a.Mark == t.Mark && (i != 0 || !a.Retired) {
+				if a.Target == t.Identity && a.Mark == t.Mark && (i != 0 || !a.Retired || retiredCurrent) {
 					found = true
 					break
 				}

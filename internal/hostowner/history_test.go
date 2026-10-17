@@ -238,3 +238,86 @@ func TestHistoryCorruptionAndScopeRejectBeforeEffects(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHistoryNarrowTargetWithinTrustedScope(t *testing.T) {
+	s, c, e, _ := historySetup(t)
+	p := historyUnitPolicy(t, "a", "127.0.0.1/32")
+	in, err := p.Input()
+	if err != nil {
+		t.Fatal(err)
+	}
+	trusted := in.Contexts[0]
+	trusted.Destinations = []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::/0")}
+	scope, err := hostpolicy.NewScope("static", trusted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err = hostpolicy.CompileInput(in, scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.ApplyPolicy(context.Background(), p, markRange()); err != nil {
+		t.Fatal("valid narrower physical context rejected", err)
+	}
+	s.Close()
+	r, _, err := readRecord(c.StatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Version = 3
+	r.Application.History = nil
+	if err = writeRecord(c.StatePath, r); err != nil {
+		t.Fatal(err)
+	}
+	s = mustOpen(t, c, e)
+	defer s.Close()
+	if _, err = s.ApplyPolicy(context.Background(), p, markRange()); err != nil {
+		t.Fatal("valid narrower legacy context rejected", err)
+	}
+	if !s.HistoryStatus().Tracked || s.HistoryStatus().Complete {
+		t.Fatal(s.HistoryStatus())
+	}
+}
+func TestHistoryRejectedPhysicalReplacementRetiredCurrentCleanup(t *testing.T) {
+	s, c, e, k := historySetup(t)
+	applyHistoryUnit(t, s, "a", "127.0.0.1/32")
+	f := ownedFlow(*s.record.Application.Confirmed)
+	f.Original.Source = netip.MustParseAddr("127.0.0.1")
+	f.Reply.Destination = f.Original.Source
+	k.flows = []hostrevoke.Flow{f}
+	if _, err := s.ApplyPolicy(context.Background(), admissionPolicy(t, false, false), markRange()); err != nil {
+		t.Fatal(err)
+	}
+	k.applyErr = errors.New("reject physical replacement")
+	if _, err := s.ApplyPolicy(context.Background(), admissionPolicy(t, false, true), markRange()); err == nil {
+		t.Fatal("replacement accepted")
+	}
+	s.Close()
+	k.applyErr = nil
+	s = mustOpen(t, c, e)
+	defer s.Close()
+	if !s.HistoryStatus().Complete {
+		t.Fatal(s.HistoryStatus())
+	}
+	retired := false
+	for _, a := range s.record.Marks.Entries {
+		if a.Mark == f.Mark {
+			retired = a.Retired
+		}
+	}
+	if !retired {
+		t.Fatal("retirement was reclaimed")
+	}
+	if _, err := s.RevokeWithdrawn(context.Background(), nil); err == nil {
+		t.Fatal("image-based constructor retirement guard changed")
+	}
+	before, _ := os.ReadFile(c.StatePath)
+	r, err := s.RevokeRecorded(context.Background())
+	if err != nil || r.Selected != 1 || r.Deleted != 1 || r.Remaining != 0 {
+		t.Fatal("retired confirmed image cannot clean recorded flow", r, err)
+	}
+	after, _ := os.ReadFile(c.StatePath)
+	if !reflect.DeepEqual(before, after) {
+		t.Fatal("cleanup reclaimed ledger or wrote journal")
+	}
+}

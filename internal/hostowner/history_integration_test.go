@@ -26,7 +26,10 @@ import (
 // Each phase keeps logical identities stable while introducing a distinct source.
 func historyPolicy(t *testing.T, phase int) *hostpolicy.Policy {
 	t.Helper()
-	return cleanupPolicy(t, false, func(in *networkplan.Input) {
+	p := cleanupPolicy(t, false, func(in *networkplan.Input) {
+		if phase == 4 {
+			in.Bindings = nil
+		}
 		in.Logical.Grants[0].Source = netip.MustParsePrefix("127.0.0.1/32")
 		in.Logical.Grants[1].Source = netip.MustParsePrefix("::1/128")
 		if phase >= 2 {
@@ -42,6 +45,21 @@ func historyPolicy(t *testing.T, phase int) *hostpolicy.Policy {
 			}
 		}
 	})
+	in, e := p.Input()
+	if e != nil {
+		t.Fatal(e)
+	}
+	trusted := in.Contexts[0]
+	trusted.Destinations = []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::/0")}
+	scope, e := hostpolicy.NewScope("static", trusted)
+	if e != nil {
+		t.Fatal(e)
+	}
+	p, e = hostpolicy.CompileInput(in, scope)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return p
 }
 func historyClients(t *testing.T, phase int) []net.Conn {
 	t.Helper()
@@ -118,9 +136,6 @@ func TestOwnerKernelHistoryPendingRecovery(t *testing.T) {
 		}
 		// Real atomic rejection retained phase-one packet admission.
 		clients := historyClients(t, 1)
-		for _, x := range clients {
-			x.Close()
-		}
 		s.persist = func(r record) error {
 			if r.Application != nil && r.Application.Pending == nil && r.Application.Confirmed != nil {
 				return errors.New("injected confirmed publication failure")
@@ -143,8 +158,22 @@ func TestOwnerKernelHistoryPendingRecovery(t *testing.T) {
 		if !s.HistoryStatus().Complete || s.HistoryStatus().Members != 8 || s.record.Application.Pending != nil {
 			t.Fatal("installed candidate not recovered", s.HistoryStatus())
 		}
-		historyClients(t, 2)
-		t.Log("real atomic rejection retained four members; applied pending transaction recovered eight members only after complete native image confirmation")
+		clients = append(clients, historyClients(t, 2)...)
+		applyAdmission(t, s, historyPolicy(t, 3))
+		s.backend = &rejectedImageKernel{s.backend.(*nftKernel)}
+		if _, e = s.ApplyPolicy(context.Background(), historyPolicy(t, 4), kernelMarkRange()); e == nil {
+			t.Fatal("empty physical replacement accepted")
+		}
+		s.Close()
+		s = openKernel(t, c)
+		defer s.Close()
+		for _, a := range s.record.Marks.Entries {
+			if !a.Retired {
+				t.Fatal("recovery reclaimed retired mark")
+			}
+		}
+		historyCleanupCheck(t, s, c, clients)
+		t.Log("real atomic rejection retained four members; applied pending transaction recovered eight members only after complete native image confirmation; rejected empty replacement kept retirement while exact recorded cleanup remained available")
 	})
 }
 func TestOwnerKernelHistoryLegacyRefusal(t *testing.T) {
