@@ -30,7 +30,19 @@ sudo systemctl status picketxd.service
 sudo journalctl -u picketxd.service -o cat -n 30 --no-pager
 ```
 
-`Type=exec` 仅确认进程执行。**active 不等于策略就绪。** 检查最新 Agent JSON：enforcementConfirmed 为 true，desired/applied generation 与 hash 对应，无 desired.lastError/lastApplyError，strict 还需当前清理确认。持续核对时间与后续错误，旧日志不证明当前健康。拒绝无效发布、保留已接受策略时进程仍可 active。目前没有 sd_notify 就绪协议、健康端点或受保护应用的就绪排序。
+`Type=notify` 配合显式 `--systemd-notify`，只在 Agent 输出首次无错误的当前策略确认、且 systemd 收到 READY=1 后完成启动。驱动确认包含当前 desired/applied generation/hash、所有权、完整实际应用和启用时的 strict 当前清理。即便有效缓存镜像仍确认，当前发布被拒绝也不放行启动。最多等待 60 秒，然后超时并按失败重试策略恢复；速率限制只约束快速失败，间隔足够大的超时可能持续重试。
+
+**就绪是一次启动事件，不是持续健康保证。** 启动后发布被拒绝仍可 active 并保留旧策略，STATUS 会解释状态。持续检查最新 JSON 时间、enforcementConfirmed、desired/applied generation/hash、desired.lastError/lastApplyError 及 strict 当前清理；旧成功日志或 active 本身不证明当前健康。没有 watchdog 或健康端点。
+
+要让受保护应用等待策略就绪，在该应用服务中添加经运维审查的 drop-in，再 daemon-reload：
+
+```ini
+[Unit]
+Requires=picketxd.service
+After=picketxd.service
+```
+
+两项都需要：After 排序，Requires 将 Agent 纳入启动事务；Agent 启动失败会阻止该有序应用启动。每个相关应用都须配置并检查结果；这不能阻止手动/外部启动，也不会在后续发布被拒绝时自动停止应用。安装 drop-in 不会重启已运行应用。
 
 After=network.target 不证明地址、时钟同步或实际应用。新命名空间/重启到确认安装之间有窗口，部署流程须在真实确认前保持受保护应用不可用。留存内核规则不会自行跨系统重启保留。
 
@@ -57,11 +69,11 @@ sudo systemctl restart picketxd.service
 sudo systemctl stop picketxd.service
 ```
 
-重启核对留存镜像并打开相同状态，不延长截止时间。停止发送 SIGTERM、**保留过滤**，不撤回保护或清除旧 graceful 连接。撤回须运行时发布显式空 Configuration，确认应用后再停止，参见执行示例；不能全局清空防火墙/连接状态。
+重启核对留存镜像、打开相同状态并等待新的干净就绪，不延长截止时间。停止发送 SIGTERM、**保留过滤**，不撤回保护或清除旧 graceful 连接。撤回须运行时发布显式空 Configuration，确认应用后再停止，参见执行示例；不能全局清空防火墙/连接状态。
 
 异常失败（含 SIGKILL）5 秒后重试，60 秒内最多启动 3 次。持续失败可使服务 failed、旧策略仍留存。修复日志指出的问题后 reset-failed 再 start。自动重启不提供有界撤权保证。strict 前置清理失败也阻止限制性候选，旧权限（可能永久）保留到成功重试；跨未观察间隔的持久撤销仍未完成。
 
-升级先构建验证新二进制，安装至同级临时路径、原子重命名覆盖 `/usr/local/libexec/picketxd`，重启并检查新状态。保留策略、身份、目标、mark 与状态。模板编辑经审查后 daemon-reload。保留兼容旧二进制，旧版本可能拒绝 journal v4；只能回退到理解当前日志/镜像的程序。不能以旧日志覆盖新规则进行回退。
+升级先构建验证新二进制，安装至同级临时路径、原子重命名覆盖 `/usr/local/libexec/picketxd`，重启并检查新状态。保留策略、身份、目标、mark 与状态。二进制和支持 notify 的模板须一起升级，旧 M2C10 程序不认识 --systemd-notify。模板编辑经审查后 daemon-reload。保留兼容旧二进制，旧版本可能拒绝 journal v4；只能回退到理解当前日志/镜像的程序。不能以旧日志覆盖新规则进行回退。
 
 ## 开发验证
 
@@ -73,6 +85,8 @@ sudo env PICKETX_SYSTEMD_TESTS=1 python3 scripts/test-systemd.py \
   --binary /tmp/picketxd --artifacts "$PWD/artifacts"
 ```
 
-离线检查临时替换可执行文件路径，仅验证语法。原生验收复制模板为唯一临时服务，只替换测试路径/状态/轮询并加入全新隔离 NetworkNamespacePath，保留权限限制及重启设置，检查实际能力/命名空间、双栈 TCP/UDP、异常自动恢复、无效发布保留、拒绝性重载、停止保留及日志字节一致恢复。不安装生产服务、不更改宿主防火墙。显式选择后初始化/权限错误均失败、不跳过。CI 将服务报告/日志与既有原生证据归档。
+离线检查临时替换可执行文件路径，仅验证语法。原生验收复制模板为唯一临时服务，只替换测试路径/状态/轮询并加入全新隔离 NetworkNamespacePath，保留权限限制及重启设置，检查实际能力/命名空间、双栈 TCP/UDP、异常自动恢复、无效发布保留、拒绝性重载、停止保留及日志字节一致恢复。新增场景检查无效当前发布/有效缓存使服务保持 activating，干净就绪后才放行有序依赖，并检查启动超时保留规则/状态。仅超时阶段将 TimeoutStartSec 从 60 秒缩为 2 秒，通知权限、沙箱和重启策略不变。不安装生产服务、不更改宿主防火墙。显式选择后初始化/权限错误均失败、不跳过。CI 将服务报告/日志与既有原生证据归档。
 
 参考上游 [systemd.service](https://www.freedesktop.org/software/systemd/man/systemd.service.html)、[systemd.exec](https://www.freedesktop.org/software/systemd/man/systemd.exec.html)。
+
+通知须显式开启；独立 enforce 与 prepare 不会仅因 NOTIFY_SOCKET 存在就发送通知。--systemd-notify 在命名空间效果前拒绝 --once、缺失或格式错误的 Linux 文件路径/抽象套接字地址。采用纯 Go Unix 数据报，连接及写入各有一秒期限，STATUS 固定文本不插入发布/错误内容，不依赖 libsystemd/C。发送失败使进程停止、保留规则；发送成功不等于管理器确认，systemctl start 完成与有序依赖验收验证管理器实际处理。

@@ -30,7 +30,19 @@ sudo systemctl status picketxd.service
 sudo journalctl -u picketxd.service -o cat -n 30 --no-pager
 ```
 
-`Type=exec` confirms process execution. **Active is not policy readiness.** Inspect a fresh Agent JSON line: enforcementConfirmed true, matching desired/applied generation and hash, no desired.lastError/lastApplyError, and confirmed current cleanup in strict mode. Check timestamps and subsequent errors continuously; old logs prove no current health. Invalid publications can leave an active process retaining accepted policy. There is no sd_notify readiness, health endpoint or readiness ordering for protected applications.
+`Type=notify` with explicit `--systemd-notify` completes startup only after the Agent emits its first clean current-policy confirmation and systemd receives READY=1. The driver proof includes current desired/applied generation/hash, ownership, complete live application and current strict cleanup when enabled. A rejected current publication never releases startup, even if a valid cached image remains confirmed. Startup waits at most 60 seconds, then times out and follows the failure-restart policy. Start-rate limits bound rapid failures; sufficiently spaced timeouts can keep retrying.
+
+**Readiness is a one-time startup event, not ongoing health.** After startup, rejected publications can leave an active service retaining accepted policy; STATUS changes to explain this. Check fresh Agent JSON timestamps, enforcementConfirmed, matching desired/applied generation/hash, desired.lastError/lastApplyError and current strict cleanup continuously. An old successful line or active alone proves no current health. There is no watchdog or health endpoint.
+
+To make a protected application's systemd start wait, add an operator-reviewed drop-in to that application's unit, then daemon-reload:
+
+```ini
+[Unit]
+Requires=picketxd.service
+After=picketxd.service
+```
+
+Both directives are required: After orders startup, while Requires pulls the Agent into the transaction. A failed Agent start blocks this ordered application start. Configure every relevant application and inspect its start result; this does not prevent manual/external starts or stop applications automatically on a later rejected publication. Existing applications are not restarted by installing this drop-in.
 
 After=network.target does not prove address availability, synchronized clock or application. Fresh namespace/reboot has a window before confirmed installation: keep protected applications unavailable until actual confirmation through your deployment procedure. Retained kernel rules do not survive reboot by themselves.
 
@@ -57,11 +69,11 @@ sudo systemctl restart picketxd.service
 sudo systemctl stop picketxd.service
 ```
 
-Restart verifies the retained live image and reopens the same private state without extending deadlines. Stop sends SIGTERM and **retains filtering**; it does not withdraw protection or remove old graceful connections. To withdraw, publish an explicit empty Configuration while running and confirm its application before stopping; see the enforcement example. Never globally flush firewall/conntrack state.
+Restart verifies the retained live image, reopens the same private state and waits for fresh clean readiness without extending deadlines. Stop sends SIGTERM and **retains filtering**; it does not withdraw protection or remove old graceful connections. To withdraw, publish an explicit empty Configuration while running and confirm its application before stopping; see the enforcement example. Never globally flush firewall/conntrack state.
 
 Unexpected failure, including SIGKILL, retries after five seconds, with at most three starts within 60 seconds. Persistent failure can leave failed service and old policy. Correct the logged cause, then reset-failed and start. Automatic restart provides no bounded revocation guarantee. Failed strict pre-replacement cleanup blocks even restrictions and retains old permissions, potentially permanent ones, until success; missed-interval durable revocation remains incomplete.
 
-Upgrade by building/verifying a replacement, installing it to a sibling path, atomically renaming over `/usr/local/libexec/picketxd`, then restarting and inspecting fresh status. Preserve policy, identity, destinations, marks and state. Review unit edits and daemon-reload. Keep a compatible previous binary; older binaries may reject journal v4. Binary rollback requires understanding the current journal/image. Overwriting newer live state with an old journal is not rollback.
+Upgrade by building/verifying a replacement, installing it to a sibling path, atomically renaming over `/usr/local/libexec/picketxd`, then restarting and inspecting fresh status. Preserve policy, identity, destinations, marks and state. Upgrade the binary and notify-capable unit together; the earlier M2C10 binary does not recognize --systemd-notify. Review unit edits and daemon-reload. Keep a compatible previous binary; older binaries may reject journal v4. Binary rollback requires understanding the current journal/image. Overwriting newer live state with an old journal is not rollback.
 
 ## Development verification
 
@@ -73,6 +85,8 @@ sudo env PICKETX_SYSTEMD_TESTS=1 python3 scripts/test-systemd.py \
   --binary /tmp/picketxd --artifacts "$PWD/artifacts"
 ```
 
-Offline verification substitutes the executable path temporarily and checks syntax only. Native acceptance copies the shipped unit to a unique runtime unit, substitutes test paths/state/poll and adds a fresh disposable NetworkNamespacePath. It retains sandbox/restart settings and verifies actual capabilities/namespace, dual-stack TCP/UDP, automatic crash recovery, invalid reload retention, deny reload, stop retention and byte-identical journal recovery. It installs no production unit and never alters the runner host firewall. Opted-in setup failures fail, never skip. CI archives service report/journal alongside existing native evidence.
+Offline verification substitutes the executable path temporarily and checks syntax only. Native acceptance copies the shipped unit to a unique runtime unit, substitutes test paths/state/poll and adds a fresh disposable NetworkNamespacePath. It retains sandbox/restart settings and verifies actual capabilities/namespace, dual-stack TCP/UDP, automatic crash recovery, invalid reload retention, deny reload, stop retention and byte-identical journal recovery. Additional scenarios hold invalid-current/cached startup in activating, release an ordered dependent only after clean readiness, and verify timeout retains filtering/state. The timeout-only phase shortens TimeoutStartSec from 60s to 2s; notification access, sandbox and restart policy stay unchanged. It installs no production unit and never alters the runner host firewall. Opted-in setup failures fail, never skip. CI archives service report/journal alongside existing native evidence.
 
 References: upstream [systemd.service](https://www.freedesktop.org/software/systemd/man/systemd.service.html) and [systemd.exec](https://www.freedesktop.org/software/systemd/man/systemd.exec.html).
+
+Notification is opt-in; standalone enforce and prepare do not send it just because NOTIFY_SOCKET is present. --systemd-notify rejects --once and missing/malformed Linux filesystem or abstract socket addresses before namespace effects. Delivery uses pure-Go Unix datagrams, one-second dial and write deadlines, and fixed STATUS text without publication/error interpolation; no libsystemd/C dependency. A delivery error stops the process with installed rules retained. Successful send is not manager acknowledgement; systemctl start completion and ordered-dependent acceptance establish manager processing.
