@@ -19,3 +19,5 @@ M2–M5 are delivery outcomes, not frozen interfaces. Refine each against the ap
 Each increment keeps its tests, actual CI evidence, known limits and next entry point in its PR. Merge only after the required checks/review. Do not describe a planned or mock-backed result as applied enforcement. The central [M1.3 design](https://github.com/PicketX/PicketX/blob/9d53b13e2d8a805b2a7b2f3a8ad957fcf84ea12d/docs/superpowers/specs/2026-10-15-core-m0-bridge-design.md) governs all three bridge slices; splitting delivery does not remove any acceptance requirement.
 
 The static host slice now includes [M2C8 strict enforcement](validation/M2C8.md), alongside graceful admission and durable cleanup history. The next L4 gaps are durable completion across unobserved permission intervals, service/deployment packaging and authenticated Controller synchronization; no complete M2 release is claimed.
+
+[M2C9](validation/M2C9.md) adds retained-image cleanup before strict replacement, including direct fresh-Grant restart after offline expiry. Full durable completion across unobserved gaps remains a separate L4 gap.

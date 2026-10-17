@@ -90,3 +90,10 @@ v4 日志跨多代及重启保留去重的已确认来源/端点/物理 mark 所
 strict 将保护本地地址/端口专用于服务，主动出站客户端须使用其他源端点。最终 reply 方向守卫拦截删除后的反向 conntrack 重建，original 方向 DNAT 别名仍按原始目标范围判断。每个 poll/边界重复完整双族扫描。若权限在清理前恢复，仍存标记 TCP 可能恢复；成功清理的旧 TCP 不靠无标记重建复活。不承诺 RST/对端立即通知。
 
 全部87项必需原生门禁、108个顶层场景在已记录 Linux6.17.0-1022-azure / Go1.27.0 环境通过，零 fail/skip。准确证据、迁移前提及运行边界见[strict 示例](examples/strict/README.zh-CN.md)和[验收记录](docs/validation/M2C8.zh-CN.md)。持久完成恢复、认证 Controller 同步、部署/服务封装、容器/FORWARD、L7 和管理端继续按路线推进。
+
+
+## M2C9 strict 替换前清理
+
+strict 重启或 desired 代数变化时，driver 先按真实保留映像清理撤回自有连接，再应用候选并确认当前清理，防止新 Grant 保留已到期旧 TCP。清理失败或残留阻止替换，持续独立授权保留。JSON `strict.previousCleanup` 只标识旧映像观察，当前 desired 确认仍独立。普通轮询仍为验证/当前清理；启动或替换增加一次完整双族清理成本。
+
+详见 [M2C9 验收](docs/validation/M2C9.zh-CN.md)。此恢复顺序覆盖观察时已撤回的连接，不是跨所有遗漏权限间隔的持久撤销屏障。日志/映像 schema、依赖和 graceful 行为不变。

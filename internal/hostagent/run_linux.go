@@ -126,6 +126,7 @@ func Run(ctx context.Context, c Config, d Dependencies) (err error) {
 			return e
 		}
 		var applyErr error
+		var previous *CleanupObservation
 		if st.CacheFault {
 			applyErr = fmt.Errorf("desired cache durability uncertain; reopen to recover")
 		} else if candidate == nil {
@@ -135,14 +136,34 @@ func Run(ctx context.Context, c Config, d Dependencies) (err error) {
 			if e != nil {
 				applyErr = e
 			} else {
-				receipt, e := owner.ApplyPolicy(ctx, p, c.Marks)
-				applyErr = e
-				if e == nil {
-					if !receipt.EnforcementConfirmed {
-						applyErr = fmt.Errorf("application returned no live confirmation")
-					} else {
-						generation = st.Generation
-						hash = st.PolicyHash
+				// Clean against the retained image before a new permission can
+				// preserve expired old flows. Initial marker-only startup has no
+				// previous image; ordinary same-generation polls use Verify below.
+				if old := owner.ApplicationStatus(); c.Handling == networkplan.Strict && old.Handling == networkplan.Strict && old.ImageDigest != "" {
+					previous = &CleanupObservation{ImageDigest: old.ImageDigest}
+					previous.Result, applyErr = owner.RevokeRecorded(ctx)
+					previous.ObservedAt = d.Now().Round(0).UTC()
+					if applyErr == nil && previous.Result.Remaining != 0 {
+						applyErr = fmt.Errorf("previous strict cleanup did not confirm zero remaining")
+					}
+					if after := owner.ApplicationStatus(); applyErr == nil && (after.ImageDigest != old.ImageDigest || !after.EnforcementConfirmed || !owner.Status().OwnershipConfirmed) {
+						applyErr = fmt.Errorf("previous strict image confirmation lost before replacement")
+					}
+					previous.Confirmed = applyErr == nil
+					if applyErr != nil {
+						applyErr = fmt.Errorf("cleanup retained strict image before replacement: %w", applyErr)
+					}
+				}
+				if applyErr == nil {
+					receipt, e := owner.ApplyPolicy(ctx, p, c.Marks)
+					applyErr = e
+					if e == nil {
+						if !receipt.EnforcementConfirmed {
+							applyErr = fmt.Errorf("application returned no live confirmation")
+						} else {
+							generation = st.Generation
+							hash = st.PolicyHash
+						}
 					}
 				}
 			}
@@ -151,7 +172,7 @@ func Run(ctx context.Context, c Config, d Dependencies) (err error) {
 		}
 		var strict *StrictStatus
 		if c.Handling == networkplan.Strict {
-			strict = &StrictStatus{Enabled: true, Result: hostrevoke.Result{Remaining: -1}, ValidUntil: st.Projection.NextChange}
+			strict = &StrictStatus{Enabled: true, PreviousCleanup: previous, Result: hostrevoke.Result{Remaining: -1}, ValidUntil: st.Projection.NextChange}
 			if applyErr == nil {
 				strict.Result, applyErr = owner.RevokeRecorded(ctx)
 				strict.ObservedAt = d.Now().Round(0).UTC()

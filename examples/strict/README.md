@@ -24,3 +24,8 @@ JSON strict.cleanupConfirmed describes that reconcile only. Match applied/desire
 Incomplete/legacy history, pending ambiguity, drift, incomplete dump, partial delete, remaining entries or a crossed boundary never produce strict confirmation; reopen reobserves and retries. Same-boot handling/context migration is refused. A different state-dir cannot bypass namespace ownership. Preserve old state and use an explicit deployment path; older binaries reject strict imagev2. Correct clock, filesystem durability and trusted privileged-writer exclusivity remain prerequisites.
 
 See [M2C8 acceptance](../../docs/validation/M2C8.md) and the [design](../../docs/superpowers/specs/2026-10-17-strict-enforcement-design.md). Controller, durable completion recovery, container/FORWARD, L7 and management remain subsequent work.
+
+
+Before replacing an existing strict image (including restart into a fresh Grant), the driver runs recorded cleanup against that retained image first. Already-expired old TCP is deleted before new permission can preserve it. `strict.previousCleanup` reports that image/time/result separately; `strict.result` still reports cleanup of the applied current image. A failed previous cleanup prevents replacement. Startup/replacement performs one extra full dual-family cleanup; ordinary unchanged polls do not. This does not persist intent or cover a boundary that occurs after previous cleanup but before replacement. See [M2C9](../../docs/validation/M2C9.md).
+
+If previous cleanup fails, restrictions in the candidate are also deferred. The process exits unconfirmed with the retained image installed; its active permissions and deadlines remain until a successful retry, including permanent permissions that the candidate removes.

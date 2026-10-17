@@ -142,4 +142,4 @@ var RequiredOwnerScenarios = []string{
 }
 
 // RequiredAgentScenarios execute the actual prebuilt standalone command.
-var RequiredAgentScenarios = []string{"TestEnforceProcessReloadDualStack", "TestEnforceProcessExpiryAndRecovery", "TestEnforceProcessFutureDeny", "TestEnforceProcessFutureAllow", "TestEnforceProcessStartupRefusals", "TestEnforceProcessDrift", "TestEnforceProcessForeignAndInvalidOnce", "TestEnforceProcessStrictRevocation", "TestEnforceProcessStrictExpiryWithoutProcess"}
+var RequiredAgentScenarios = []string{"TestEnforceProcessReloadDualStack", "TestEnforceProcessExpiryAndRecovery", "TestEnforceProcessFutureDeny", "TestEnforceProcessFutureAllow", "TestEnforceProcessStartupRefusals", "TestEnforceProcessDrift", "TestEnforceProcessForeignAndInvalidOnce", "TestEnforceProcessStrictRevocation", "TestEnforceProcessStrictExpiryWithoutProcess", "TestEnforceProcessStrictRegrantAfterOfflineExpiry"}
