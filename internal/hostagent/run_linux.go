@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PicketX/PicketX/pkg/configuration"
+	"github.com/PicketX/PicketX/pkg/networkplan"
 	"github.com/PicketX/PicketXD/internal/agentstate"
 	"github.com/PicketX/PicketXD/internal/hostowner"
 	"github.com/PicketX/PicketXD/internal/hostpolicy"
+	"github.com/PicketX/PicketXD/internal/hostrevoke"
 	"github.com/PicketX/PicketXD/internal/markstate"
 	"log/slog"
 	"path/filepath"
@@ -21,6 +23,7 @@ type Owner interface {
 	Verify(context.Context) (hostowner.Status, error)
 	Status() hostowner.Status
 	ApplicationStatus() hostowner.ApplicationStatus
+	RevokeRecorded(context.Context) (hostrevoke.Result, error)
 	HistoryStatus() hostowner.HistoryStatus
 	Close() error
 }
@@ -50,6 +53,7 @@ type DesiredStatus struct {
 	NextChange    time.Time `json:"nextChange"`
 }
 type Status struct {
+	Strict               *StrictStatus               `json:"strict,omitempty"`
 	History              hostowner.HistoryStatus     `json:"history"`
 	At                   time.Time                   `json:"at"`
 	Desired              DesiredStatus               `json:"desired"`
@@ -99,6 +103,9 @@ func Run(ctx context.Context, c Config, d Dependencies) (err error) {
 	if err != nil {
 		return err
 	}
+	if mode := owner.ApplicationStatus().Handling; mode != "" && mode != c.Handling {
+		return fmt.Errorf("handling migration from %s to %s requires explicit deployment", mode, c.Handling)
+	}
 	facts, scope, err := c.facts(runtime)
 	if err != nil {
 		return err
@@ -142,14 +149,36 @@ func Run(ctx context.Context, c Config, d Dependencies) (err error) {
 		} else {
 			_, applyErr = owner.Verify(ctx)
 		}
+		var strict *StrictStatus
+		if c.Handling == networkplan.Strict {
+			strict = &StrictStatus{Enabled: true, Result: hostrevoke.Result{Remaining: -1}, ValidUntil: st.Projection.NextChange}
+			if applyErr == nil {
+				strict.Result, applyErr = owner.RevokeRecorded(ctx)
+				strict.ObservedAt = d.Now().Round(0).UTC()
+				strict.ImageDigest = owner.ApplicationStatus().ImageDigest
+				if applyErr == nil && strict.Result.Remaining != 0 {
+					applyErr = fmt.Errorf("recorded strict cleanup did not confirm zero remaining")
+				}
+				if applyErr == nil && !strict.ValidUntil.IsZero() && !strict.ObservedAt.Before(strict.ValidUntil) {
+					applyErr = fmt.Errorf("membership boundary crossed during strict cleanup; reopen and retry")
+				}
+			}
+		}
 		// Acceptance can change while kernel IO is in progress. Label the retained
 		// receipt against the latest coherent generation, never a stale callback.
 		current, _, e := store.Snapshot(d.Now())
 		if e != nil {
 			return errors.Join(applyErr, e)
 		}
+		if strict != nil && applyErr == nil && !strict.ValidUntil.IsZero() && !current.At.Before(strict.ValidUntil) {
+			applyErr = fmt.Errorf("membership boundary crossed before final strict status; reopen and retry")
+		}
 		report := Status{At: current.At, Desired: desired(current), Ownership: owner.Status(), Application: owner.ApplicationStatus(), History: owner.HistoryStatus(), AppliedGeneration: generation, AppliedPolicyHash: hash}
 		report.EnforcementConfirmed = applyErr == nil && !current.CacheFault && current.Prepared && generation == current.Generation && hash == current.PolicyHash && report.Application.EnforcementConfirmed && report.Ownership.OwnershipConfirmed
+		if strict != nil {
+			strict.CleanupConfirmed = report.EnforcementConfirmed
+			report.Strict = strict
+		}
 		if applyErr != nil {
 			report.LastApplyError = applyErr.Error()
 		}

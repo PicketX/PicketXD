@@ -17,3 +17,5 @@
 M2–M5 是交付目标，接口尚未冻结；实现前依据已批准产品及配置基线细化。七层首版使用可信入口集成；原生 SSH/数据库代理、NFQUEUE、透明代理及 Agent TLS 终止继续延后。四层准入与应用认证保持独立。
 
 各增量在 PR 中记录测试、实际 CI 证据、已知边界和下一入口，满足必需检查/评审后合并。不能把计划或模拟结果描述成已实际实施。中央 [M1.3 设计](https://github.com/PicketX/PicketX/blob/9d53b13e2d8a805b2a7b2f3a8ad957fcf84ea12d/docs/superpowers/specs/2026-10-15-core-m0-bridge-design.zh-CN.md)约束全部三个桥接切片；分批交付不删除任何验收要求。
+
+静态主机切片现已具备 [M2C8 strict 执行](validation/M2C8.zh-CN.md)、graceful 准入及持久清理历史。后续四层缺口为跨未观察权限间隔的持久完成恢复、服务/部署封装及认证 Controller 同步；尚不声明完整 M2 发布。

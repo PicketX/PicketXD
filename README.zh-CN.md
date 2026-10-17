@@ -2,7 +2,7 @@
 
 > [English (default)](README.md) | 简体中文
 
-PicketX 的 Linux 执行 Agent。`picketxd enforce` 提供独立静态 host INPUT/original-destination/graceful 双栈 TCP/UDP 执行与恢复，参见[可运行示例](examples/enforce/README.zh-CN.md)。完整 Agent/Controller 工作流、strict 清理、转发、L7 和管理端仍在推进。
+PicketX 的 Linux 执行 Agent。`picketxd enforce` 提供独立静态 host INPUT/original-destination 双栈 TCP/UDP 执行与恢复，默认 graceful，可显式选择 strict。参见[graceful 示例](examples/enforce/README.zh-CN.md)和[strict 示例](examples/strict/README.zh-CN.md)。完整 Agent/Controller 工作流、容器转发、L7 和管理端仍在推进。
 
 已评审的 [M0 计划](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.zh-CN.md)要求先验证 nftables 准入/过期和 conntrack 定向撤销，再推进完整 Agent/Controller 流程。
 
@@ -80,4 +80,13 @@ hostpolicy.MarkTargets 和 [markstate](internal/markstate) 提取物理目标身
 
 v4 日志跨多代及重启保留去重的已确认来源/端点/物理 mark 所有权。`Session.RevokeRecorded(ctx)` 使用它及真实已确认当前映像，调用者无需旧映像。pending 候选仅在完整现场确认后计入。v1–v3 仍可读，但丢失历史明确不完整，拒绝记录式清理。JSON 状态分别报告历史覆盖与执行确认。见[验收与恢复边界](docs/validation/M2C7.zh-CN.md)、[设计](docs/superpowers/specs/2026-10-17-durable-history-design.zh-CN.md)和[计划](docs/superpowers/plans/2026-10-17-durable-history.zh-CN.md)。
 
-上限4096目标、65536来源/端点成员和8MiB JSON；容量/context不兼容在 mark/nft 效果前拒绝，不因到期或清理裁剪历史。旧二进制拒绝 v4，不支持原地降级。strict 准入、调度及持久完成恢复随后接入。
+上限4096目标、65536来源/端点成员和8MiB JSON；容量/context不兼容在 mark/nft 效果前拒绝，不因到期或清理裁剪历史。旧二进制拒绝 v4，不支持原地降级。下方 M2C8 接入 strict 准入及调度，持久完成恢复仍待实现。
+
+
+## M2C8 静态 strict 执行
+
+`picketxd enforce --handling strict` 对保护报文检查当前来源/端点/绝对有效期，每次协调确认实际规则后执行历史定向 conntrack 清理，默认仍 graceful。已知退休 mark 保留物理替换后仍独立授权的旧连接。进程死亡后内核期限继续生效，重启重新观察并重试清理。JSON strict 确认只适用于本次观察及 validUntil，不是持久完成凭据。
+
+strict 将保护本地地址/端口专用于服务，主动出站客户端须使用其他源端点。最终 reply 方向守卫拦截删除后的反向 conntrack 重建，original 方向 DNAT 别名仍按原始目标范围判断。每个 poll/边界重复完整双族扫描。若权限在清理前恢复，仍存标记 TCP 可能恢复；成功清理的旧 TCP 不靠无标记重建复活。不承诺 RST/对端立即通知。
+
+全部87项必需原生门禁、108个顶层场景在已记录 Linux6.17.0-1022-azure / Go1.27.0 环境通过，零 fail/skip。准确证据、迁移前提及运行边界见[strict 示例](examples/strict/README.zh-CN.md)和[验收记录](docs/validation/M2C8.zh-CN.md)。持久完成恢复、认证 Controller 同步、部署/服务封装、容器/FORWARD、L7 和管理端继续按路线推进。

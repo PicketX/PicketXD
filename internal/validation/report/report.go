@@ -138,7 +138,8 @@ var RequiredOwnerScenarios = []string{
 	"TestOwnerKernelMarkLifecycle", "TestOwnerKernelMarkCollision", "TestOwnerKernelMarkProcessRecovery", "TestOwnerKernelMarkDrift",
 	"TestOwnerKernelCleanupPreservation", "TestOwnerKernelCleanupNATZoneID", "TestOwnerKernelCleanupPreflightDrift", "TestOwnerKernelCleanupPartialFailure",
 	"TestOwnerKernelHistoryRestartCleanup", "TestOwnerKernelHistoryPendingRecovery", "TestOwnerKernelHistoryLegacyRefusal", "TestOwnerKernelHistoryCorruptionRefusal", "TestOwnerKernelHistoryProcessRecovery",
+	"TestOwnerKernelStrictMembership", "TestOwnerKernelStrictPhysicalReplacement", "TestOwnerKernelStrictPendingRecovery", "TestOwnerKernelStrictReverseReconstruction", "TestOwnerKernelStrictOriginalDNAT",
 }
 
 // RequiredAgentScenarios execute the actual prebuilt standalone command.
-var RequiredAgentScenarios = []string{"TestEnforceProcessReloadDualStack", "TestEnforceProcessExpiryAndRecovery", "TestEnforceProcessFutureDeny", "TestEnforceProcessFutureAllow", "TestEnforceProcessStartupRefusals", "TestEnforceProcessDrift", "TestEnforceProcessForeignAndInvalidOnce"}
+var RequiredAgentScenarios = []string{"TestEnforceProcessReloadDualStack", "TestEnforceProcessExpiryAndRecovery", "TestEnforceProcessFutureDeny", "TestEnforceProcessFutureAllow", "TestEnforceProcessStartupRefusals", "TestEnforceProcessDrift", "TestEnforceProcessForeignAndInvalidOnce", "TestEnforceProcessStrictRevocation", "TestEnforceProcessStrictExpiryWithoutProcess"}

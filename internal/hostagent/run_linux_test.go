@@ -8,6 +8,7 @@ import (
 	"github.com/PicketX/PicketXD/internal/agentstate"
 	"github.com/PicketX/PicketXD/internal/hostowner"
 	"github.com/PicketX/PicketXD/internal/hostpolicy"
+	"github.com/PicketX/PicketXD/internal/hostrevoke"
 	"github.com/PicketX/PicketXD/internal/markstate"
 	"net/netip"
 	"os"
@@ -282,4 +283,8 @@ func TestEnforcementEmitsSeparateHistoryCoverage(t *testing.T) {
 	if !st.History.Tracked || !st.History.Complete || st.History.Members != 4 {
 		t.Fatal(st)
 	}
+}
+
+func (o *fakeOwner) RevokeRecorded(context.Context) (hostrevoke.Result, error) {
+	panic("graceful owner must not clean conntrack")
 }

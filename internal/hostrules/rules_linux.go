@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/PicketX/PicketX/pkg/networkplan"
 	"github.com/PicketX/PicketXD/internal/hostpolicy"
 	"github.com/google/nftables"
 	"github.com/google/nftables/binaryutil"
@@ -44,6 +45,14 @@ func (im Image) Layout(marker string) (Layout, error) {
 	add := func(chain *nftables.Chain, ex []expr.Any) {
 		out.Rules = append(out.Rules, &nftables.Rule{Table: tab, Chain: chain, Exprs: ex})
 	}
+	if im.Context.Handling == networkplan.Strict {
+		shared := &nftables.Chain{Name: strictEstablishedChain, Table: tab}
+		out.Chains = append(out.Chains, shared)
+		for _, mark := range im.KnownMarks {
+			add(shared, ownedEstablished(mark))
+		}
+		add(shared, []expr.Any{&expr.Verdict{Kind: expr.VerdictReturn}})
+	}
 	for i, t := range im.Targets {
 		ch := &nftables.Chain{Name: fmt.Sprintf("picketx_target_%d", i), Table: tab}
 		out.Chains = append(out.Chains, ch)
@@ -55,16 +64,34 @@ func (im Image) Layout(marker string) (Layout, error) {
 		for _, m := range t.Deny {
 			add(ch, append(member(m), &expr.Verdict{Kind: expr.VerdictDrop}))
 		}
-		add(ch, []expr.Any{&expr.Ct{Key: expr.CtKeyMARK, Register: 1}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(t.Mark)}, &expr.Ct{Key: expr.CtKeySTATE, Register: 1}, &expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(expr.CtStateBitESTABLISHED | expr.CtStateBitRELATED), Xor: make([]byte, 4)}, &expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: make([]byte, 4)}, &expr.Verdict{Kind: expr.VerdictAccept}})
+		if im.Context.Handling == networkplan.Graceful {
+			add(ch, []expr.Any{&expr.Ct{Key: expr.CtKeyMARK, Register: 1}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(t.Mark)}, &expr.Ct{Key: expr.CtKeySTATE, Register: 1}, &expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(expr.CtStateBitESTABLISHED | expr.CtStateBitRELATED), Xor: make([]byte, 4)}, &expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: make([]byte, 4)}, &expr.Verdict{Kind: expr.VerdictAccept}})
+		}
+
 		for _, m := range t.Allow {
 			ex := member(m)
 			if m.Endpoint.Protocol == 6 {
+				if im.Context.Handling == networkplan.Strict {
+					add(ch, append(member(m), &expr.Verdict{Kind: expr.VerdictJump, Chain: strictEstablishedChain}))
+					ex = append(ex, conntrackState(expr.CtStateBitNEW)...)
+				}
 				ex = append(ex, &expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 13, Len: 1}, &expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 1, Mask: []byte{0x12}, Xor: []byte{0}}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{0x02}})
 			}
 			ex = append(ex, &expr.Immediate{Register: 1, Data: binaryutil.NativeEndian.PutUint32(t.Mark)}, &expr.Ct{Key: expr.CtKeyMARK, Register: 1, SourceRegister: true}, &expr.Verdict{Kind: expr.VerdictAccept})
 			add(ch, ex)
 		}
 		add(ch, []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}})
+	}
+	if im.Context.Handling == networkplan.Strict {
+		// A server packet can recreate deleted conntrack in reverse orientation.
+		// After all original-destination dispatches, refuse reply-direction
+		// packets addressed to a protected service endpoint. Original-direction
+		// DNAT aliases outside our scope keep their existing behavior.
+		for _, t := range im.Targets {
+			for _, ep := range t.Protected {
+				add(main, append(endpointMatch(ep, false), &expr.Ct{Key: expr.CtKeyDIRECTION, Register: 1}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{1}}, &expr.Verdict{Kind: expr.VerdictDrop}))
+			}
+		}
 	}
 	return out, nil
 }

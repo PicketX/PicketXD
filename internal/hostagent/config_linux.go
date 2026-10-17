@@ -22,9 +22,16 @@ type Config struct {
 	Marks                                               markstate.Range
 	Poll                                                time.Duration
 	Once                                                bool
+	Handling                                            networkplan.HandlingMode
 }
 
 func (c Config) normalized() (Config, error) {
+	if c.Handling == "" {
+		c.Handling = networkplan.Graceful
+	}
+	if c.Handling != networkplan.Graceful && c.Handling != networkplan.Strict {
+		return c, fmt.Errorf("handling must be graceful or strict")
+	}
 	if c.PolicyPath == "" || !filepath.IsAbs(c.StateDir) || filepath.Clean(c.StateDir) == "/" || c.Poll <= 0 {
 		return c, fmt.Errorf("policy, absolute non-root state-dir and positive poll required")
 	}
@@ -41,7 +48,7 @@ func (c Config) normalized() (Config, error) {
 	}
 	c.Destinations = bounds
 	c.StateDir = filepath.Clean(c.StateDir)
-	_, e = hostpolicy.NewScope(c.ProviderID, networkplan.ExecutionContext{AgentRef: c.AgentRef, ProfileRef: c.Profile, ID: "pending", NetworkSpaceID: "pending", Class: networkplan.HostLocal, Stage: networkplan.OriginalDestination, Handling: networkplan.Graceful, Destinations: bounds})
+	_, e = hostpolicy.NewScope(c.ProviderID, networkplan.ExecutionContext{AgentRef: c.AgentRef, ProfileRef: c.Profile, ID: "pending", NetworkSpaceID: "pending", Class: networkplan.HostLocal, Stage: networkplan.OriginalDestination, Handling: c.Handling, Destinations: bounds})
 	return c, e
 }
 func (c Config) runtimeKey() string {
@@ -56,11 +63,11 @@ func (c Config) facts(scope hostowner.RuntimeScope) (configuration.Facts, *hostp
 	if scope.BootID == "" || scope.NetworkSpaceID == "" {
 		return configuration.Facts{}, nil, fmt.Errorf("held namespace identity required")
 	}
-	context := networkplan.ExecutionContext{AgentRef: c.AgentRef, ProfileRef: c.Profile, ID: scope.NetworkSpaceID + "/" + c.runtimeKey(), NetworkSpaceID: scope.NetworkSpaceID, Class: networkplan.HostLocal, Stage: networkplan.OriginalDestination, Handling: networkplan.Graceful, Destinations: c.Destinations}
+	context := networkplan.ExecutionContext{AgentRef: c.AgentRef, ProfileRef: c.Profile, ID: scope.NetworkSpaceID + "/" + c.runtimeKey(), NetworkSpaceID: scope.NetworkSpaceID, Class: networkplan.HostLocal, Stage: networkplan.OriginalDestination, Handling: c.Handling, Destinations: c.Destinations}
 	sc, e := hostpolicy.NewScope(c.ProviderID, context)
 	if e != nil {
 		return configuration.Facts{}, nil, e
 	}
-	f := configuration.Facts{AuthorityID: c.ProviderID, Agents: []networkplan.Agent{{Name: c.AgentRef, Capabilities: &networkplan.CapabilityProfile{Classes: []networkplan.TrafficClass{networkplan.HostLocal}, Protocols: []networkplan.Protocol{networkplan.TCP, networkplan.UDP}, Families: []networkplan.Family{networkplan.IPv4, networkplan.IPv6}, Handling: []networkplan.HandlingMode{networkplan.Graceful}, OriginalDestination: true}}}, Contexts: []networkplan.ExecutionContext{context}}
+	f := configuration.Facts{AuthorityID: c.ProviderID, Agents: []networkplan.Agent{{Name: c.AgentRef, Capabilities: &networkplan.CapabilityProfile{Classes: []networkplan.TrafficClass{networkplan.HostLocal}, Protocols: []networkplan.Protocol{networkplan.TCP, networkplan.UDP}, Families: []networkplan.Family{networkplan.IPv4, networkplan.IPv6}, Handling: []networkplan.HandlingMode{c.Handling}, OriginalDestination: true}}}, Contexts: []networkplan.ExecutionContext{context}}
 	return f, sc, nil
 }
