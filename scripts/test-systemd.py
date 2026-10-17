@@ -65,11 +65,12 @@ def probe(allow):
 
 def acceptance(binary, artifacts):
     assert os.environ.get("PICKETX_SYSTEMD_TESTS") == "1", "Set PICKETX_SYSTEMD_TESTS=1"
-    assert os.geteuid() == 0, "Real system-manager validation requires root"
-    command("systemctl", "show", "--property=Version")  # Failure is never a skip.
     artifacts.mkdir(parents=True, exist_ok=True)
     report = artifacts / "systemd-report.json"
     report.unlink(missing_ok=True)
+    (artifacts / "systemd-journal.txt").unlink(missing_ok=True)
+    assert os.geteuid() == 0, "Real system-manager validation requires root"
+    command("systemctl", "show", "--property=Version")  # Failure is never a skip.
     evidence = {"status": "fail", "scenarios": [], "systemd": command("systemd-analyze", "--version").stdout.strip(),
                 "kernel": command("uname", "-r").stdout.strip(),
                 "binarySHA256": hashlib.sha256(binary.read_bytes()).hexdigest()}
