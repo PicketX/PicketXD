@@ -93,7 +93,7 @@ func hexID(s string) bool {
 	return err == nil && len(b) == 16 && hex.EncodeToString(b) == s
 }
 func validRecord(r record) error {
-	if (r.Version < 1 || r.Version > 3) || (r.Version >= 2) != (r.Marks != nil) || (r.Version == 3) != (r.Application != nil) || (r.Phase != "pending" && r.Phase != "confirmed") || !bounded(r.ProviderID) || !bounded(r.AgentRef) || !bounded(r.RuntimeKey) || !bounded(r.BootID) || r.Device == 0 || r.Inode == 0 || !hexID(r.OwnerID) || !hexID(r.Epoch) {
+	if (r.Version < 1 || r.Version > 4) || (r.Version >= 2) != (r.Marks != nil) || (r.Version >= 3) != (r.Application != nil) || (r.Phase != "pending" && r.Phase != "confirmed") || !bounded(r.ProviderID) || !bounded(r.AgentRef) || !bounded(r.RuntimeKey) || !bounded(r.BootID) || r.Device == 0 || r.Inode == 0 || !hexID(r.OwnerID) || !hexID(r.Epoch) {
 		return fmt.Errorf("invalid ownership journal identity/version/phase")
 	}
 	if r.Marks != nil {
@@ -200,8 +200,8 @@ func openWith(ctx context.Context, c Config, e environment) (out *Session, err e
 			}
 		}
 		if application != nil {
-			r.Version = 3
-			r.Application = &applicationRecord{Attempt: application.Attempt, Baseline: application.Baseline}
+			r.Version = 4
+			r.Application = &applicationRecord{Attempt: application.Attempt, Baseline: application.Baseline, History: &cleanupHistory{Complete: true}}
 		}
 		r.OwnerID = owner
 		r.Epoch, err = randomID()

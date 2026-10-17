@@ -57,11 +57,16 @@ func (f Flow) Validate() error {
 }
 
 type Plan struct {
-	current hostrules.Image
-	history []hostrules.Image
+	current  hostrules.Image
+	history  []hostrules.Image
+	recorded *History
 }
 
 func New(history []hostrules.Image, current hostrules.Image, marks markstate.State) (*Plan, error) {
+	return newPlan(history, current, marks, false)
+}
+
+func newPlan(history []hostrules.Image, current hostrules.Image, marks markstate.State, retiredCurrent bool) (*Plan, error) {
 	if len(history) > MaxHistoryImages {
 		return nil, fmt.Errorf("too many history images")
 	}
@@ -84,7 +89,7 @@ func New(history []hostrules.Image, current hostrules.Image, marks markstate.Sta
 		for _, t := range im.Targets {
 			found := false
 			for _, a := range marks.Entries {
-				if a.Target == t.Identity && a.Mark == t.Mark && (i != 0 || !a.Retired) {
+				if a.Target == t.Identity && a.Mark == t.Mark && (i != 0 || !a.Retired || retiredCurrent) {
 					found = true
 					break
 				}
@@ -137,6 +142,18 @@ func (p *Plan) withdrawn(f Flow, at time.Time) bool {
 				if memberMatches(m, f) {
 					owned = true
 					break
+				}
+			}
+		}
+	}
+	if p.recorded != nil {
+		for _, t := range p.recorded.Targets {
+			if t.Mark == f.Mark {
+				for _, m := range t.Members {
+					if m.Source.Contains(f.Original.Source) && matches(m.Endpoint, f) {
+						owned = true
+						break
+					}
 				}
 			}
 		}

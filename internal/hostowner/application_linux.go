@@ -16,6 +16,7 @@ import (
 )
 
 type applicationRecord struct {
+	History   *cleanupHistory    `json:"history,omitempty"`
 	Baseline  *networkplan.Input `json:"baseline,omitempty"`
 	Attempt   uint64             `json:"attempt"`
 	Confirmed *hostrules.Image   `json:"confirmed,omitempty"`
@@ -82,7 +83,7 @@ func validateApplication(r record) error {
 			}
 		}
 	}
-	return nil
+	return validateHistory(r)
 }
 func confirmedDigest(r record) string {
 	if r.Application != nil && r.Application.Confirmed != nil {
@@ -122,6 +123,13 @@ func recoverApplication(r *record, live observation, newBoot bool, save func(str
 	if a.Pending != nil && live.Image == a.Pending.Digest() {
 		a.Confirmed = a.Pending
 		a.Baseline = &a.Pending.Input
+		if r.Version == 4 {
+			_, next, e := historiesFor(r.Application, *a.Pending)
+			if e != nil {
+				return e
+			}
+			a.History = &next
+		}
 		a.Pending = nil
 	} else if live.Image == want {
 		a.Pending = nil
@@ -209,6 +217,13 @@ func (s *Session) ApplyPolicy(ctx context.Context, p *hostpolicy.Policy, reserva
 	if s.record.Application != nil && s.record.Application.Attempt == math.MaxUint64 {
 		return s.applicationStatus(), fmt.Errorf("application attempt counter exhausted")
 	}
+	beforeHistory, candidateHistory, e := historiesFor(s.record.Application, im)
+	if e != nil {
+		return s.applicationStatus(), e
+	}
+	if e = candidateHistory.State.Validate(speculative); e != nil {
+		return s.applicationStatus(), e
+	}
 	if _, e = s.verifyLocked(ctx); e != nil {
 		return s.applicationStatus(), e
 	}
@@ -216,9 +231,23 @@ func (s *Session) ApplyPolicy(ctx context.Context, p *hostpolicy.Policy, reserva
 		return s.applicationStatus(), e
 	}
 	if im.Digest() == confirmedDigest(s.record) {
+		if s.record.Version < 4 {
+			upgraded := s.record
+			app := *s.record.Application
+			app.History = &candidateHistory
+			upgraded.Version = 4
+			upgraded.Application = &app
+			if e = s.persist(upgraded); e != nil {
+				s.faulted = true
+				s.verified = false
+				s.applicationVerified = false
+				return s.applicationStatus(), fmt.Errorf("persist legacy history migration; reopen: %w", e)
+			}
+			s.record = upgraded
+		}
 		return s.applicationStatus(), nil
 	}
-	a := applicationRecord{Pending: &im}
+	a := applicationRecord{Pending: &im, History: &beforeHistory}
 	if old := s.record.Application; old != nil {
 		a.Attempt = old.Attempt
 		a.Confirmed = old.Confirmed
@@ -226,7 +255,7 @@ func (s *Session) ApplyPolicy(ctx context.Context, p *hostpolicy.Policy, reserva
 	}
 	a.Attempt++
 	updated := s.record
-	updated.Version = 3
+	updated.Version = 4
 	updated.Application = &a
 	fail := func(err error) (ApplicationStatus, error) {
 		s.faulted = true
@@ -264,6 +293,7 @@ func (s *Session) ApplyPolicy(ctx context.Context, p *hostpolicy.Policy, reserva
 	confirmed.Confirmed = &im
 	confirmed.Baseline = &im.Input
 	confirmed.Pending = nil
+	confirmed.History = &candidateHistory
 	updated.Application = &confirmed
 	if e = s.persist(updated); e != nil {
 		return fail(fmt.Errorf("persist confirmed application; reopen to inspect: %w", e))

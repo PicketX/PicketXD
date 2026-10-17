@@ -73,4 +73,11 @@ Use the [English example](examples/enforce/README.md) or [Chinese example](examp
 
 `hostowner.Session.RevokeWithdrawn` adds a production, namespace-bound conntrack cleanup API. Validated historical source/target/mark ownership and the actual confirmed current image determine withdrawn flows; current independent permission preserves connections. Complete dual-stack scans and full live image checks gate exact original-tuple/zone/kernel-ID deletion and final readback. Partial failure, drift or remaining entries return errors and require reopen. No global flush, nft mutation or journal write is performed. See [acceptance and limits](docs/validation/M2C6.md), [design](docs/superpowers/specs/2026-10-17-host-revocation-design.md) and [plan](docs/superpowers/plans/2026-10-17-host-revocation.md).
 
-This is the cleanup engine step: callers still supply prior image history, and `enforce` remains graceful without automatic cleanup. Durable cumulative history, strict admission/reconcile and crash-safe strict completion are subsequent integration work.
+This image-based API remains available. M2C7 below adds recorded history; `enforce` remains graceful without automatic cleanup.
+
+
+## M2C7 durable compact cleanup history
+
+Journal v4 retains deduplicated confirmed source/endpoint/physical-mark ownership across generations and process restarts. `Session.RevokeRecorded(ctx)` uses it with the actual confirmed current image; callers need no old images. Pending candidates enter history only after complete live confirmation. Legacy v1–v3 remain readable, but lost history stays explicitly incomplete and recorded cleanup refuses it. JSON status reports coverage separately from enforcement. See [acceptance and recovery limits](docs/validation/M2C7.md), [design](docs/superpowers/specs/2026-10-17-durable-history-design.md) and [plan](docs/superpowers/plans/2026-10-17-durable-history.md).
+
+Bounds are 4096 targets, 65536 source/endpoint members and 8 MiB JSON. Capacity/context incompatibility fails before mark/nft effects; history is never pruned after expiry or cleanup. Older binaries reject v4; no in-place downgrade. Strict admission, scheduling and durable completion recovery remain subsequent work.

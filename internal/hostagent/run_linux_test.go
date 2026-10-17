@@ -269,3 +269,17 @@ func TestFactsAndRuntimeKeyAreCanonical(t *testing.T) {
 		t.Fatal("runnable example invalid", e)
 	}
 }
+
+func (o *fakeOwner) HistoryStatus() hostowner.HistoryStatus {
+	return hostowner.HistoryStatus{Tracked: true, Complete: o.app.EnforcementConfirmed, Targets: 2, Members: 4}
+}
+func TestEnforcementEmitsSeparateHistoryCoverage(t *testing.T) {
+	c, d, _, reports := runSetup(t)
+	if e := Run(context.Background(), c, d); e != nil {
+		t.Fatal(e)
+	}
+	st := (*reports)[0]
+	if !st.History.Tracked || !st.History.Complete || st.History.Members != 4 {
+		t.Fatal(st)
+	}
+}
