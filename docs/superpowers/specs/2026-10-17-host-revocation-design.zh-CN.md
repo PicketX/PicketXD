@@ -15,3 +15,5 @@ Session.RevokeWithdrawn 持有原互斥、重验 namespace，要求已确认应�
 上下文映射：hostrevoke 的 plan/run 为纯校验/选择/流程；wire_linux 为严格解析/编码；hostowner/cleanup_linux 适配持有的 socket/Session；cleanup_integration_test 在一次性 namespace 验证真实生产路径；runner/report 保留原 71 门禁并加四项。生产不导入 validation 夹具；模块、日志 schema、manifest/CLI 均不变。
 
 验收按英文设计/计划：逐项 RED→GREEN，完整 unit/race/vet/build/prepare smoke、integration 编译、一次全新整分支评审，以及真实双栈 TCP/UDP、DNAT、zone/ID、漂移/预检零删除、部分删除/残留错误。核对最终 PR/main 精确树及下载原始证据。Linux v6.17 nf_conntrack_netlink.c 的 ctnetlink_del_conntrack 为 ID 保护依据；清理本身不阻止 graceful 准入下旧 TCP 重新形成跟踪。
+
+实现验收说明：独立评审提出两个非阻断 API 加固项，本轮记录延期：低层零值 Plan 不拒绝（真实 Session 始终经 New）；Before 对生产 time.Now 使用单调时间，因此倒退检查不能识别实际壁钟回拨。仍要求正确时钟；注入不带单调值的回拨测试不是实际壁钟回拨证据。详见 M2C6 延期项，不据本引擎推断完整 strict 生命周期保证。
