@@ -40,7 +40,7 @@ JSON adds optional strict metadata: enabled, cleanupConfirmed, observedAt, valid
 | hostagent/config_linux.go; run_linux.go; strict_linux.go/tests | Selected facts, apply/verify→cleanup→coherent status; no persisted receipt. |
 | agentcli/enforce_linux.go/tests | Explicit handling flag; default unchanged, unknown values fail before effects. |
 | hostowner/strict_integration_test.go; hostagent/strict_process_integration_test.go | Actual rules, preservation, pending/restart, process loss/expiry and regrant. |
-| validation/report/report.go; bilingual examples/README/validation | Five required native gates and exact evidence. |
+| validation/report/report.go; bilingual examples/README/validation | Seven required native gates and exact evidence. |
 
 Dependencies: existing pinned Core/planner/configuration, markstate, hostpolicy/hostrules, hostowner and hostrevoke; no new module/version. Reference patterns: hostrules absolute time, M2C6 cleanup, M2C7 complete history, hostagent driver/process harness. Tests: existing unit/layout/readback/agent fake effects plus new semantic/native gates. Risk: internal image v2/Owner interface/status extension; no database/config document schema migration, optional CLI flag only. Context map reviewed against the exact accepted main tree before changes.
 

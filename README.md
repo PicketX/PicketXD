@@ -2,7 +2,7 @@
 
 > English (default) | [简体中文](README.zh-CN.md)
 
-Linux enforcement Agent for PicketX. `picketxd enforce` provides standalone static host INPUT/original-destination/graceful TCP/UDP enforcement and recovery. See the [runnable example](examples/enforce/README.md). The full Agent/Controller workflow, strict cleanup, forwarding, L7 and administration remain in progress.
+Linux execution Agent for PicketX. `picketxd enforce` provides standalone static host INPUT/original-destination dual-stack TCP/UDP enforcement and recovery, with default graceful handling and explicit strict mode. See the [graceful example](examples/enforce/README.md) and [strict example](examples/strict/README.md). The full Agent/Controller workflow, container forwarding, L7 and management remain in progress.
 
 The approved [M0 plan](https://github.com/PicketX/PicketX/blob/cdf17f4af430fcebfdfa79dfe4ef907d77ade993/docs/superpowers/plans/2026-10-14-linux-data-plane-validation.md) defines nftables admission/expiry and scoped conntrack revocation validation before the full Agent/Controller workflow.
 
@@ -80,4 +80,13 @@ This image-based API remains available. M2C7 below adds recorded history; `enfor
 
 Journal v4 retains deduplicated confirmed source/endpoint/physical-mark ownership across generations and process restarts. `Session.RevokeRecorded(ctx)` uses it with the actual confirmed current image; callers need no old images. Pending candidates enter history only after complete live confirmation. Legacy v1–v3 remain readable, but lost history stays explicitly incomplete and recorded cleanup refuses it. JSON status reports coverage separately from enforcement. See [acceptance and recovery limits](docs/validation/M2C7.md), [design](docs/superpowers/specs/2026-10-17-durable-history-design.md) and [plan](docs/superpowers/plans/2026-10-17-durable-history.md).
 
-Bounds are 4096 targets, 65536 source/endpoint members and 8 MiB JSON. Capacity/context incompatibility fails before mark/nft effects; history is never pruned after expiry or cleanup. Older binaries reject v4; no in-place downgrade. Strict admission, scheduling and durable completion recovery remain subsequent work.
+Bounds are 4096 targets, 65536 source/endpoint members and 8 MiB JSON. Capacity/context incompatibility fails before mark/nft effects; history is never pruned after expiry or cleanup. Older binaries reject v4; no in-place downgrade. M2C8 below adds strict admission and scheduling; durable completion recovery remains subsequent work.
+
+
+## M2C8 static strict enforcement
+
+`picketxd enforce --handling strict` checks current source/endpoint/absolute-time permission for protected packets and runs recorded exact conntrack cleanup after confirming rules on every reconcile. Graceful remains the default. Known retired marks preserve independently authorized established flows across physical replacement. Kernel deadlines remain effective after process death; restart reobserves and retries cleanup. JSON strict confirmation applies only to the current observation and its validUntil, with no persisted completion receipt.
+
+Strict reserves protected local address/port pairs for services; locally initiated clients must use other source endpoints. A final reply-direction guard blocks reversed conntrack reconstruction after deletion, while original-direction DNAT aliases retain original-destination scope. Full dual-family scans repeat each poll/boundary. If permission returns before cleanup, retained marked TCP may resume; successfully cleaned TCP remains blocked through unmarked reconstruction. No RST/peer-notification promise is made.
+
+All87 mandatory native gates and108 recorded top-level cases pass with zero fail/skip on the recorded Linux6.17.0-1022-azure / Go1.27.0 environment. Use the [strict example](examples/strict/README.md) and [acceptance record](docs/validation/M2C8.md) for exact evidence, migration prerequisites and operational limits. Durable completion recovery, authenticated Controller synchronization, deployment/service packaging, container/FORWARD, L7 and management follow the delivery route.

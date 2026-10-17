@@ -24,24 +24,24 @@ Graceful v1 JSON/hash/default/runtimeKey unchanged. Strict imagev2, journalv4; K
 Files: hostpolicy/policy.go/tests; hostrules/image_linux.go/rules_linux.go/strict_linux.go/strict_linux_test.go; hostowner/application_linux.go; hostrevoke/plan.go.
 Interfaces: Image.KnownMarks []uint32 (omitempty); Image.ValidateMarks(markstate.State) error. Build derives aliases only for strict; materialize v1/v2 from Handling, Validate semantic input plus alias list, strict layout one shared chain and current permission gating. All consumers call alias ledger validation.
 
-- [ ] Write TestStrictImageAndLedger and TestGracefulImageEncodingStable, strict scope/layout/corruption/known retired/unknown/out-of-context alias assertions. Run focused tests; expect missing API/strict scope RED.
-- [ ] Implement v2/validation/layout without changing graceful serialization/hash. Count shared alias and doubled TCP rules in existing bounds.
-- [ ] Focused and full uncached unit suite GREEN, commit.
+- [x] Write TestStrictImageAndLedger and TestGracefulImageEncodingStable, strict scope/layout/corruption/known retired/unknown/out-of-context alias assertions. Run focused tests; expect missing API/strict scope RED.
+- [x] Implement v2/validation/layout without changing graceful serialization/hash. Count shared alias and doubled TCP rules in existing bounds.
+- [x] Focused and full uncached unit suite GREEN, commit.
 
 ### Task2: command mode, reconcile ordering and truthful status
 
 Files: hostagent/config_linux.go/run_linux.go/strict_linux.go and tests; hostowner/application_linux.go (Handling metadata); agentcli/enforce_linux.go/tests.
 Interfaces: Config.Handling networkplan.HandlingMode default graceful; Owner.RevokeRecorded(context.Context)(hostrevoke.Result,error); ApplicationStatus.Handling; Status.Strict *StrictStatus with enabled/cleanupConfirmed/observedAt/validUntil/imageDigest/result.
 
-- [ ] Missing Config/API/status RED tests: strict apply→cleanup, every verify→cleanup, graceful never cleanup, failure/remaining/generation/boundary no strict confirmation, mode mismatch before desired store, default/runtimeKey stable and unknown CLI flag mode rejected before owner.
-- [ ] Implement explicit flag/facts and mode check, strict cleanup on each driver wake, coherent final status and deadline check. No persisted receipt.
-- [ ] Full uncached unit/race/vet/build/static smoke GREEN; integration compiles, commit.
+- [x] Missing Config/API/status RED tests: strict apply→cleanup, every verify→cleanup, graceful never cleanup, failure/remaining/generation/boundary no strict confirmation, mode mismatch before desired store, default/runtimeKey stable and unknown CLI flag mode rejected before owner.
+- [x] Implement explicit flag/facts and mode check, strict cleanup on each driver wake, coherent final status and deadline check. No persisted receipt.
+- [x] Full uncached unit/race/vet/build/static smoke GREEN; integration compiles, commit.
 
 ### Task3: native admission/recovery/process evidence and delivery
 
 Files: hostowner/strict_integration_test.go; hostagent/strict_process_integration_test.go; report.go; bilingual README/examples/validation.
 
-- [ ] Add TestOwnerKernelStrictMembership, TestOwnerKernelStrictPhysicalReplacement, TestOwnerKernelStrictPendingRecovery, TestEnforceProcessStrictRevocation, TestEnforceProcessStrictExpiryWithoutProcess, TestOwnerKernelStrictReverseReconstruction, TestOwnerKernelStrictOriginalDNAT. Compile helpers using actual input compiler.
-- [ ] One fresh whole-branch reviewer on base accepted main; grade findings by user effect; Important/Critical one observed RED→GREEN pass plus full suite, Minor ledger/defer.
-- [ ] Publish exact code tree, native CI87 required plus actual raw counts, zero failures/skips; independently download ZIP and verify digest/raw/report/pins/build checkout/tree. Record bilingual acceptance.
+- [x] Add TestOwnerKernelStrictMembership, TestOwnerKernelStrictPhysicalReplacement, TestOwnerKernelStrictPendingRecovery, TestEnforceProcessStrictRevocation, TestEnforceProcessStrictExpiryWithoutProcess, TestOwnerKernelStrictReverseReconstruction, TestOwnerKernelStrictOriginalDNAT. Compile helpers using actual input compiler.
+- [x] One fresh whole-branch reviewer on base accepted main; grade findings by user effect; Important/Critical one observed RED→GREEN pass plus full suite, Minor ledger/defer.
+- [x] Publish exact code tree, native CI87 required plus actual raw counts, zero failures/skips; independently download ZIP and verify digest/raw/report/pins/build checkout/tree. Record bilingual acceptance.
 - [ ] Final PR-head CI and artifact pass; expected-head merge; exact main push CI/artifact and no open PRs; collect exhaustive rulings/minors then delete only this plan scratch.

@@ -16,9 +16,9 @@ CLI 新增 --handling graceful|strict，默认 graceful；可信 facts 采用所
 
 JSON 可选 strict 元数据包含 enabled/cleanupConfirmed/observedAt/validUntil/imageDigest/范围计数。仅成功清理、残留0、最新代数/hash及现场证明匹配、未跨先前 NextChange 才确认；只表示该次观察，不持久，到 validUntil/新 desired 即失效。strict 顶层确认还要求清理成功；graceful 不调用清理。once 仅协调一次，未来到期仍由内核阻断，但未来 conntrack 删除需要进程再次运行。
 
-文件映射详见英文表：hostpolicy范围；hostrules v2/严格链与限制；hostowner/hostrevoke台账校验与模式；hostagent/CLI模式、协调、状态；五项原生场景及双语证据。沿用所有依赖，无模块/配置文档 schema 迁移，新增可选 CLI 参数。映射已对照已验收 main 自审。
+文件映射详见英文表：hostpolicy范围；hostrules v2/严格链与限制；hostowner/hostrevoke台账校验与模式；hostagent/CLI模式、协调、状态；七项原生场景及双语证据。沿用所有依赖，无模块/配置文档 schema 迁移，新增可选 CLI 参数。映射已对照已验收 main 自审。
 
-先观察单测 RED，再实现；验证 v1 不变、严格无旁路、别名损坏、限制、权限并集、调用顺序、失败/跨边界/代数状态。完整 unit/race/vet/build/smoke、integration 编译。新增五项必需原生门禁：严格成员/无关与独立授权保留、物理替换退休mark、拒绝/已应用pending、独立命令撤销更新、SIGKILL到期及恢复清理/重新授权。87项必需全过，核对原始场景/报告/摘要/版本/PR和main精确树；重要问题一次 RED→GREEN 修复，Minor延期。
+先观察单测 RED，再实现；验证 v1 不变、严格无旁路、别名损坏、限制、权限并集、调用顺序、失败/跨边界/代数状态。完整 unit/race/vet/build/smoke、integration 编译。新增七项必需原生门禁：严格成员/无关与独立授权保留、物理替换退休mark、拒绝/已应用pending、独立命令撤销更新、SIGKILL到期及恢复清理/重新授权、反向重建与原始 DNAT。87项必需全过，核对原始场景/报告/摘要/版本/PR和main精确树；重要问题一次 RED→GREEN 修复，Minor延期。
 
 
 ## 反向重建与服务端点预留

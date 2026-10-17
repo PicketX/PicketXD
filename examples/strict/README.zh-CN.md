@@ -17,7 +17,7 @@ sudo ./picketxd enforce --handling strict \
 
 完整 mark 范围须独占预留。默认仍 graceful；参数和 Binding 均须选 strict。每个保护报文检查当前来源/端点/绝对有效期，deny 优先。移除最后一个 Grant 保留保护/默认拒绝并阻断已有 TCP/UDP；显式空 Configuration 才移除保护。完整 YAML 应原子 rename 发布。
 
-driver 每次唤醒先完整确认实际规则，再完整双族扫描、原始元组/zone/内核ID精确删除撤回自有流、确认残留0。保留当前独立授权及 unmarked/无关项。每个轮询和已知时间边界均重复全量扫描；可增大 poll 降低周期成本，内核期限与边界唤醒不依赖轮询频率。
+driver 每次唤醒先完整确认实际规则，再完整双族扫描、原始元组/zone/内核ID精确删除撤回自有流、确认残留0。当前独立服务授权保留连接；清理保留 unmarked/无关 conntrack 记录。每个轮询和已知时间边界均重复全量扫描；可增大 poll 降低周期成本，内核期限与边界唤醒不依赖轮询频率。
 
 strict.cleanupConfirmed 仅表示该次协调，须同时匹配 desired/applied 代数/hash、imageDigest 和 validUntil。不持久，不能证明未观察区间已完成清理。once 只协调一次；关闭/SIGKILL 留下规则，内核仍按期阻断，但无进程不自主删除 conntrack。若清理前权限重新有效，尚存标记 TCP 可能恢复；成功清理后的 TCP 不能仅靠重建无标记 conntrack 复活。UDP 无连接，新有效授权下可恢复。不发送 TCP RST、不承诺对端即时收到断开通知。
 
