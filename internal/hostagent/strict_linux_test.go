@@ -200,3 +200,46 @@ func TestStrictFinalSnapshotBoundaryCannotConfirm(t *testing.T) {
 		t.Fatal("final snapshot crossed membership boundary but retained strict confirmation", e, st)
 	}
 }
+
+func TestStrictExistingImageCleanedBeforeReplacement(t *testing.T) {
+	c, d, o, _ := strictRunSetup(t)
+	o.app = hostowner.ApplicationStatus{Handling: networkplan.Strict, Phase: "confirmed", ImageDigest: "previous-image", EnforcementConfirmed: true}
+	staleTCP := true
+	o.onCleanup = func() {
+		if o.app.ImageDigest == "previous-image" {
+			staleTCP = false
+		}
+	}
+	o.onApply = func() {
+		if staleTCP {
+			t.Fatal("new permission installed while expired old TCP still retained")
+		}
+	}
+	if err := Run(context.Background(), c, d); err != nil {
+		t.Fatal(err)
+	}
+	if staleTCP || !reflect.DeepEqual(o.calls, []string{"cleanup", "apply", "cleanup"}) {
+		t.Fatal(staleTCP, o.calls)
+	}
+}
+
+func TestStrictPreviousCleanupFailurePreventsReplacement(t *testing.T) {
+	for _, mode := range []string{"error", "remaining"} {
+		t.Run(mode, func(t *testing.T) {
+			c, d, o, reports := strictRunSetup(t)
+			o.app = hostowner.ApplicationStatus{Handling: networkplan.Strict, Phase: "confirmed", ImageDigest: "previous-image", EnforcementConfirmed: true}
+			if mode == "error" {
+				o.cleanupErr = errors.New("old deletion failed")
+			} else {
+				o.result.Remaining = 1
+			}
+			if err := Run(context.Background(), c, d); err == nil {
+				t.Fatal("previous cleanup failure accepted")
+			}
+			st := (*reports)[len(*reports)-1]
+			if o.applies != 0 || !reflect.DeepEqual(o.calls, []string{"cleanup"}) || st.EnforcementConfirmed || st.Strict.CleanupConfirmed {
+				t.Fatal("replacement installed after old cleanup failure", o.calls, st)
+			}
+		})
+	}
+}

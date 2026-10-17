@@ -4,6 +4,7 @@
 package hostagent
 
 import (
+	vnet "github.com/vishvananda/netlink"
 	"io"
 	"net"
 	"os"
@@ -140,5 +141,101 @@ func TestEnforceProcessStrictExpiryWithoutProcess(t *testing.T) {
 		strictProcessConnections(t)
 		restarted.stop(t, syscall.SIGTERM, false)
 		t.Logf("SIGKILL before %s: old TCP/UDP IPv4/IPv6 independently blocked at kernel deadline; once restart deleted4 remaining0 without changing image/attempt/journal; later regrant did not revive cleaned TCP", expiry.Format(time.RFC3339Nano))
+	})
+}
+
+func strictKeepGrants() string {
+	return `
+---
+apiVersion: picketx.io/v1alpha1
+kind: Grant
+metadata: {name: keep4, uid: grant-keep4-v1}
+spec:
+  subject: {type: source, cidr: 127.0.0.2/32}
+  scopes:
+    - resourceRef: {name: demo, uid: resource-demo-v1}
+  validity: {mode: permanent}
+---
+apiVersion: picketx.io/v1alpha1
+kind: Grant
+metadata: {name: keep6, uid: grant-keep6-v1}
+spec:
+  subject: {type: source, cidr: '::2/128'}
+  scopes:
+    - resourceRef: {name: demo, uid: resource-demo-v1}
+  validity: {mode: permanent}
+`
+}
+
+func strictKeptConnections(t *testing.T) []net.Conn {
+	t.Helper()
+	lo, e := vnet.LinkByName("lo")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = vnet.AddrAdd(lo, &vnet.Addr{IPNet: &net.IPNet{IP: net.ParseIP("::2"), Mask: net.CIDRMask(128, 128)}}); e != nil {
+		t.Fatal(e)
+	}
+	var out []net.Conn
+	for i, source := range []string{"127.0.0.2", "::2"} {
+		dest := []string{"127.0.0.1", "::1"}[i]
+		for _, protocol := range []string{"tcp", "udp"} {
+			d := net.Dialer{Timeout: time.Second}
+			port := "18443"
+			if protocol == "tcp" {
+				d.LocalAddr = &net.TCPAddr{IP: net.ParseIP(source)}
+			} else {
+				d.LocalAddr = &net.UDPAddr{IP: net.ParseIP(source)}
+				port = "18444"
+			}
+			c, e := d.Dial(protocol, net.JoinHostPort(dest, port))
+			if e != nil {
+				t.Fatal(e)
+			}
+			t.Cleanup(func() { c.Close() })
+			strictConnectionEcho(t, c, true)
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func TestEnforceProcessStrictRegrantAfterOfflineExpiry(t *testing.T) {
+	isolatedProcess(t, func() {
+		processServers(t)
+		expiry := time.Now().Add(5 * time.Second).UTC()
+		raw := strings.ReplaceAll(strictExample(t), "validity: {mode: permanent}", "validity: {mode: bounded, expiresAt: '"+expiry.Format(time.RFC3339Nano)+"'}") + strictKeepGrants()
+		args := changedArg(processArgs(t, raw), "--handling", "strict")
+		p := startCommand(t, args)
+		p.until(t, strictConfirmed)
+		old := strictProcessConnections(t)
+		kept := strictKeptConnections(t)
+		if !time.Now().Before(expiry) {
+			t.Fatal("fixture did not kill before expiry")
+		}
+		p.stop(t, syscall.SIGKILL, true)
+		time.Sleep(max(0, time.Until(expiry.Add(75*time.Millisecond))))
+		for _, c := range old {
+			strictConnectionEcho(t, c, false)
+		}
+		for _, c := range kept {
+			strictConnectionEcho(t, c, true)
+		}
+		publish(t, argument(args, "--policy"), strings.ReplaceAll(strictExample(t), "grant-loopback", "grant-fresh")+strictKeepGrants())
+		st, e, log := onceCommand(t, args)
+		if e != nil || !strictConfirmed(st) || st.Desired.Generation != 2 {
+			t.Fatal(st, e, log)
+		}
+		// Restart directly into new permission, without an intermediate expired once run.
+		for _, c := range old {
+			if _, ok := c.LocalAddr().(*net.TCPAddr); ok {
+				strictConnectionEcho(t, c, false)
+			}
+		}
+		for _, c := range kept {
+			strictConnectionEcho(t, c, true)
+		}
+		strictProcessConnections(t)
+		t.Log("direct fresh-Grant restart after SIGKILL/offline expiry blocked both old TCP clients, preserved four independently allowed TCP/UDP flows, and admitted four fresh dual-stack clients")
 	})
 }
