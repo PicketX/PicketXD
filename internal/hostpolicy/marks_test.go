@@ -68,3 +68,18 @@ func TestPolicyMarkIdentity(t *testing.T) {
 		t.Fatal("empty protection allocated marks", empty, e)
 	}
 }
+
+func TestTargetIdentityMatchesPolicy(t *testing.T) {
+	p := compiled(t, input())
+	inv, e := p.Inventory()
+	if e != nil {
+		t.Fatal(e)
+	}
+	want := markTargets(t, p)
+	for i, v := range inv {
+		got, e := TargetIdentity(v.Protection.Key, v.Protection.Context, v.Protection.Matches)
+		if e != nil || got != want[i] {
+			t.Fatal("identity helper rotated existing target", got, want[i], e)
+		}
+	}
+}

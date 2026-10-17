@@ -21,19 +21,29 @@ func (p *Policy) MarkTargets() ([]markstate.Target, error) {
 	var targets []markstate.Target
 	for _, item := range inventory {
 		protection := item.Protection
-		data, e := json.Marshal(struct {
-			Context networkplan.ExecutionContext
-			Matches []networkplan.Match
-		}{protection.Context, protection.Matches})
+		target, e := TargetIdentity(protection.Key, protection.Context, protection.Matches)
 		if e != nil {
 			return nil, e
 		}
-		hash := sha256.Sum256(data)
-		target := markstate.Target{Key: protection.Key, Shape: hex.EncodeToString(hash[:])}
-		if e = target.Validate(); e != nil {
-			return nil, e
-		}
+
 		targets = append(targets, target)
 	}
 	return targets, nil
+}
+
+// TargetIdentity describes physical shape only; it is not an ownership receipt.
+func TargetIdentity(key networkplan.TargetKey, context networkplan.ExecutionContext, matches []networkplan.Match) (markstate.Target, error) {
+	data, e := json.Marshal(struct {
+		Context networkplan.ExecutionContext
+		Matches []networkplan.Match
+	}{context, matches})
+	if e != nil {
+		return markstate.Target{}, e
+	}
+	hash := sha256.Sum256(data)
+	target := markstate.Target{Key: key, Shape: hex.EncodeToString(hash[:])}
+	if e = target.Validate(); e != nil {
+		return markstate.Target{}, e
+	}
+	return target, nil
 }

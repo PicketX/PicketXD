@@ -37,11 +37,38 @@ func (s *Session) RevokeWithdrawn(ctx context.Context, history []hostrules.Image
 	if e != nil {
 		return r, e
 	}
+	return s.runCleanupLocked(ctx, p)
+}
+
+// RevokeRecorded uses complete, durably confirmed historical ownership only.
+// It returns scoped counts; automatic strict lifecycle is a separate layer.
+func (s *Session) RevokeRecorded(ctx context.Context) (hostrevoke.Result, error) {
+	r := hostrevoke.Result{Remaining: -1}
+	if s == nil {
+		return r, fmt.Errorf("ownership session required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if e := s.check(ctx); e != nil {
+		return r, e
+	}
+	a := s.record.Application
+	if a == nil || a.Confirmed == nil || a.Pending != nil || s.record.Marks == nil || a.History == nil || !a.History.Complete || a.History.State == nil {
+		return r, fmt.Errorf("complete confirmed recorded history required; legacy/incomplete coverage cannot be inferred")
+	}
+	p, e := hostrevoke.NewRecorded(*a.History.State, *a.Confirmed, *s.record.Marks)
+	if e != nil {
+		return r, e
+	}
+	return s.runCleanupLocked(ctx, p)
+}
+func (s *Session) runCleanupLocked(ctx context.Context, p *hostrevoke.Plan) (hostrevoke.Result, error) {
+	r := hostrevoke.Result{Remaining: -1}
 	backend, ok := s.backend.(flowKernel)
 	if !ok {
 		return r, fmt.Errorf("namespace-bound conntrack backend required")
 	}
-	r, e = hostrevoke.Run(ctx, p, hostrevoke.Effects{Now: time.Now, Confirm: func(ctx context.Context) error { _, e := s.verifyLocked(ctx); return e }, Dump: backend.ConntrackFlows, Delete: backend.DeleteConntrackFlow})
+	r, e := hostrevoke.Run(ctx, p, hostrevoke.Effects{Now: time.Now, Confirm: func(ctx context.Context) error { _, e := s.verifyLocked(ctx); return e }, Dump: backend.ConntrackFlows, Delete: backend.DeleteConntrackFlow})
 	if e != nil {
 		s.faulted = true
 		s.verified = false

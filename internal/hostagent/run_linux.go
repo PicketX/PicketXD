@@ -21,6 +21,7 @@ type Owner interface {
 	Verify(context.Context) (hostowner.Status, error)
 	Status() hostowner.Status
 	ApplicationStatus() hostowner.ApplicationStatus
+	HistoryStatus() hostowner.HistoryStatus
 	Close() error
 }
 type Store interface {
@@ -49,6 +50,7 @@ type DesiredStatus struct {
 	NextChange    time.Time `json:"nextChange"`
 }
 type Status struct {
+	History              hostowner.HistoryStatus     `json:"history"`
 	At                   time.Time                   `json:"at"`
 	Desired              DesiredStatus               `json:"desired"`
 	Ownership            hostowner.Status            `json:"ownership"`
@@ -146,7 +148,7 @@ func Run(ctx context.Context, c Config, d Dependencies) (err error) {
 		if e != nil {
 			return errors.Join(applyErr, e)
 		}
-		report := Status{At: current.At, Desired: desired(current), Ownership: owner.Status(), Application: owner.ApplicationStatus(), AppliedGeneration: generation, AppliedPolicyHash: hash}
+		report := Status{At: current.At, Desired: desired(current), Ownership: owner.Status(), Application: owner.ApplicationStatus(), History: owner.HistoryStatus(), AppliedGeneration: generation, AppliedPolicyHash: hash}
 		report.EnforcementConfirmed = applyErr == nil && !current.CacheFault && current.Prepared && generation == current.Generation && hash == current.PolicyHash && report.Application.EnforcementConfirmed && report.Ownership.OwnershipConfirmed
 		if applyErr != nil {
 			report.LastApplyError = applyErr.Error()

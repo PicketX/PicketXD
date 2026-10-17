@@ -235,6 +235,10 @@ func TestOwnerKernelHelper(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+	if os.Getenv("PICKETX_OWNER_HELPER_HISTORY") == "1" {
+		historyHelper(t, s)
+		return
+	}
 	var ready any = s.Status()
 	if os.Getenv("PICKETX_OWNER_HELPER_ADMISSION") == "1" {
 		ready = applyAdmission(t, s, dualAdmissionPolicy(t, true, false))
