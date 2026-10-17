@@ -73,4 +73,11 @@ hostpolicy.MarkTargets 和 [markstate](internal/markstate) 提取物理目标身
 
 `hostowner.Session.RevokeWithdrawn` 新增绑定 namespace 的生产 conntrack 清理 API。校验历史来源/目标/mark 所有权，与真实已确认当前映像共同决定撤回连接；当前独立授权仍保留连接。完整双族扫描、现场完整映像检查先于原始元组/zone/内核 ID 精确删除及最终回读。部分失败、漂移或残留均返回错误并要求重开。不全表 flush、不修改 nft、不写日志。见[验收与边界](docs/validation/M2C6.zh-CN.md)、[设计](docs/superpowers/specs/2026-10-17-host-revocation-design.zh-CN.md)和[计划](docs/superpowers/plans/2026-10-17-host-revocation.zh-CN.md)。
 
-本批为清理引擎，调用者仍需提供旧映像历史，`enforce` 仍为 graceful 且不自动清理。持久累计历史、strict 准入/协调及崩溃恢复的 strict 完成凭据随后接入。
+映像式 API 继续可用。下方 M2C7 新增持久历史；`enforce` 仍为 graceful 且不自动清理。
+
+
+## M2C7 持久紧凑清理历史
+
+v4 日志跨多代及重启保留去重的已确认来源/端点/物理 mark 所有权。`Session.RevokeRecorded(ctx)` 使用它及真实已确认当前映像，调用者无需旧映像。pending 候选仅在完整现场确认后计入。v1–v3 仍可读，但丢失历史明确不完整，拒绝记录式清理。JSON 状态分别报告历史覆盖与执行确认。见[验收与恢复边界](docs/validation/M2C7.zh-CN.md)、[设计](docs/superpowers/specs/2026-10-17-durable-history-design.zh-CN.md)和[计划](docs/superpowers/plans/2026-10-17-durable-history.zh-CN.md)。
+
+上限4096目标、65536来源/端点成员和8MiB JSON；容量/context不兼容在 mark/nft 效果前拒绝，不因到期或清理裁剪历史。旧二进制拒绝 v4，不支持原地降级。strict 准入、调度及持久完成恢复随后接入。

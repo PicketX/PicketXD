@@ -33,6 +33,11 @@ jobs:
         env:
           PICKETX_KERNEL_TESTS: '1'
         run: scripts/test-kernel.sh
+      - name: Print native evidence metadata and report
+        if: always()
+        run: |
+          cat artifacts/kernel.txt artifacts/go.txt artifacts/modules.txt artifacts/agent-binary.txt
+          cat artifacts/report.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
