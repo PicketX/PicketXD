@@ -101,3 +101,7 @@ See [M2C9 acceptance](docs/validation/M2C9.md). This is ordering recovery for fl
 ## M2C10 systemd deployment
 
 The existing static command has a [service template and bilingual installation/upgrade guide](deploy/systemd/README.md), retaining private state and filtering on stop. Active is not policy readiness; boot protection and full M2 remain incomplete. See the [acceptance record](docs/validation/M2C10.md).
+
+## M2C11 service startup readiness
+
+The systemd template uses explicit --systemd-notify and Type=notify to wait for the first clean current-policy confirmation. During startup, an invalid current publication with accepted cache remains activating; an ordered Requires/After application can wait for readiness. Startup notification is not ongoing health or a global boot firewall. See the [deployment guide](deploy/systemd/README.md) and [acceptance](docs/validation/M2C11.md).
