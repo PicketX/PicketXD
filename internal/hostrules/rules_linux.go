@@ -82,6 +82,17 @@ func (im Image) Layout(marker string) (Layout, error) {
 		}
 		add(ch, []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}})
 	}
+	if im.Context.Handling == networkplan.Strict {
+		// A server packet can recreate deleted conntrack in reverse orientation.
+		// After all original-destination dispatches, refuse reply-direction
+		// packets addressed to a protected service endpoint. Original-direction
+		// DNAT aliases outside our scope keep their existing behavior.
+		for _, t := range im.Targets {
+			for _, ep := range t.Protected {
+				add(main, append(endpointMatch(ep, false), &expr.Ct{Key: expr.CtKeyDIRECTION, Register: 1}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{1}}, &expr.Verdict{Kind: expr.VerdictDrop}))
+			}
+		}
+	}
 	return out, nil
 }
 func prefixMatch(p netip.Prefix, read expr.Any) []expr.Any {

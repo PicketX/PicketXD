@@ -166,3 +166,58 @@ func TestGracefulImageEncodingStable(t *testing.T) {
 		t.Fatal("graceful v1 encoding changed")
 	}
 }
+
+func TestStrictReplyReconstructionGuard(t *testing.T) {
+	im, _ := strictImage(t)
+	layout, err := im.Layout("owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var guarded []hostpolicy.Endpoint
+	seenGuard := false
+	for _, r := range layout.Rules {
+		if r.Chain.Name != "picketx_admission" {
+			continue
+		}
+		var direction bool
+		for _, x := range r.Exprs {
+			if v, ok := x.(*expr.Ct); ok && v.Key == expr.CtKeyDIRECTION {
+				direction = true
+			}
+		}
+		if !direction {
+			if seenGuard {
+				t.Fatal("original-destination dispatch follows fallback drop")
+			}
+			continue
+		}
+		seenGuard = true
+		for _, target := range im.Targets {
+			for _, ep := range target.Protected {
+				expected := append(endpointMatch(ep, false), &expr.Ct{Key: expr.CtKeyDIRECTION, Register: 1}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{1}}, &expr.Verdict{Kind: expr.VerdictDrop})
+				if reflect.DeepEqual(r.Exprs, expected) {
+					guarded = append(guarded, ep)
+				}
+			}
+		}
+	}
+	var expected []hostpolicy.Endpoint
+	for _, target := range im.Targets {
+		expected = append(expected, target.Protected...)
+	}
+	if !reflect.DeepEqual(guarded, expected) {
+		t.Fatalf("missing exact raw reply guards: got %v want %v", guarded, expected)
+	}
+	graceful := built(t)
+	layout, err = graceful.Layout("owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range layout.Rules {
+		for _, x := range r.Exprs {
+			if v, ok := x.(*expr.Ct); ok && v.Key == expr.CtKeyDIRECTION {
+				t.Fatal("graceful gained strict reply guard")
+			}
+		}
+	}
+}

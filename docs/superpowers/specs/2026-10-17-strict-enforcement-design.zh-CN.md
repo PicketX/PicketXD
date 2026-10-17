@@ -18,4 +18,11 @@ JSON 可选 strict 元数据包含 enabled/cleanupConfirmed/observedAt/validUnti
 
 文件映射详见英文表：hostpolicy范围；hostrules v2/严格链与限制；hostowner/hostrevoke台账校验与模式；hostagent/CLI模式、协调、状态；五项原生场景及双语证据。沿用所有依赖，无模块/配置文档 schema 迁移，新增可选 CLI 参数。映射已对照已验收 main 自审。
 
-先观察单测 RED，再实现；验证 v1 不变、严格无旁路、别名损坏、限制、权限并集、调用顺序、失败/跨边界/代数状态。完整 unit/race/vet/build/smoke、integration 编译。新增五项必需原生门禁：严格成员/无关与独立授权保留、物理替换退休mark、拒绝/已应用pending、独立命令撤销更新、SIGKILL到期及恢复清理/重新授权。85项必需全过，核对原始场景/报告/摘要/版本/PR和main精确树；重要问题一次 RED→GREEN 修复，Minor延期。
+先观察单测 RED，再实现；验证 v1 不变、严格无旁路、别名损坏、限制、权限并集、调用顺序、失败/跨边界/代数状态。完整 unit/race/vet/build/smoke、integration 编译。新增五项必需原生门禁：严格成员/无关与独立授权保留、物理替换退休mark、拒绝/已应用pending、独立命令撤销更新、SIGKILL到期及恢复清理/重新授权。87项必需全过，核对原始场景/报告/摘要/版本/PR和main精确树；重要问题一次 RED→GREEN 修复，Minor延期。
+
+
+## 反向重建与服务端点预留
+
+真实内核 run39004655614 复现：精确删除后 IPv6 旧 TCP 的新数据仍回显，内核以服务端口为 original source、客户端端口为 original destination 重建 mark0 记录，绕过原始目标分发。strict 在全部原始目标分发之后，为每个受保护端点增加一条“实际目的端点且 conntrack reply 方向”的 DROP。正常独立当前授权先分发；original 方向的范围外 DNAT 别名仍按原始目标处理。该守卫不删除未标记或无关 conntrack 记录。
+
+strict 的受保护本地地址/端口必须专用于服务，不能同时作为本地主动出站客户端的源端点，否则其入站回复可能被拒绝。这是明确的报文范围代价；graceful 规则和编码不变。不修改 namespace 全局 conntrack sysctl 或 OUTPUT 策略。每条守卫计入 MaxRules。新增双族反向未标记 UDP 拒绝且记录保留、五次隔离物理替换重复，以及 strict 原始 DNAT 保护/范围外别名回归。必需门禁总数更新为87，顶层记录108。

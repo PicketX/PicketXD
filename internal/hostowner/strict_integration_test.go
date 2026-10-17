@@ -12,6 +12,9 @@ import (
 	"github.com/PicketX/PicketX/pkg/networkplan"
 	"github.com/PicketX/PicketXD/internal/hostpolicy"
 	"github.com/PicketX/PicketXD/internal/hostrevoke"
+	"github.com/google/nftables"
+	"github.com/google/nftables/expr"
+	"golang.org/x/sys/unix"
 	"io"
 	"net"
 	"net/netip"
@@ -268,6 +271,28 @@ func TestStrictNativeInputs(t *testing.T) {
 	}
 }
 
+func TestStrictDNATInputs(t *testing.T) {
+	c, e, _ := applicationSetup(t)
+	s := mustOpen(t, c, e)
+	defer s.Close()
+	apply := func(phase int, prefix string, port uint16) {
+		t.Helper()
+		p := strictAdmission(t, phase, func(in *networkplan.Input) {
+			in.Networks[0].Port = port
+			for i := range in.Logical.Grants {
+				in.Logical.Grants[i].ID = prefix + in.Logical.Grants[i].ID
+			}
+		})
+		if _, err := s.ApplyPolicy(context.Background(), p, markRange()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	apply(3, "", 18443)
+	apply(3, "retarget-", 18543)
+	apply(1, "grant-", 18543)
+	apply(3, "grant-", 18543)
+}
+
 // Preserve the failing packet's actual tuples/mark for native diagnosis.
 func strictPhysicalEchoDenied(t *testing.T, s *Session, c net.Conn) {
 	t.Helper()
@@ -300,6 +325,7 @@ func TestOwnerKernelStrictReverseReconstruction(t *testing.T) {
 		if e != nil || r.Selected != 4 || r.Deleted != 4 || r.Remaining != 0 {
 			t.Fatal(r, e)
 		}
+		seeded := 0
 		for _, f := range before {
 			if f.Original.Protocol != 17 || f.Original.DestinationPort != 18444 {
 				continue
@@ -307,11 +333,86 @@ func TestOwnerKernelStrictReverseReconstruction(t *testing.T) {
 			f.Original, f.Reply = f.Reply, f.Original
 			f.Mark = 0
 			seedCleanupFlow(t, b, f)
+			seeded++
+		}
+		if seeded != 2 {
+			t.Fatal("expected both reversed UDP families", seeded)
+		}
+		var reversed []hostrevoke.Flow
+		for _, f := range cleanupSnapshot(t, b) {
+			if f.Mark == 0 && f.Original.Protocol == 17 && f.Original.SourcePort == 18444 {
+				reversed = append(reversed, f)
+			}
+		}
+		if len(reversed) != 2 {
+			t.Fatal("missing native reversed entries", reversed)
 		}
 		for _, client := range clients {
 			if client.LocalAddr().Network() == "udp" {
 				strictPhysicalEchoDenied(t, s, client)
 			}
 		}
+		if r, e := s.RevokeRecorded(context.Background()); e != nil || r.Selected != 0 {
+			t.Fatal("unmarked reversed entries must not be deleted", r, e)
+		}
+		after := cleanupSnapshot(t, b)
+		for _, f := range reversed {
+			if !containsFlow(after, f) {
+				t.Fatal("unmarked reversed record lost", f)
+			}
+		}
+		t.Log("both reversed unmarked UDP entries could not bypass strict withdrawal and were preserved by cleanup")
+	})
+}
+
+func TestOwnerKernelStrictOriginalDNAT(t *testing.T) {
+	isolated(t, func() {
+		admissionServers(t)
+		n := connectKernel(t)
+		tab := n.CreateTable(&nftables.Table{Name: "picketx_test_nat", Family: nftables.TableFamilyINet})
+		priority := nftables.ChainPriority(-100)
+		ch := n.AddChain(&nftables.Chain{Name: "picketx_test_output", Table: tab, Type: nftables.ChainTypeNAT, Hooknum: nftables.ChainHookOutput, Priority: &priority})
+		for _, family := range []byte{unix.NFPROTO_IPV4, unix.NFPROTO_IPV6} {
+			n.AddRule(&nftables.Rule{Table: tab, Chain: ch, Exprs: []expr.Any{&expr.Meta{Key: expr.MetaKeyNFPROTO, Register: 1}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{family}}, &expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 1}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{6}}, &expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{0x48, 0x6f}}, &expr.Immediate{Register: 1, Data: []byte{0x48, 0x0b}}, &expr.NAT{Type: expr.NATTypeDestNAT, Family: uint32(family), RegProtoMin: 1, RegProtoMax: 1}}})
+		}
+		if e := n.Flush(); e != nil {
+			t.Fatal(e)
+		}
+		c := kernelConfig(t)
+		s := openKernel(t, c)
+		defer s.Close()
+		// An original destination outside scope remains outside scope after DNAT.
+		applyAdmission(t, s, strictAdmission(t, 3))
+		for _, address := range []string{"127.0.0.1:18543", "[::1]:18543"} {
+			client := admissionConn(t, address, true)
+			client.Close()
+		}
+		edit := func(prefix string) func(*networkplan.Input) {
+			return func(in *networkplan.Input) {
+				in.Networks[0].Port = 18543
+				for i := range in.Logical.Grants {
+					in.Logical.Grants[i].ID = prefix + in.Logical.Grants[i].ID
+				}
+			}
+		}
+		applyAdmission(t, s, strictAdmission(t, 3, edit("retarget-")))
+		for _, address := range []string{"127.0.0.1:18543", "[::1]:18543"} {
+			admissionConn(t, address, false)
+		}
+		applyAdmission(t, s, strictAdmission(t, 1, edit("grant-")))
+		var clients []net.Conn
+		for _, address := range []string{"127.0.0.1:18543", "[::1]:18543"} {
+			clients = append(clients, admissionConn(t, address, true))
+		}
+		applyAdmission(t, s, strictAdmission(t, 3, edit("grant-")))
+		r, e := s.RevokeRecorded(context.Background())
+		if e != nil || r.Selected != 2 || r.Deleted != 2 || r.Remaining != 0 {
+			t.Fatal(r, e)
+		}
+		for _, client := range clients {
+			strictPhysicalEchoDenied(t, s, client)
+			client.Close()
+		}
+		t.Log("strict preserved outside-scope original DNAT alias, enforced original protected DNAT port in both families, and exact-deleted two withdrawn TCP flows")
 	})
 }

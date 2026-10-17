@@ -4,6 +4,8 @@
 
 Use a fresh compatible owned network namespace and keep echo services in that same namespace for this loopback demo. The endpoints are TCP18443 and UDP18444 in IPv4/IPv6. Runtime uses Go Netlink, no nft/conntrack commands. Build from the repository root:
 
+Strict reserves each protected local address/port for service traffic. Do not bind locally initiated client sessions to that source endpoint: incoming reply-direction packets to a protected endpoint can be dropped. This guard prevents an old connection from bypassing policy when conntrack reconstructs it with the server as original direction after deletion. Original-direction DNAT aliases keep original-destination scope. Unmarked/unrelated conntrack records remain preserved.
+
 ```sh
 CGO_ENABLED=0 go build -o picketxd ./cmd/picketxd
 sudo ./picketxd enforce --handling strict \

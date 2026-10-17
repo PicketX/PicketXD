@@ -181,7 +181,8 @@ func (im Image) Validate() error {
 			if !slices.Contains(im.KnownMarks, t.Mark) {
 				return fmt.Errorf("current strict target missing from known marks")
 			}
-			count-- // no unconditional established bypass
+			count--                   // no unconditional established bypass
+			count += len(t.Protected) // reply-direction reconstruction guards
 			for _, m := range t.Allow {
 				if m.Endpoint.Protocol == 6 {
 					count++

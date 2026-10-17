@@ -4,6 +4,8 @@
 
 在全新兼容的自有 network namespace 中运行，同 namespace 准备 IPv4/IPv6 TCP18443、UDP18444 回显服务。本例只保护 loopback；运行时 Go Netlink，无必需 nft/conntrack 命令。仓库根目录构建并运行：
 
+strict 将受保护本地地址/端口预留给服务。不要把主动出站客户端绑定到这些源端点，否则其入站 reply 方向报文可能被丢弃。该守卫防止精确删除后 conntrack 以服务端为 original 方向重建而使旧连接绕过策略。original 方向的 DNAT 别名仍按原始目标范围判断；未标记和无关 conntrack 记录继续保留。
+
 ```sh
 CGO_ENABLED=0 go build -o picketxd ./cmd/picketxd
 sudo ./picketxd enforce --handling strict \

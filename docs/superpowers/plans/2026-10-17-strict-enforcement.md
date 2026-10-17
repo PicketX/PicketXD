@@ -41,7 +41,7 @@ Interfaces: Config.Handling networkplan.HandlingMode default graceful; Owner.Rev
 
 Files: hostowner/strict_integration_test.go; hostagent/strict_process_integration_test.go; report.go; bilingual README/examples/validation.
 
-- [ ] Add TestOwnerKernelStrictMembership, TestOwnerKernelStrictPhysicalReplacement, TestOwnerKernelStrictPendingRecovery, TestEnforceProcessStrictRevocation, TestEnforceProcessStrictExpiryWithoutProcess. Compile helpers using actual input compiler.
+- [ ] Add TestOwnerKernelStrictMembership, TestOwnerKernelStrictPhysicalReplacement, TestOwnerKernelStrictPendingRecovery, TestEnforceProcessStrictRevocation, TestEnforceProcessStrictExpiryWithoutProcess, TestOwnerKernelStrictReverseReconstruction, TestOwnerKernelStrictOriginalDNAT. Compile helpers using actual input compiler.
 - [ ] One fresh whole-branch reviewer on base accepted main; grade findings by user effect; Important/Critical one observed RED→GREEN pass plus full suite, Minor ledger/defer.
-- [ ] Publish exact code tree, native CI85 required plus actual raw counts, zero failures/skips; independently download ZIP and verify digest/raw/report/pins/build checkout/tree. Record bilingual acceptance.
+- [ ] Publish exact code tree, native CI87 required plus actual raw counts, zero failures/skips; independently download ZIP and verify digest/raw/report/pins/build checkout/tree. Record bilingual acceptance.
 - [ ] Final PR-head CI and artifact pass; expected-head merge; exact main push CI/artifact and no open PRs; collect exhaustive rulings/minors then delete only this plan scratch.
