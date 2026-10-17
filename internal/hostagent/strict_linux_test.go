@@ -202,12 +202,15 @@ func TestStrictFinalSnapshotBoundaryCannotConfirm(t *testing.T) {
 }
 
 func TestStrictExistingImageCleanedBeforeReplacement(t *testing.T) {
-	c, d, o, _ := strictRunSetup(t)
+	c, d, o, reports := strictRunSetup(t)
 	o.app = hostowner.ApplicationStatus{Handling: networkplan.Strict, Phase: "confirmed", ImageDigest: "previous-image", EnforcementConfirmed: true}
 	staleTCP := true
 	o.onCleanup = func() {
 		if o.app.ImageDigest == "previous-image" {
 			staleTCP = false
+			o.result = hostrevoke.Result{Selected: 4, Deleted: 4}
+		} else {
+			o.result = hostrevoke.Result{}
 		}
 	}
 	o.onApply = func() {
@@ -220,6 +223,11 @@ func TestStrictExistingImageCleanedBeforeReplacement(t *testing.T) {
 	}
 	if staleTCP || !reflect.DeepEqual(o.calls, []string{"cleanup", "apply", "cleanup"}) {
 		t.Fatal(staleTCP, o.calls)
+	}
+	st := (*reports)[0]
+	prev := st.Strict.PreviousCleanup
+	if prev == nil || !prev.Confirmed || prev.ImageDigest != "previous-image" || prev.ObservedAt.IsZero() || prev.Result.Selected != 4 || prev.Result.Deleted != 4 || st.Strict.Result.Selected != 0 || st.Strict.ImageDigest != "image" || !st.EnforcementConfirmed {
+		t.Fatal("previous/current observations conflated", st)
 	}
 }
 
@@ -237,8 +245,55 @@ func TestStrictPreviousCleanupFailurePreventsReplacement(t *testing.T) {
 				t.Fatal("previous cleanup failure accepted")
 			}
 			st := (*reports)[len(*reports)-1]
-			if o.applies != 0 || !reflect.DeepEqual(o.calls, []string{"cleanup"}) || st.EnforcementConfirmed || st.Strict.CleanupConfirmed {
+			if st.Strict.PreviousCleanup == nil || st.Strict.PreviousCleanup.Confirmed || st.Strict.Result.Remaining != -1 || st.Application.ImageDigest != "previous-image" || st.AppliedGeneration != 0 || o.applies != 0 || !reflect.DeepEqual(o.calls, []string{"cleanup"}) || st.EnforcementConfirmed || st.Strict.CleanupConfirmed {
 				t.Fatal("replacement installed after old cleanup failure", o.calls, st)
+			}
+		})
+	}
+}
+
+func TestStrictPreviousObservationIsNotReusedOnPoll(t *testing.T) {
+	c, d, o, reports := strictRunSetup(t)
+	c.Once = false
+	o.app = hostowner.ApplicationStatus{Handling: networkplan.Strict, Phase: "confirmed", ImageDigest: "previous-image", EnforcementConfirmed: true}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	d.Emit = func(st Status) error {
+		*reports = append(*reports, st)
+		if len(*reports) == 2 {
+			cancel()
+		}
+		return nil
+	}
+	if e := Run(ctx, c, d); e != nil {
+		t.Fatal(e)
+	}
+	if !reflect.DeepEqual(o.calls, []string{"cleanup", "apply", "cleanup", "verify", "cleanup"}) || (*reports)[0].Strict.PreviousCleanup == nil || (*reports)[1].Strict.PreviousCleanup != nil {
+		t.Fatal(o.calls, *reports)
+	}
+}
+
+func TestStrictPreviousProofLossPreventsReplacement(t *testing.T) {
+	for _, mode := range []string{"image", "application", "ownership"} {
+		t.Run(mode, func(t *testing.T) {
+			c, d, o, reports := strictRunSetup(t)
+			o.app = hostowner.ApplicationStatus{Handling: networkplan.Strict, Phase: "confirmed", ImageDigest: "previous-image", EnforcementConfirmed: true}
+			o.onCleanup = func() {
+				switch mode {
+				case "image":
+					o.app.ImageDigest = "other-image"
+				case "application":
+					o.app.EnforcementConfirmed = false
+				case "ownership":
+					o.verifyErr = errors.New("ownership lost")
+				}
+			}
+			if e := Run(context.Background(), c, d); e == nil {
+				t.Fatal("lost previous proof accepted")
+			}
+			st := (*reports)[len(*reports)-1]
+			if o.applies != 0 || !reflect.DeepEqual(o.calls, []string{"cleanup"}) || st.Strict.PreviousCleanup.Confirmed || st.EnforcementConfirmed {
+				t.Fatal(o.calls, st)
 			}
 		})
 	}

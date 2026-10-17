@@ -123,7 +123,7 @@ func TestEnforceProcessStrictExpiryWithoutProcess(t *testing.T) {
 		ownerPath := filepath.Join(argument(args, "--state-dir"), "owner.json")
 		before, _ := os.ReadFile(ownerPath)
 		st, e, log := onceCommand(t, args)
-		if e != nil || !strictConfirmed(st) || st.Strict.Result.Selected != 4 || st.Strict.Result.Deleted != 4 || st.Strict.Result.Remaining != 0 || !st.Desired.Restored || st.Application.Attempt != first.Application.Attempt || st.Application.ImageDigest != first.Application.ImageDigest {
+		if e != nil || !strictConfirmed(st) || st.Strict.PreviousCleanup == nil || !st.Strict.PreviousCleanup.Confirmed || st.Strict.PreviousCleanup.ImageDigest != first.Application.ImageDigest || st.Strict.PreviousCleanup.Result.Selected != 4 || st.Strict.PreviousCleanup.Result.Deleted != 4 || st.Strict.PreviousCleanup.Result.Remaining != 0 || st.Strict.Result.Selected != 0 || st.Strict.Result.Remaining != 0 || !st.Desired.Restored || st.Application.Attempt != first.Application.Attempt || st.Application.ImageDigest != first.Application.ImageDigest {
 			t.Fatal(st, e, log)
 		}
 		after, _ := os.ReadFile(ownerPath)
@@ -225,6 +225,9 @@ func TestEnforceProcessStrictRegrantAfterOfflineExpiry(t *testing.T) {
 		st, e, log := onceCommand(t, args)
 		if e != nil || !strictConfirmed(st) || st.Desired.Generation != 2 {
 			t.Fatal(st, e, log)
+		}
+		if st.Strict.PreviousCleanup == nil || !st.Strict.PreviousCleanup.Confirmed || st.Strict.PreviousCleanup.Result.Selected != 4 || st.Strict.PreviousCleanup.Result.Deleted != 4 || st.Strict.PreviousCleanup.Result.Remaining != 0 || st.Strict.Result.Selected != 0 || st.Strict.PreviousCleanup.ImageDigest == st.Application.ImageDigest {
+			t.Fatal("missing separate old-image cleanup proof", st)
 		}
 		// Restart directly into new permission, without an intermediate expired once run.
 		for _, c := range old {
