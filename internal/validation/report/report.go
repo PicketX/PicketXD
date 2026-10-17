@@ -136,6 +136,7 @@ var RequiredOwnerScenarios = []string{
 	"TestOwnerKernelFreshAndRestart", "TestOwnerKernelForeignTable", "TestOwnerKernelUnexpectedStructure", "TestOwnerKernelExclusiveCreate", "TestOwnerKernelProcessLock", "TestOwnerKernelPendingRecovery",
 	"TestOwnerKernelAdmissionUDPFutureAllow", "TestOwnerKernelAdmissionOriginalDNAT", "TestOwnerKernelAdmissionDualStack", "TestOwnerKernelAdmissionAbsoluteTime", "TestOwnerKernelAdmissionFutureDeny", "TestOwnerKernelAdmissionRecoveryAndDrift", "TestOwnerKernelAdmissionAtomicRejection", "TestOwnerKernelAdmissionWithdrawal", "TestOwnerKernelAdmissionProcessRecovery",
 	"TestOwnerKernelMarkLifecycle", "TestOwnerKernelMarkCollision", "TestOwnerKernelMarkProcessRecovery", "TestOwnerKernelMarkDrift",
+	"TestOwnerKernelCleanupPreservation", "TestOwnerKernelCleanupNATZoneID", "TestOwnerKernelCleanupPreflightDrift", "TestOwnerKernelCleanupPartialFailure",
 }
 
 // RequiredAgentScenarios execute the actual prebuilt standalone command.

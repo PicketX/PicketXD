@@ -68,3 +68,9 @@ hostpolicy.MarkTargets 和 [markstate](internal/markstate) 提取物理目标身
 `picketxd enforce` 将已接受静态发布接入可恢复主机引擎。必须明确指定策略路径、私有绝对状态目录、provider/Agent 身份、目标范围及操作者预留的 mark 区间。有效原子重载应用完整替换；无效重载保留已接受状态并报告错误。JSON 分离期望状态、实际应用凭据及其代数/hash 对应关系。SIGTERM、SIGKILL 均保留过滤；绝对时间规则无需进程继续执行。重启要求身份一致并完整回读现场。`prepare` 仍不修改过滤。
 
 参见[中文示例](examples/enforce/README.zh-CN.md)、[英文示例](examples/enforce/README.md)、[验收记录](docs/validation/M2C5.zh-CN.md)、[设计](docs/superpowers/specs/2026-10-16-static-enforcement-design.zh-CN.md)与[计划](docs/superpowers/plans/2026-10-16-static-enforcement.zh-CN.md)。命令仅覆盖明确的 host-local/graceful 范围，依赖已记录内核环境、可信特权写入独占、正确时钟、文件系统持久性及预留 mark 区间。strict 断连、Controller 同步、服务封装、容器/FORWARD、L7 和管理接口随后实现。
+
+## M2C6 定向连接清理引擎
+
+`hostowner.Session.RevokeWithdrawn` 新增绑定 namespace 的生产 conntrack 清理 API。校验历史来源/目标/mark 所有权，与真实已确认当前映像共同决定撤回连接；当前独立授权仍保留连接。完整双族扫描、现场完整映像检查先于原始元组/zone/内核 ID 精确删除及最终回读。部分失败、漂移或残留均返回错误并要求重开。不全表 flush、不修改 nft、不写日志。见[验收与边界](docs/validation/M2C6.zh-CN.md)、[设计](docs/superpowers/specs/2026-10-17-host-revocation-design.zh-CN.md)和[计划](docs/superpowers/plans/2026-10-17-host-revocation.zh-CN.md)。
+
+本批为清理引擎，调用者仍需提供旧映像历史，`enforce` 仍为 graceful 且不自动清理。持久累计历史、strict 准入/协调及崩溃恢复的 strict 完成凭据随后接入。
