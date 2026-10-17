@@ -90,3 +90,10 @@ Bounds are 4096 targets, 65536 source/endpoint members and 8 MiB JSON. Capacity/
 Strict reserves protected local address/port pairs for services; locally initiated clients must use other source endpoints. A final reply-direction guard blocks reversed conntrack reconstruction after deletion, while original-direction DNAT aliases retain original-destination scope. Full dual-family scans repeat each poll/boundary. If permission returns before cleanup, retained marked TCP may resume; successfully cleaned TCP remains blocked through unmarked reconstruction. No RST/peer-notification promise is made.
 
 All87 mandatory native gates and108 recorded top-level cases pass with zero fail/skip on the recorded Linux6.17.0-1022-azure / Go1.27.0 environment. Use the [strict example](examples/strict/README.md) and [acceptance record](docs/validation/M2C8.md) for exact evidence, migration prerequisites and operational limits. Durable completion recovery, authenticated Controller synchronization, deployment/service packaging, container/FORWARD, L7 and management follow the delivery route.
+
+
+## M2C9 cleanup before strict replacement
+
+On strict restart or a changed desired generation, the driver first cleans withdrawn owned flows against the retained actual image, then applies the candidate and confirms its current cleanup. This prevents a fresh Grant from preserving already-expired old TCP. Cleanup failure or remaining flows stop replacement; continuous independent permissions are preserved. JSON `strict.previousCleanup` identifies only the previous image observation; current desired confirmation remains separate. Normal polls retain verify/current-cleanup behavior. Startup/replacement costs an extra full dual-family cleanup pass.
+
+See [M2C9 acceptance](docs/validation/M2C9.md). This is ordering recovery for flows already withdrawn at observation, not a persisted revocation barrier across every missed permission gap. Journal/image schemas, dependencies and graceful behavior remain unchanged.

@@ -19,3 +19,5 @@ M2–M5 是交付目标，接口尚未冻结；实现前依据已批准产品及
 各增量在 PR 中记录测试、实际 CI 证据、已知边界和下一入口，满足必需检查/评审后合并。不能把计划或模拟结果描述成已实际实施。中央 [M1.3 设计](https://github.com/PicketX/PicketX/blob/9d53b13e2d8a805b2a7b2f3a8ad957fcf84ea12d/docs/superpowers/specs/2026-10-15-core-m0-bridge-design.zh-CN.md)约束全部三个桥接切片；分批交付不删除任何验收要求。
 
 静态主机切片现已具备 [M2C8 strict 执行](validation/M2C8.zh-CN.md)、graceful 准入及持久清理历史。后续四层缺口为跨未观察权限间隔的持久完成恢复、服务/部署封装及认证 Controller 同步；尚不声明完整 M2 发布。
+
+[M2C9](validation/M2C9.zh-CN.md) 新增 strict 替换前的保留映像清理，覆盖离线到期后直接新授权重启；跨未观察间隙的完整持久完成仍为独立四层缺口。

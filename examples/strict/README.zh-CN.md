@@ -24,3 +24,8 @@ strict.cleanupConfirmed 仅表示该次协调，须同时匹配 desired/applied 
 旧/不完整历史、pending、漂移、不完整扫描、部分删除、残留或跨边界均不报告严格确认；重开重验/重试。同 boot 模式/context迁移拒绝，不同 state-dir 不能绕过 namespace 所有权；保留旧状态，采用显式部署路径。旧二进制拒绝 strict imagev2。正确时钟、持久文件系统及可信特权写入独占仍为前提。
 
 见[M2C8验收](../../docs/validation/M2C8.zh-CN.md)和[设计](../../docs/superpowers/specs/2026-10-17-strict-enforcement-design.zh-CN.md)。Controller、持久完成恢复、容器/FORWARD、L7 和管理端随后推进。
+
+
+替换已有 strict 映像前（含直接新 Grant 重启），driver 先按保留旧映像执行历史清理，已到期旧 TCP 在新权限保留它之前删除。`strict.previousCleanup` 单独报告旧映像/时间/结果，`strict.result` 仍是已应用当前映像的清理。旧清理失败会阻止替换。启动/替换多一次完整双族清理，普通未变化轮询不增加。它不持久化意图，也不覆盖旧清理后、替换前才发生的期限边界。见 [M2C9](../../docs/validation/M2C9.zh-CN.md)。
+
+前置清理失败也会延后候选的收紧操作。进程未确认退出，现场保留旧映像；其活跃权限及期限持续到重试成功，包括候选想删除的永久权限。
