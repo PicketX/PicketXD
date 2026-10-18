@@ -25,3 +25,5 @@ The static host slice now includes [M2C8 strict enforcement](validation/M2C8.md)
 [M2C10](validation/M2C10.md) packages the existing static Agent as a reviewed systemd service, with bilingual installation/upgrade guidance and isolated real-service lifecycle acceptance. It adds no boot readiness guarantee; durable missed-interval revocation and authenticated Controller synchronization remain L4 gaps.
 
 [M2C11](validation/M2C11.md) adds explicit service startup notification after clean current-policy confirmation and ordered-dependent acceptance. It closes the unit startup-readiness gap, not global boot protection or ongoing health. Durable missed-interval revocation and authenticated Controller synchronization remain L4 gaps.
+
+[M2D1](validation/M2D1.md) connects authenticated Controller snapshots to the existing host executor, with exclusive providers, local scope mapping, remote LKG, native apply reports and real Core/SQLite-to-Agent packet acceptance. Management APIs/RBAC, HTTP authorization, live UI and missed-interval durable revocation remain pending.

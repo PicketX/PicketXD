@@ -4,6 +4,7 @@ package agentcli
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 )
@@ -15,7 +16,7 @@ func TestEnforceHelpExposesExplicitMutationScope(t *testing.T) {
 	if e := c.Execute(); e != nil {
 		t.Fatal(e)
 	}
-	for _, flag := range []string{"--state-dir", "--mark-first", "--mark-last", "--destination", "--once", "--handling", "--systemd-notify"} {
+	for _, flag := range []string{"--state-dir", "--mark-first", "--mark-last", "--destination", "--once", "--handling", "--systemd-notify", "--controller", "--agent-token-file"} {
 		if !strings.Contains(out.String(), flag) {
 			t.Fatal("missing enforcement setting", flag, out.String())
 		}
@@ -63,5 +64,15 @@ func TestEnforceNotifyRejectsOnceBeforeEffects(t *testing.T) {
 	c.SetArgs([]string{"enforce", "--systemd-notify", "--once", "--policy", "policy.yaml", "--state-dir", t.TempDir(), "--provider", "static", "--agent", "node", "--destination", "127.0.0.1", "--mark-first", "100", "--mark-last", "107"})
 	if err := c.Execute(); err == nil || !strings.Contains(err.Error(), "--once") || strings.Contains(err.Error(), "unknown flag") || out.Len() != 0 {
 		t.Fatal(err, out.String())
+	}
+}
+func TestEnforceControllerSourceIsExclusive(t *testing.T) {
+	for _, extra := range [][]string{{"--controller", "127.0.0.1:4444", "--agent-token-file", "/missing", "--controller-plaintext", "--policy", "/missing"}, {"--controller", "127.0.0.1:4444", "--agent-token-file", "/missing", "--controller-plaintext", "--once"}, {"--controller", "127.0.0.1:4444", "--agent-token-file", "/missing"}} {
+		cmd := New(io.Discard, nil)
+		args := []string{"enforce", "--state-dir", "/tmp/picketx-invalid-test", "--provider", "controller:test", "--agent", "agent-a", "--destination", "192.0.2.100", "--mark-first", "100", "--mark-last", "107"}
+		cmd.SetArgs(append(args, extra...))
+		if e := cmd.Execute(); e == nil {
+			t.Fatal("invalid source accepted")
+		}
 	}
 }

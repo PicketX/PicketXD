@@ -25,3 +25,5 @@ M2–M5 是交付目标，接口尚未冻结；实现前依据已批准产品及
 [M2C10](validation/M2C10.zh-CN.md) 为现有静态 Agent 提供可审查的 systemd 服务、双语安装升级指南及隔离真实服务生命周期验收。不新增开机就绪保证；跨未观察间隔的持久撤销及认证 Controller 同步仍为四层缺口。
 
 [M2C11](validation/M2C11.zh-CN.md) 在无错误当前策略确认后显式通知服务启动就绪，并验收有序依赖。补齐服务启动就绪，不等于全局开机保护或持续健康；跨未观察间隔持久撤销及认证 Controller 同步仍为四层缺口。
+
+[M2D1](validation/M2D1.zh-CN.md) 将已认证 Controller 快照接入现有主机执行器，提供互斥来源、本地作用域映射、远程 LKG、原生应用报告及实际 Core/SQLite→Agent 的报文验收。管理 API/RBAC、HTTP 授权、真实页面和跨未观察间隔的持久撤权仍待完成。

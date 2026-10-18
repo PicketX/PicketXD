@@ -28,6 +28,16 @@ CGO_ENABLED=0 go test -c -tags=integration -o "$artifacts_dir/agent.test" ./inte
 CGO_ENABLED=0 go build -o "$artifacts_dir/picketxd" ./cmd/picketxd
 sha256sum "$artifacts_dir/picketxd" > "$artifacts_dir/agent-binary.txt"
 go version -m "$artifacts_dir/picketxd" >> "$artifacts_dir/agent-binary.txt"
+# Build the actual Apache Core executable from the pinned module, without copying
+# Agent implementation across repository/license boundaries.
+core_module_dir=$(go list -m -f '{{.Dir}}' github.com/PicketX/PicketX)
+(cd "$core_module_dir" && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags 'netgo osusergo sqlite_omit_load_extension' -ldflags '-linkmode external -extldflags -static' -o "$artifacts_dir/picketx-controller" ./cmd/picketx-controller)
+sha256sum "$artifacts_dir/picketx-controller" > "$artifacts_dir/controller-binary.txt"
+go version -m "$artifacts_dir/picketx-controller" >> "$artifacts_dir/controller-binary.txt"
+if readelf -l "$artifacts_dir/picketx-controller" | grep -q INTERP; then
+  echo 'Controller artifact unexpectedly requires an interpreter' >&2
+  exit 1
+fi
 CGO_ENABLED=0 go build -o "$artifacts_dir/m0-report" ./cmd/m0-report
 uname -r > "$artifacts_dir/kernel.txt"
 go version > "$artifacts_dir/go.txt"
@@ -51,7 +61,7 @@ for pair in nft:nftbackend ct:ctbackend bridge:planbridge host:hostbridge owner:
     package_path="github.com/PicketX/PicketXD/internal/hostagent"
   fi
   go tool test2json -t -p "$package_path" \
-    "${privilege[@]}" env PICKETX_KERNEL_TESTS=1 PICKETX_AGENT_BINARY="$artifacts_dir/picketxd" unshare --net \
+    "${privilege[@]}" env PICKETX_KERNEL_TESTS=1 PICKETX_AGENT_BINARY="$artifacts_dir/picketxd" PICKETX_CONTROLLER_BINARY="$artifacts_dir/picketx-controller" unshare --net \
     "$artifacts_dir/$binary.test" -test.v -test.timeout=3m "${extra[@]}" > "$artifacts_dir/$binary.json" 2>&1 || result=1
   cat "$artifacts_dir/$binary.json"
 done

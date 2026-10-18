@@ -35,6 +35,9 @@ func ReadPolicy(path string) ([]byte, error) {
 	return raw, nil
 }
 func (s *Store) Reload(ctx context.Context, path string) error {
+	if s.cfg.Remote != nil {
+		return fmt.Errorf("static reload disabled for Controller provider")
+	}
 	raw, e := ReadPolicy(path)
 	if e == nil {
 		return s.Accept(ctx, raw)
@@ -52,6 +55,9 @@ func (s *Store) Reload(ctx context.Context, path string) error {
 // Run emits current prepared intent. A boundary never captures a candidate;
 // every wake re-reads latest state, independent of publication failures.
 func (s *Store) Run(ctx context.Context, path string, poll time.Duration, emit func(Status) error) error {
+	if s.cfg.Remote != nil {
+		return s.runRemote(ctx, path, poll, emit)
+	}
 	if poll <= 0 || emit == nil {
 		return fmt.Errorf("positive poll and status consumer required")
 	}

@@ -105,3 +105,9 @@ strict 重启或 desired 代数变化时，driver 先按真实保留映像清理
 ## M2C11 服务启动就绪
 
 模板通过显式 --systemd-notify 与 Type=notify 等待首次无错误的当前策略确认；启动阶段当前发布无效而缓存有效时仍保持 activating。配置 Requires/After 的应用可等待就绪。启动通知不是持续健康或全局开机防火墙。参见[部署指南](deploy/systemd/README.zh-CN.md)及[验收](docs/validation/M2C11.zh-CN.md)。
+
+## Controller Provider
+
+`enforce` 可选择互斥的已认证 gRPC Controller 来源，支持正常证书验证的可选服务端 TLS、来源绑定的
+远程 LKG 和原生应用报告。参见[部署说明](examples/controller/README.zh-CN.md)和[验收记录](docs/validation/M2D1.zh-CN.md)。
+管理端与七层授权尚未完成。
