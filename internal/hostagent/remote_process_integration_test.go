@@ -4,10 +4,14 @@
 package hostagent
 
 import (
+	"bufio"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/netip"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -192,5 +196,116 @@ func TestEnforceProcessControllerStrictOfflineRecovery(t *testing.T) {
 		}
 		restarted.stop(t, syscall.SIGTERM, false)
 		t.Logf("remote strict revision1 retained absolute deadline %s across Controller outage/SIGKILL; native dual-stack TCP/UDP expired without Agent; offline restart restored provider-bound LKG and confirmed cleanup without extending permission", expiry.Format(time.RFC3339Nano))
+	})
+}
+
+func TestEnforceProcessRealControllerPublication(t *testing.T) {
+	isolatedProcess(t, func() {
+		processServers(t)
+		root := t.TempDir()
+		policy := filepath.Join(root, "policy.yaml")
+		factsPath := filepath.Join(root, "facts.json")
+		credentialsPath := filepath.Join(root, "credentials.json")
+		configPath := filepath.Join(root, "controller.yaml")
+		tokenPath := filepath.Join(root, "token")
+		raw := example(t)
+		publish(t, policy, raw)
+		facts := configuration.Facts{AuthorityID: "static-test", Agents: []networkplan.Agent{{Name: "node", Capabilities: &networkplan.CapabilityProfile{Classes: []networkplan.TrafficClass{networkplan.HostLocal}, Protocols: []networkplan.Protocol{networkplan.TCP, networkplan.UDP}, Families: []networkplan.Family{4, 6}, Handling: []networkplan.HandlingMode{networkplan.Graceful}, OriginalDestination: true}}}, Contexts: []networkplan.ExecutionContext{{AgentRef: "node", ProfileRef: "host", ID: "controller-context", NetworkSpaceID: "declarative-not-local", Class: networkplan.HostLocal, Stage: networkplan.OriginalDestination, Handling: networkplan.Graceful, Destinations: []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32"), netip.MustParsePrefix("::1/128")}}}}
+		data, e := json.Marshal(facts)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = os.WriteFile(factsPath, data, 0600); e != nil {
+			t.Fatal(e)
+		}
+		token := "actual-controller-kernel-token"
+		if e = os.WriteFile(tokenPath, []byte(token), 0600); e != nil {
+			t.Fatal(e)
+		}
+		digest := sha256.Sum256([]byte(token))
+		credentialData := fmt.Sprintf(`{"credentials":[{"id":"native","agent_ref":"node","sha256":"%x"}]}`, digest)
+		if e = os.WriteFile(credentialsPath, []byte(credentialData), 0600); e != nil {
+			t.Fatal(e)
+		}
+		config := fmt.Sprintf("http: {listen: '127.0.0.1:0'}\nagent: {enabled: true, authority: static-test, listen: '127.0.0.1:0'}\nsource: {policy: %q, facts: %q}\ndatabase: %q\ncredentials: %q\npoll: 30ms\n", policy, factsPath, filepath.Join(root, "controller-state", "publication.sqlite"), credentialsPath)
+		if e = os.WriteFile(configPath, []byte(config), 0600); e != nil {
+			t.Fatal(e)
+		}
+		binary := os.Getenv("PICKETX_CONTROLLER_BINARY")
+		if !filepath.IsAbs(binary) {
+			t.Fatal("explicit pinned Core Controller artifact required")
+		}
+		cmd := exec.Command(binary, "-config", configPath)
+		stderr, e := cmd.StderrPipe()
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = cmd.Start(); e != nil {
+			t.Fatal(e)
+		}
+		wait := make(chan error, 1)
+		go func() { wait <- cmd.Wait() }()
+		waited := false
+		t.Cleanup(func() {
+			if !waited {
+				cmd.Process.Kill()
+				<-wait
+			}
+		})
+		started := make(chan string, 1)
+		go func() {
+			scanner := bufio.NewScanner(stderr)
+			for scanner.Scan() {
+				var event struct {
+					Message string `json:"msg"`
+					Address string `json:"agent_listen"`
+				}
+				if json.Unmarshal(scanner.Bytes(), &event) == nil && event.Message == "controller started" {
+					started <- event.Address
+				}
+			}
+		}()
+		var address string
+		select {
+		case address = <-started:
+		case e := <-wait:
+			waited = true
+			t.Fatal("real Controller startup", e)
+		case <-time.After(5 * time.Second):
+			t.Fatal("real Controller startup deadline")
+		}
+		args := processArgs(t, raw)
+		var remote []string
+		for i := 0; i < len(args); i++ {
+			if args[i] == "--policy" {
+				i++
+				continue
+			}
+			remote = append(remote, args[i])
+		}
+		remote = append(remote, "--controller", address, "--agent-token-file", tokenPath, "--controller-plaintext")
+		p := startCommand(t, remote)
+		p.until(t, func(st Status) bool { return st.EnforcementConfirmed && st.Desired.Generation == 1 })
+		processProbe(t, true)
+		publish(t, policy, noGrants(raw))
+		p.until(t, func(st Status) bool { return st.EnforcementConfirmed && st.Desired.Generation == 2 })
+		processProbe(t, false)
+		publish(t, policy, emptyPublication())
+		p.until(t, func(st Status) bool { return st.EnforcementConfirmed && st.Desired.Generation == 3 })
+		processProbe(t, true)
+		p.stop(t, syscall.SIGTERM, false)
+		if e = cmd.Process.Signal(syscall.SIGTERM); e != nil {
+			t.Fatal(e)
+		}
+		select {
+		case e = <-wait:
+			waited = true
+			if e != nil {
+				t.Fatal(e)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("real Controller shutdown deadline")
+		}
+		t.Log("pinned actual static Core Controller with SQLite authoritative revision1/2/3 and Token enrollment drove actual static Agent: IPv4/IPv6 TCP/UDP allow, grant-only removal default deny, and empty protection withdrawal; distinct remote/local namespace identities mapped safely; SIGTERM lifecycle clean")
 	})
 }
