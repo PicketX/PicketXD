@@ -211,10 +211,10 @@ func TestEnforceProcessRealControllerPublication(t *testing.T) {
 		tokenPath := filepath.Join(root, "token")
 		raw := example(t)
 		publish(t, policy, raw)
-		facts := configuration.Facts{AuthorityID: "static-test", Agents: []networkplan.Agent{{Name: "node", Capabilities: &networkplan.CapabilityProfile{Classes: []networkplan.TrafficClass{networkplan.HostLocal}, Protocols: []networkplan.Protocol{networkplan.TCP, networkplan.UDP}, Families: []networkplan.Family{4, 6}, Handling: []networkplan.HandlingMode{networkplan.Graceful}, OriginalDestination: true}}}, Contexts: []networkplan.ExecutionContext{{AgentRef: "node", ProfileRef: "host", ID: "controller-context", NetworkSpaceID: "declarative-not-local", Class: networkplan.HostLocal, Stage: networkplan.OriginalDestination, Handling: networkplan.Graceful, Destinations: []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32"), netip.MustParsePrefix("::1/128")}}}}
-		data, e := json.Marshal(facts)
-		if e != nil {
-			t.Fatal(e)
+		data := controllerProcessFactsDocument()
+		var e error
+		if _, e = configuration.DecodeFacts(data); e != nil {
+			t.Fatal("invalid Controller test facts", e)
 		}
 		if e = os.WriteFile(factsPath, data, 0600); e != nil {
 			t.Fatal(e)
