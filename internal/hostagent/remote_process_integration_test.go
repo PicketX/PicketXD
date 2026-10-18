@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"os"
@@ -236,6 +237,15 @@ func TestEnforceProcessRealControllerPublication(t *testing.T) {
 			t.Fatal("explicit pinned Core Controller artifact required")
 		}
 		cmd := exec.Command(binary, "-config", configPath)
+		// The Controller correctly rejects unknown runtime keys. Do not leak
+		// Agent kernel-harness controls into its production configuration layer.
+		harnessKeys := map[string]bool{"PICKETX_KERNEL_TESTS": true, "PICKETX_AGENT_BINARY": true, "PICKETX_CONTROLLER_BINARY": true, "PICKETX_ENFORCE_CASE": true, "PICKETX_TEST_ARTIFACTS": true}
+		for _, entry := range os.Environ() {
+			key, _, _ := strings.Cut(entry, "=")
+			if !harnessKeys[key] {
+				cmd.Env = append(cmd.Env, entry)
+			}
+		}
 		stderr, e := cmd.StderrPipe()
 		if e != nil {
 			t.Fatal(e)
@@ -252,9 +262,12 @@ func TestEnforceProcessRealControllerPublication(t *testing.T) {
 				<-wait
 			}
 		})
+		controllerLog := &lockedLog{}
+		scanDone := make(chan struct{})
 		started := make(chan string, 1)
 		go func() {
-			scanner := bufio.NewScanner(stderr)
+			defer close(scanDone)
+			scanner := bufio.NewScanner(io.TeeReader(stderr, controllerLog))
 			for scanner.Scan() {
 				var event struct {
 					Message string `json:"msg"`
@@ -270,9 +283,10 @@ func TestEnforceProcessRealControllerPublication(t *testing.T) {
 		case address = <-started:
 		case e := <-wait:
 			waited = true
-			t.Fatal("real Controller startup", e)
+			<-scanDone
+			t.Fatal("real Controller startup", e, controllerLog.String())
 		case <-time.After(5 * time.Second):
-			t.Fatal("real Controller startup deadline")
+			t.Fatal("real Controller startup deadline", controllerLog.String())
 		}
 		args := processArgs(t, raw)
 		var remote []string
