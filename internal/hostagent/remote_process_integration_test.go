@@ -35,7 +35,7 @@ type processController struct {
 
 func (c *processController) Connect(st grpc.BidiStreamingServer[agentv1.AgentFrame, agentv1.ControllerFrame]) error {
 	md, _ := metadata.FromIncomingContext(st.Context())
-	if a := md.Get("authorization"); len(a) != 1 || a[0] != "Bearer kernel-test-token" {
+	if a := md.Get("authorization"); len(a) != 1 || a[0] != "Bearer 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" {
 		return fmt.Errorf("bad token")
 	}
 	hello, e := st.Recv()
@@ -78,7 +78,7 @@ func remoteProcessSetup(t *testing.T, raw string) ([]string, *processController,
 	t.Helper()
 	root := t.TempDir()
 	token := filepath.Join(root, "token")
-	if e := os.WriteFile(token, []byte("kernel-test-token"), 0600); e != nil {
+	if e := os.WriteFile(token, []byte("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"), 0600); e != nil {
 		t.Fatal(e)
 	}
 	listener, e := net.Listen("tcp", "127.0.0.1:0")
@@ -219,7 +219,7 @@ func TestEnforceProcessRealControllerPublication(t *testing.T) {
 		if e = os.WriteFile(factsPath, data, 0600); e != nil {
 			t.Fatal(e)
 		}
-		token := "actual-controller-kernel-token"
+		token := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 		if e = os.WriteFile(tokenPath, []byte(token), 0600); e != nil {
 			t.Fatal(e)
 		}

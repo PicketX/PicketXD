@@ -16,6 +16,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -28,7 +29,7 @@ type wireServer struct {
 
 func (w *wireServer) Connect(st grpc.BidiStreamingServer[agentv1.AgentFrame, agentv1.ControllerFrame]) error {
 	md, _ := metadata.FromIncomingContext(st.Context())
-	if v := md.Get("authorization"); len(v) != 1 || v[0] != "Bearer test-token" {
+	if v := md.Get("authorization"); len(v) != 1 || v[0] != "Bearer 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" {
 		return context.Canceled
 	}
 	f, e := st.Recv()
@@ -56,7 +57,7 @@ func (w *wireServer) Connect(st grpc.BidiStreamingServer[agentv1.AgentFrame, age
 func TestRemoteTCPApplyReportsAndOutage(t *testing.T) {
 	c, snap := remoteFixture(t)
 	token := filepath.Join(t.TempDir(), "token")
-	os.WriteFile(token, []byte("test-token"), 0600)
+	os.WriteFile(token, []byte("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"), 0600)
 	l, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
 		t.Fatal(e)
@@ -109,7 +110,7 @@ func TestRemoteTCPApplyReportsAndOutage(t *testing.T) {
 func TestRemoteExecutionFailureReportsFailed(t *testing.T) {
 	c, snap := remoteFixture(t)
 	token := filepath.Join(t.TempDir(), "token")
-	os.WriteFile(token, []byte("test-token"), 0600)
+	os.WriteFile(token, []byte("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"), 0600)
 	l, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
 		t.Fatal(e)
@@ -158,7 +159,7 @@ func TestRemoteVerifiedTLSAndTokenFileSafety(t *testing.T) {
 	c, snap := remoteFixture(t)
 	root := t.TempDir()
 	token := filepath.Join(root, "token")
-	os.WriteFile(token, []byte("test-token\n"), 0600)
+	os.WriteFile(token, []byte("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n"), 0600)
 	key, e := rsa.GenerateKey(rand.Reader, 2048)
 	if e != nil {
 		t.Fatal(e)
@@ -240,5 +241,18 @@ safety:
 	remote.TokenFile = link
 	if _, e := remote.token(); e == nil {
 		t.Fatal("symlink token accepted")
+	}
+}
+
+func TestRemoteRejectsTokensOutsideControllerContract(t *testing.T) {
+	for _, token := range []string{"too-short", strings.Repeat("a", 257), strings.Repeat("a", 31) + "\x01", strings.Repeat("a", 31) + "中"} {
+		path := filepath.Join(t.TempDir(), "token")
+		if e := os.WriteFile(path, []byte(token), 0600); e != nil {
+			t.Fatal(e)
+		}
+		r := RemoteConfig{Address: "127.0.0.1:1", TokenFile: path, Plaintext: true}
+		if _, e := r.token(); e == nil {
+			t.Fatal("token outside Controller admission contract accepted")
+		}
 	}
 }

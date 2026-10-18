@@ -74,8 +74,13 @@ func (r RemoteConfig) token() (string, error) {
 		return "", fmt.Errorf("invalid Agent token file")
 	}
 	token := strings.TrimSuffix(strings.TrimSuffix(string(data), "\n"), "\r")
-	if token == "" || strings.ContainsAny(token, " \t\r\n\x00") {
+	if len(token) < 32 || len(token) > 256 {
 		return "", fmt.Errorf("invalid Agent token")
+	}
+	for _, b := range []byte(token) {
+		if b < 33 || b > 126 {
+			return "", fmt.Errorf("invalid Agent token")
+		}
 	}
 	return token, nil
 }
