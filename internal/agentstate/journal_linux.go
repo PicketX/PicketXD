@@ -18,6 +18,8 @@ import (
 const maxCacheBytes = 6 << 20
 
 type cacheRecord struct {
+	Remote       []byte    `json:"remote,omitempty"`
+	ProviderKey  string    `json:"providerKey,omitempty"`
 	Version      int       `json:"version"`
 	ProviderType string    `json:"providerType"`
 	ProviderID   string    `json:"providerID"`

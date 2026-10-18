@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/PicketX/PicketX/pkg/configuration"
 	"github.com/PicketX/PicketX/pkg/networkplan"
+	"github.com/PicketX/PicketXD/internal/agentstate"
 	"github.com/PicketX/PicketXD/internal/hostowner"
 	"github.com/PicketX/PicketXD/internal/hostpolicy"
 	"github.com/PicketX/PicketXD/internal/markstate"
@@ -22,6 +23,7 @@ type Config struct {
 	Marks                                               markstate.Range
 	Poll                                                time.Duration
 	Once                                                bool
+	Controller                                          *agentstate.RemoteConfig
 	Handling                                            networkplan.HandlingMode
 }
 
@@ -32,8 +34,16 @@ func (c Config) normalized() (Config, error) {
 	if c.Handling != networkplan.Graceful && c.Handling != networkplan.Strict {
 		return c, fmt.Errorf("handling must be graceful or strict")
 	}
-	if c.PolicyPath == "" || !filepath.IsAbs(c.StateDir) || filepath.Clean(c.StateDir) == "/" || c.Poll <= 0 {
+	if (c.PolicyPath == "") == (c.Controller == nil) || !filepath.IsAbs(c.StateDir) || filepath.Clean(c.StateDir) == "/" || c.Poll <= 0 {
 		return c, fmt.Errorf("policy, absolute non-root state-dir and positive poll required")
+	}
+	if c.Controller != nil {
+		if c.Once {
+			return c, fmt.Errorf("Controller mode does not support once")
+		}
+		if e := c.Controller.ValidateFiles(); e != nil {
+			return c, e
+		}
 	}
 	if e := c.Marks.Validate(); e != nil {
 		return c, e
@@ -56,7 +66,8 @@ func (c Config) runtimeKey() string {
 		Agent, Profile string
 		Destinations   []netip.Prefix
 		Marks          markstate.Range
-	}{c.AgentRef, c.Profile, c.Destinations, c.Marks})
+		Controller     *agentstate.RemoteConfig `json:",omitempty"`
+	}{c.AgentRef, c.Profile, c.Destinations, c.Marks, c.Controller})
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 func (c Config) facts(scope hostowner.RuntimeScope) (configuration.Facts, *hostpolicy.Scope, error) {

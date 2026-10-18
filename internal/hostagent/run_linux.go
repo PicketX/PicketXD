@@ -110,7 +110,7 @@ func Run(ctx context.Context, c Config, d Dependencies) (err error) {
 	if err != nil {
 		return err
 	}
-	store, err := d.NewStore(agentstate.Config{Path: filepath.Join(c.StateDir, "desired.json"), ProviderID: c.ProviderID, AgentRef: c.AgentRef, RuntimeKey: c.runtimeKey(), BootID: runtime.BootID, Facts: facts, Now: d.Now})
+	store, err := d.NewStore(agentstate.Config{Path: filepath.Join(c.StateDir, "desired.json"), ProviderID: c.ProviderID, AgentRef: c.AgentRef, RuntimeKey: c.runtimeKey(), BootID: runtime.BootID, Facts: facts, Now: d.Now, Remote: c.Controller})
 	if err != nil {
 		return err
 	}

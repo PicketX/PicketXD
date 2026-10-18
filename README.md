@@ -105,3 +105,10 @@ The existing static command has a [service template and bilingual installation/u
 ## M2C11 service startup readiness
 
 The systemd template uses explicit --systemd-notify and Type=notify to wait for the first clean current-policy confirmation. During startup, an invalid current publication with accepted cache remains activating; an ordered Requires/After application can wait for readiness. Startup notification is not ongoing health or a global boot firewall. See the [deployment guide](deploy/systemd/README.md) and [acceptance](docs/validation/M2C11.md).
+
+## Controller Provider
+
+`enforce` also accepts an exclusive authenticated gRPC Controller source, with verified
+optional server TLS, provider-bound remote LKG and native apply reports. See the
+[deployment example](examples/controller/README.md). Acceptance is pending PR/native CI;
+this does not complete management or Layer 7 authorization.

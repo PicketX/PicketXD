@@ -19,6 +19,7 @@ type Config struct {
 	Path, ProviderID, AgentRef, RuntimeKey, BootID string
 	Facts                                          configuration.Facts
 	Now                                            func() time.Time
+	Remote                                         *RemoteConfig
 }
 type Store struct {
 	mu                                           sync.Mutex
@@ -61,6 +62,10 @@ func New(c Config) (*Store, error) {
 	if c.Facts.AuthorityID != c.ProviderID || len(c.Facts.Agents) != 1 || c.Facts.Agents[0].Name != c.AgentRef {
 		return nil, fmt.Errorf("facts do not match this static authority/Agent")
 	}
+	if c.Remote != nil {
+		owned := *c.Remote
+		c.Remote = &owned
+	}
 	data, e := json.Marshal(c.Facts)
 	if e != nil {
 		return nil, e
@@ -77,12 +82,17 @@ func New(c Config) (*Store, error) {
 	s := &Store{cfg: c, lock: lock, wake: make(chan struct{}, 1), sameBoot: true}
 	record, exists, e := readJournal(c.Path)
 	if e == nil && exists {
-		if record.Version != 1 || record.ProviderType != "static" || record.ProviderID != c.ProviderID || record.AgentRef != c.AgentRef || record.RuntimeKey != c.RuntimeKey || record.BootID == "" || record.Generation == 0 || record.AcceptedAt.IsZero() {
+		if record.Version != s.cacheVersion() || record.ProviderType != s.providerType() || record.ProviderKey != s.providerKey() || record.ProviderID != c.ProviderID || record.AgentRef != c.AgentRef || record.RuntimeKey != c.RuntimeKey || record.BootID == "" || record.Generation == 0 || record.AcceptedAt.IsZero() {
 			e = fmt.Errorf("cache identity, scope or version mismatch")
 		}
 		if e == nil {
+			if c.Remote != nil {
+				e = s.verifyRemoteRecord(record)
+			}
 			var bundle *configuration.Bundle
-			bundle, e = configuration.Decode(record.Policy)
+			if e == nil {
+				bundle, e = configuration.Decode(record.Policy)
+			}
 			if e == nil {
 				s.current, e = configuration.Compile(bundle, c.Facts)
 			}
@@ -111,6 +121,12 @@ func (s *Store) Accept(ctx context.Context, policy []byte) error {
 func (s *Store) accept(ctx context.Context, policy []byte, save func(string, cacheRecord) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.cfg.Remote != nil {
+		return fmt.Errorf("static publication disabled for Controller provider")
+	}
+	return s.acceptLocked(ctx, policy, save, nil)
+}
+func (s *Store) acceptLocked(ctx context.Context, policy []byte, save func(string, cacheRecord) error, remote *remoteEnvelope) error {
 	if e := s.check(ctx); e != nil {
 		return e
 	}
@@ -129,7 +145,7 @@ func (s *Store) accept(ctx context.Context, policy []byte, save func(string, cac
 	if e != nil {
 		return reject(e)
 	}
-	if s.current != nil && next.Hash() == s.current.Hash() {
+	if s.current != nil && next.Hash() == s.current.Hash() && (remote == nil || remote.revision == s.record.Generation) {
 		s.lastError = ""
 		s.signal()
 		return nil
@@ -137,7 +153,11 @@ func (s *Store) accept(ctx context.Context, policy []byte, save func(string, cac
 	if s.record.Generation == ^uint64(0) {
 		return reject(fmt.Errorf("accepted generation exhausted"))
 	}
-	r := cacheRecord{Version: 1, ProviderType: "static", ProviderID: s.cfg.ProviderID, AgentRef: s.cfg.AgentRef, RuntimeKey: s.cfg.RuntimeKey, BootID: s.cfg.BootID, Generation: s.record.Generation + 1, AcceptedAt: s.lastAttempt, PolicyHash: next.Hash(), Policy: append([]byte(nil), policy...)}
+	r := cacheRecord{Version: s.cacheVersion(), ProviderType: s.providerType(), ProviderKey: s.providerKey(), ProviderID: s.cfg.ProviderID, AgentRef: s.cfg.AgentRef, RuntimeKey: s.cfg.RuntimeKey, BootID: s.cfg.BootID, Generation: s.record.Generation + 1, AcceptedAt: s.lastAttempt, PolicyHash: next.Hash(), Policy: append([]byte(nil), policy...)}
+	if remote != nil {
+		r.Generation = remote.revision
+		r.Remote = remote.raw
+	}
 	if e = ctx.Err(); e != nil {
 		return reject(e)
 	}

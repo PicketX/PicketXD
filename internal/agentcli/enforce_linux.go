@@ -4,6 +4,7 @@ package agentcli
 import (
 	"fmt"
 	"github.com/PicketX/PicketX/pkg/networkplan"
+	"github.com/PicketX/PicketXD/internal/agentstate"
 	"github.com/PicketX/PicketXD/internal/hostagent"
 	"github.com/spf13/cobra"
 	"log/slog"
@@ -15,10 +16,16 @@ func enforceCommand(logger *slog.Logger) *cobra.Command {
 	var destinations []string
 	var handling string
 	var systemdNotify bool
-	cmd := &cobra.Command{Use: "enforce", Short: "Apply and recover static host INPUT policy in this network namespace", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	var remote agentstate.RemoteConfig
+	cmd := &cobra.Command{Use: "enforce", Short: "Apply and recover host INPUT policy from exactly one source in this network namespace", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		notifySocket, e := enforceNotifySocket(systemdNotify, c.Once)
 		if e != nil {
 			return e
+		}
+		if remote.Address != "" {
+			c.Controller = &remote
+		} else if remote.TokenFile != "" || remote.CAFile != "" || remote.ServerName != "" || remote.Plaintext {
+			return fmt.Errorf("Controller settings require --controller")
 		}
 		bounds, e := networkplan.ParseDestinations(destinations)
 		if e != nil {
@@ -29,6 +36,11 @@ func enforceCommand(logger *slog.Logger) *cobra.Command {
 		return hostagent.Run(cmd.Context(), c, hostagent.Dependencies{Logger: logger, Emit: newEnforceEmitter(cmd.OutOrStdout(), notifySocket)})
 	}}
 	f := cmd.Flags()
+	f.StringVar(&remote.Address, "controller", "", "Controller host:port; exclusive with --policy")
+	f.StringVar(&remote.TokenFile, "agent-token-file", "", "Private Agent Token file (never a command-line token)")
+	f.BoolVar(&remote.Plaintext, "controller-plaintext", false, "Explicitly use plaintext gRPC")
+	f.StringVar(&remote.ServerName, "controller-server-name", "", "Verified TLS server name")
+	f.StringVar(&remote.CAFile, "controller-ca", "", "Optional PEM CA file; otherwise use system roots")
 	f.StringVar(&handling, "handling", "graceful", "Explicit host handling: graceful or strict; mode migration requires compatible deployment")
 	f.StringVar(&c.PolicyPath, "policy", "", "Complete atomic YAML publication")
 	f.StringVar(&c.StateDir, "state-dir", "", "Absolute private owner/desired state directory")
@@ -41,7 +53,7 @@ func enforceCommand(logger *slog.Logger) *cobra.Command {
 	f.DurationVar(&c.Poll, "poll", 5*time.Second, "Publication polling and live verification interval")
 	f.BoolVar(&c.Once, "once", false, "Apply/recover once and exit, retaining installed filtering")
 	f.BoolVar(&systemdNotify, "systemd-notify", false, "Notify systemd only after confirmed current policy; requires NOTIFY_SOCKET and long-running mode")
-	for _, name := range []string{"policy", "state-dir", "provider", "agent", "destination", "mark-first", "mark-last"} {
+	for _, name := range []string{"state-dir", "provider", "agent", "destination", "mark-first", "mark-last"} {
 		_ = cmd.MarkFlagRequired(name)
 	}
 	return cmd
