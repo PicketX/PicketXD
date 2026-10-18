@@ -110,5 +110,5 @@ The systemd template uses explicit --systemd-notify and Type=notify to wait for 
 
 `enforce` also accepts an exclusive authenticated gRPC Controller source, with verified
 optional server TLS, provider-bound remote LKG and native apply reports. See the
-[deployment example](examples/controller/README.md). Acceptance is pending PR/native CI;
-this does not complete management or Layer 7 authorization.
+[deployment example](examples/controller/README.md) and [acceptance record](docs/validation/M2D1.md).
+This does not complete management or Layer 7 authorization.

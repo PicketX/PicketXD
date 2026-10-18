@@ -5,16 +5,20 @@ The community source in this repository is GPL-3.0-or-later. Dependencies retain
 | Dependency | Baseline version | License | Source |
 | --- | --- | --- | --- |
 | Go toolchain/runtime | 1.27.0 | BSD-3-Clause | https://go.dev/LICENSE |
-| github.com/PicketX/PicketX shared Core/planner | v0.0.0-20261015145159-81daf5abb831 | Apache-2.0 | https://github.com/PicketX/PicketX/tree/81daf5abb831cca7b797e3e010ff510fb8cb1669 |
+| github.com/PicketX/PicketX shared Core/planner | v0.0.0-20261018090148-5e2254efec90 | Apache-2.0 | https://github.com/PicketX/PicketX/tree/5e2254efec90f2a5448450a2974c587c37f1dd18 |
 | github.com/google/nftables | v0.3.1-0.20250606091825-8a8ad2be8103 | Apache-2.0 | https://github.com/google/nftables |
 | github.com/vishvananda/netlink | v1.3.1 | Apache-2.0 | https://github.com/vishvananda/netlink |
 | github.com/vishvananda/netns | v0.0.5 | Apache-2.0 | https://github.com/vishvananda/netns |
-| github.com/google/go-cmp | v0.6.0 | BSD-3-Clause | https://github.com/google/go-cmp |
+| github.com/google/go-cmp | v0.7.0 | BSD-3-Clause | https://github.com/google/go-cmp |
 | github.com/mdlayher/netlink | v1.7.3-0.20250113171957-fbb4dce95f42 | MIT | https://github.com/mdlayher/netlink |
 | github.com/mdlayher/socket | v0.5.0 | MIT | https://github.com/mdlayher/socket |
-| golang.org/x/sys | v0.31.0 | BSD-3-Clause | https://go.googlesource.com/sys |
-| golang.org/x/net | v0.38.0 | BSD-3-Clause | https://go.googlesource.com/net |
-| golang.org/x/sync | v0.6.0 | BSD-3-Clause | https://go.googlesource.com/sync |
+| golang.org/x/sys | v0.47.0 | BSD-3-Clause | https://go.googlesource.com/sys |
+| golang.org/x/net | v0.57.0 | BSD-3-Clause | https://go.googlesource.com/net |
+| golang.org/x/sync | v0.22.0 | BSD-3-Clause | https://go.googlesource.com/sync |
+| golang.org/x/text | v0.40.0 | BSD-3-Clause | https://go.googlesource.com/text |
+| google.golang.org/grpc | v1.84.0 | Apache-2.0 | https://github.com/grpc/grpc-go |
+| google.golang.org/protobuf | v1.36.11 | BSD-3-Clause | https://github.com/protocolbuffers/protobuf-go |
+| google.golang.org/genproto/googleapis/rpc | v0.0.0-20260706201446-f0a921348800 | Apache-2.0 | https://github.com/googleapis/go-genproto |
 
 This inventory is not an OEM/commercial license grant.
 

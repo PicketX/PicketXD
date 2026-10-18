@@ -2,7 +2,7 @@
 
 静态构建沿用主 README。先在独立 Core Controller 注册 Agent Token，并发布选择该节点、host profile
 及本地目标范围的权威配置。Controller 端口应避开受保护业务端口。Token 存入当前用户所有、0600 的普通
-文件；原子替换 Token 文件后重连生效。完整命令见 [English](README.md)，使用真实本地地址及预留 mark。
+文件，内容为32–256字节可打印ASCII（33–126），可有末尾换行；格式错误会在 owner 效果前拒绝。原子替换 Token 文件后重连生效。完整命令见 [English](README.md)，使用真实本地地址及预留 mark。
 
 --controller 与 --policy 必须二选一，远程模式不支持 --once，也不回退读取本地静态配置。
 TLS 正常验证服务名与证书；不提供 --controller-ca 时使用系统根证书。选择明文须移除 TLS 参数并显式

@@ -4,7 +4,7 @@ Build the static Agent as described in the main README. Run the separate Core
 Controller with an enrolled Agent Token and an authoritative publication selecting
 this Agent, host profile and destination scope. Keep the Controller endpoint outside
 the protected application ports. Store the raw Token in a private, owned regular file
-(mode 0600); rotate that file atomically and let the stream reconnect.
+(mode 0600), containing 32–256 printable ASCII bytes (33–126), with an optional final newline. Invalid tokens fail before owner effects; rotate that file atomically and let the stream reconnect.
 
 ```sh
 sudo picketxd enforce \

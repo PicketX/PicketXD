@@ -109,5 +109,5 @@ strict 重启或 desired 代数变化时，driver 先按真实保留映像清理
 ## Controller Provider
 
 `enforce` 可选择互斥的已认证 gRPC Controller 来源，支持正常证书验证的可选服务端 TLS、来源绑定的
-远程 LKG 和原生应用报告。参见[部署说明](examples/controller/README.zh-CN.md)。验收仍待 PR/真实内核 CI；
+远程 LKG 和原生应用报告。参见[部署说明](examples/controller/README.zh-CN.md)和[验收记录](docs/validation/M2D1.zh-CN.md)。
 管理端与七层授权尚未完成。

@@ -1,21 +1,63 @@
 # Autonomous delivery checkpoint
 
-Updated: 2026-10-18T09:42:00Z.
+Updated: 2026-10-18T10:11:00Z. The user authorized autonomous implementation, review,
+push/PR and expected-head merge until usable management and basic L7 exist. Do not repeat
+routine approvals. No competing implementation while the current lease is active.
 
 ## Current lease
-Owner: automated Controller Provider increment. Branch: `codex/controller-provider`.
-Expires: 2026-10-18T12:30:00Z. Release on merged PR with green main CI.
-No competing PR existed at start. Core main is 5e2254efec90f2a5448450a2974c587c37f1dd18;
-Agent baseline main is 1949d6352da6afb0bf6796d97e45eabe6d197ee8.
+Owner: Controller Provider increment. Branch: `codex/controller-provider`, Agent PR16.
+Expires: 2026-10-18T12:30:00Z; automatically releases once PR16 is merged and its main CI
+is green. Current code is accepted; final documentation-head CI and merge/main verification
+are the only remaining actions for this increment. Check actual remote state first.
 
-## Scope
-Implement a selectable Controller provider in the existing host enforcement command,
-provider/endpoint-bound remote LKG, local scope mapping and actual execution reports.
-Keep static mode exclusive, independent absolute deadlines and all existing native gates.
-Use existing typed protocol, optional verified server TLS or explicit plaintext, no mTLS.
+## Accepted state and evidence
+- Core PR12 supplied running authoritative file publication/SQLite/credentials. PR13 now
+  completes its stale UPDATE CAS regression, with no production Core change. Main
+  0b2c5e919626f281750295cf6cb119ea7241ed99, tree094555cc0a493cddbe855b4dac9fd38715da54de;
+  PR CI39116857766/main CI39117067190 green. Raw logs115 top-level/344 total, zero
+  fail/skip/race, protocol generation/Web and actual static SQLite/gRPC/SIGTERM smoke pass.
+  PR11's newly credentialed Agent receiving existing nonempty targets was already completed
+  in PR12; do not redo either regression.
+- Agent PR16 code head9c94bf7329c7b10eb8c8ff7c5faf6fc518b8f3ff,
+  tree3ed44d037eb9f612efda13842ce4f76cd82c4fb8. Code CI39117959991 green, actual checkout
+  6b091cdfba016a03c30cc109fa6532fa76fdb2e9 has identical tree.190 top-level/482 total,
+  zero fail/skip/race;91 required native gates/112 native cases and9 service cases pass.
+  Archive ID12133380706,60575 bytes; independently downloaded SHA256/API digest
+  a143e271fa4cbe701af8b6c42f7305f74921e5942ec329ce4fb1976b8a4ee5f1.
+  Full raw event/report/service/binary/source verification completed. Actual static pinned
+  Core/SQLite -> actual Agent -> IPv4/IPv6 TCP/UDP allow/revoke/withdraw passed; strict
+  outage/SIGKILL/offline recovery retained deadlines. See docs/validation/M2D1.md.
+- Full independent branch review and focused follow-ups found no blocking/concrete defects.
+  Native evidence is CI, not reviewer-local kernel execution. Local unshare EPERM.
 
-## Remaining delivery
-Management persistence/API/authentication/RBAC, HTTP ingress authorization, live React
-management pages and actual browser/proxy/application end-to-end acceptance are pending.
-Full durable revocation across unobserved gaps remains pending. Do not claim completion.
-Core deferred stale UPDATE CAS regression is tracked in the Core checkpoint.
+## Ledger and rulings
+Task1 complete: supported snapshot conversion, complete scoped validation and atomic
+provider/endpoint-bound remote LKG; scope/cache/revision tests RED->GREEN, full suite pass.
+Task2 complete: exclusive CLI/source selection, real TCP/TLS lifecycle and actual executor
+reports; missing report/CLI and malformed Token tests RED->GREEN, full race/vet/build/static pass.
+Task3 code acceptance complete: actual Core/native gate,112 native/9 service cases passed.
+Earlier actual-Core CI failures exposed harness env leakage, null/base64 facts encoding
+and too-short fixture Tokens. All reproduced/corrected without weakening Core validation;
+strict facts/Token regressions and local actual Core startup/gRPC probe pass. Failed/skipped
+runs39116895638/39117232350/39117607235 are not acceptance.
+Ruling: adapt to the existing configuration compiler instead of duplicate executors;
+cost: conservative rejection outside documented single-host-profile/UID subset.
+Ruling: equivalent durable inline ledger replaces unavailable cloud helper scripts;
+cost: manual checkpoint consistency; exact head/tree/CI evidence is recorded.
+Deferred nonblocking review suggestion: explicit malformed future/revoked contribution
+variants; all contributions are already validated unconditionally.
+
+## Next executable increment
+After final PR16 CI/archive, expected-head merge and main verification, proceed to Core
+management persistence/API/login/RBAC and basic trusted HTTP authorization, then live React
+administration pages. Management must have an explicit database-authoritative mode;
+existing file polling must never overwrite API-accepted state. Preserve current stack,
+Agent Token/TLS choices, license boundary, independent absolute deadlines and deny precedence.
+Use frontend-design/ui-ux-pro-max for real pages, with loading/error/empty/stale states.
+Then actual browser/API/proxy/application and Linux combined acceptance. Do not remain
+in infrastructure-only scaffolding. No management or L7 completion is claimed yet.
+
+Existing limits remain: single supported host context, report freshness/heartbeat gap,
+Token revocation does not remove permanent cached grants, strict failure retention and
+complete missed-interval durable revocation. Only pause the task after actual management
+and basic L7 end-to-end acceptance, not after this increment.
