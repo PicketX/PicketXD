@@ -267,7 +267,6 @@ def worker(args, work, token):
                          ('/etc/picketx/policy.yaml', str(work / 'policy.yaml')),
                          ('/etc/picketx/agent-token', str(instance / 'agent-token')),
                          ('/var/lib/picketx', str(state)), ('StateDirectory=picketx', 'StateDirectory=' + token),
-                         ('RuntimeDirectory=picketx', 'RuntimeDirectory=' + token),
                          ('--provider static-demo', '--provider ' + authority),
                          ('--provider controller:REPLACE_WITH_GENERATED_AUTHORITY', '--provider ' + authority),
                          ('127.0.0.1:9090', '127.0.0.1:19090'), ('--poll 5s', '--poll 200ms')]:
