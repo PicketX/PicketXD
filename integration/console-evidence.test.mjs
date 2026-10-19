@@ -4,13 +4,27 @@ import assert from 'node:assert/strict'
 import { validateEvidence, requiredCases, coreCommit } from './console-evidence.mjs'
 
 // Unit data only; never emitted as native acceptance evidence.
-const fixture = () => ({
+const fixture = () => {
+ const report = {
   coreCommit, agentCommit: 'a'.repeat(40), agentTree: 'b'.repeat(40),
   kernel: 'unit-fixture', agentBinarySHA256: 'c'.repeat(64), controllerBinarySHA256: 'd'.repeat(64),
+  managedAccounts: {
+    directory: { mode: 'database', revision: 2, accounts: [
+      { id: 'principal:account-' + '1'.repeat(32), username: 'requester', roles: ['role:requester'], disabled: false, version: 1 },
+      { id: 'principal:account-' + '2'.repeat(32), username: 'approver', roles: ['role:admin'], disabled: false, version: 1 },
+    ], events: [
+      { actor: 'principal:admin', accountId: 'principal:account-' + '2'.repeat(32), operation: 'create', reason: 'Native onboard approver', revision: 2 },
+      { actor: 'principal:admin', accountId: 'principal:account-' + '1'.repeat(32), operation: 'create', reason: 'Native onboard requester', revision: 1 },
+    ] },
+    logins: [
+      { id: 'principal:account-' + '1'.repeat(32), roles: ['role:requester'] },
+      { id: 'principal:account-' + '2'.repeat(32), roles: ['role:admin'] },
+    ],
+  },
   confirmations: [2, 3, 4, 5].map(revision => ({ revision, generation: revision, appliedGeneration: revision, policyHash: 'e'.repeat(64), appliedPolicyHash: 'e'.repeat(64), enforcementConfirmed: true })),
   humanTimeline: { baseline: 2, approved4: 3, approved6: 4, revoked4: 5, expired: 5, rejected: 5 },
   humanRequests: [4, 6].map(family => ({
-    family, uid: `request-${family}`, requester: 'principal:requester', approver: 'principal:approver',
+    family, uid: `request-${family}`, requester: 'principal:account-' + '1'.repeat(32), approver: 'principal:account-' + '2'.repeat(32),
     source: family === 4 ? '127.0.0.1/32' : '::1/128', requestedEndpoints: ['web', 'sibling'],
     approvedEndpoints: ['web'], requestedExpiry: '2026-10-19T09:01:00Z', approvedExpiry: '2026-10-19T09:00:30Z',
     grantUID: `grant-${family}`, grantSource: family === 4 ? '127.0.0.1/32' : '::1/128',
@@ -19,14 +33,28 @@ const fixture = () => ({
     grant: { name: `request-${family}`, uid: `grant-${family}`, source: family === 4 ? '127.0.0.1/32' : '::1/128',
       scopes: [{ resource_name: 'demo', resource_uid: 'resource-demo-v1', selection: 'named', endpoint_names: ['web'] }],
       mode: 'bounded', expires_at: '2026-10-19T09:00:30Z', revoked: false },
-    auditActor: 'principal:approver', auditReason: `approve request-${family}: Native narrowed IPv${family}`, auditRevision: family === 4 ? 3 : 4,
+    auditActor: 'principal:account-' + '2'.repeat(32), auditReason: `approve request-${family}: Native narrowed IPv${family}`, auditRevision: family === 4 ? 3 : 4,
     finalGrantState: family === 4 ? 'revoked' : 'expired',
   })),
   cases: Object.entries(requiredCases).map(([name, specs]) => ({ name,
     revision: ({ humanPending4: 2, humanApproved4: 3, humanPending6: 3, humanApproved6: 4, humanSibling: 4, humanBrowser: 4,
-      humanRevoke4: 5, humanEstablishedRevoke4: 5, humanExpired: 5, humanEstablishedExpired6: 5, humanRejected: 5 })[name] ?? 2,
+      humanAccountDisabled: 4, humanAccountReenabled: 4, humanRevoke4: 5, humanEstablishedRevoke4: 5, humanExpired: 5, humanEstablishedExpired6: 5, humanRejected: 5 })[name] ?? 2,
     status: 'pass', observations: specs.map(([family, outcome]) => ({ family, outcome, status: outcome === 'allow' ? 200 : outcome === 'http-deny' ? 403 : null, appDelta: outcome === 'allow' ? 1 : 0 })) })),
-})
+ }
+ const { directory, logins } = report.managedAccounts
+ const changed = (disabled, version, revision, reason) => ({ ...structuredClone(directory), revision,
+   accounts: directory.accounts.map(a => a.username === 'requester' ? { ...a, disabled, version } : structuredClone(a)),
+   events: [{ actor: 'principal:admin', accountId: directory.accounts[0].id, operation: 'update', reason, revision }, ...structuredClone(directory.events)] })
+ const disabledDirectory = changed(true, 2, 3, 'Native disable requester')
+ const enabledDirectory = changed(false, 3, 4, 'Native re-enable requester')
+ enabledDirectory.events.splice(1, 0, disabledDirectory.events[0])
+ report.managedAccounts.lifecycle = { disabledDirectory, enabledDirectory, disabledMe: 401, oldCookieMe: 401,
+   freshMe: structuredClone(logins[0]), publicationBefore: 4, afterDisable: 4, afterEnable: 4,
+   sessions: { disabledBefore: 200, revivalBefore: 200, distinct: true },
+   disabledGrants: report.humanRequests.map(r => structuredClone(r.grant)),
+   enabledGrants: report.humanRequests.map(r => structuredClone(r.grant)) }
+ return report
+}
 test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validateEvidence(fixture())))
 for (const [name, mutate] of [
   ['missing case', r => r.cases.pop()],
@@ -49,6 +77,45 @@ for (const [name, mutate] of [
   ['wrong Core source', r => { r.coreCommit = 'f'.repeat(40) }],
   ['missing binary identity', r => { delete r.agentBinarySHA256 }],
   ['missing human proof', r => { delete r.humanRequests }],
+  ['missing managed directory proof', r => { delete r.managedAccounts }],
+  ['file humans substituted for managed accounts', r => { r.managedAccounts.directory.mode = 'file' }],
+  ['wrong directory revision', r => { r.managedAccounts.directory.revision = 1 }],
+  ['missing managed account', r => { r.managedAccounts.directory.accounts.pop() }],
+  ['legacy file principal in directory', r => { r.managedAccounts.directory.accounts[0].id = 'principal:requester' }],
+  ['duplicate managed identity', r => { r.managedAccounts.directory.accounts[1].id = r.managedAccounts.directory.accounts[0].id }],
+  ['disabled initial account', r => { r.managedAccounts.directory.accounts[0].disabled = true }],
+  ['wrong initial generation', r => { r.managedAccounts.directory.accounts[0].version = 2 }],
+  ['elevated requester role', r => { r.managedAccounts.directory.accounts[0].roles = ['role:admin'] }],
+  ['wrong password login identity', r => { r.managedAccounts.logins[0].id = 'principal:admin' }],
+  ['wrong password login role', r => { r.managedAccounts.logins[0].roles = ['role:admin'] }],
+  ['missing provisioning audit', r => { r.managedAccounts.directory.events.pop() }],
+  ['wrong provisioning actor', r => { r.managedAccounts.directory.events[0].actor = 'principal:requester' }],
+  ['wrong provisioning subject', r => { r.managedAccounts.directory.events[0].accountId = r.managedAccounts.directory.accounts[0].id }],
+  ['wrong provisioning operation', r => { r.managedAccounts.directory.events[0].operation = 'update' }],
+  ['wrong provisioning revision', r => { r.managedAccounts.directory.events[0].revision = 1 }],
+  ['missing account lifecycle', r => { delete r.managedAccounts.lifecycle }],
+  ['disabled cookie still authenticated', r => { r.managedAccounts.lifecycle.disabledMe = 200 }],
+  ['old cookie revived on re-enable', r => { r.managedAccounts.lifecycle.oldCookieMe = 200 }],
+  ['fresh login retargeted', r => { r.managedAccounts.lifecycle.freshMe.id = r.managedAccounts.logins[1].id }],
+  ['account disable republished', r => { r.managedAccounts.lifecycle.afterDisable = 5 }],
+  ['account re-enable republished', r => { r.managedAccounts.lifecycle.afterEnable = 5 }],
+  ['lifecycle on wrong confirmed revision', r => { r.managedAccounts.lifecycle.publicationBefore = 3; r.managedAccounts.lifecycle.afterDisable = 3; r.managedAccounts.lifecycle.afterEnable = 3 }],
+  ['account disable not persisted', r => { r.managedAccounts.lifecycle.disabledDirectory.accounts[0].disabled = false }],
+  ['account generation reused', r => { r.managedAccounts.lifecycle.enabledDirectory.accounts[0].version = 1 }],
+  ['account lifecycle roles elevated', r => { r.managedAccounts.lifecycle.enabledDirectory.accounts[0].roles = ['role:admin'] }],
+  ['account lifecycle audit omitted', r => { r.managedAccounts.lifecycle.enabledDirectory.events.splice(1, 1) }],
+  ['account lifecycle audit wrong actor', r => { r.managedAccounts.lifecycle.enabledDirectory.events[0].actor = r.managedAccounts.logins[1].id }],
+  ['account lifecycle old audit changed', r => { r.managedAccounts.lifecycle.enabledDirectory.events[3].accountId = 'other' }],
+  ['missing independent pre-edit sessions', r => { delete r.managedAccounts.lifecycle.sessions }],
+  ['disabled probe started from invalid session', r => { r.managedAccounts.lifecycle.sessions.disabledBefore = 401 }],
+  ['revival probe started from invalid session', r => { r.managedAccounts.lifecycle.sessions.revivalBefore = 401 }],
+  ['revival reused already destroyed session', r => { r.managedAccounts.lifecycle.sessions.distinct = false }],
+  ['missing disabled full Grant readback', r => { delete r.managedAccounts.lifecycle.disabledGrants }],
+  ['missing enabled full Grant readback', r => { delete r.managedAccounts.lifecycle.enabledGrants }],
+  ['disabled account extended IPv4 Grant without publication', r => { r.managedAccounts.lifecycle.disabledGrants[0].expires_at = '2026-10-19T10:00:00Z' }],
+  ['reenabled account extended IPv4 Grant without publication', r => { r.managedAccounts.lifecycle.enabledGrants[0].expires_at = '2026-10-19T10:00:00Z' }],
+  ['account lifecycle retargeted IPv6 Grant', r => { r.managedAccounts.lifecycle.enabledGrants[1].source = '::2/128' }],
+  ['account lifecycle broadened IPv6 Grant', r => { r.managedAccounts.lifecycle.disabledGrants[1].scopes[0].selection = 'all' }],
   ['one-family human proof', r => { r.humanRequests.pop() }],
   ['duplicate human family', r => { r.humanRequests[1] = structuredClone(r.humanRequests[0]) }],
   ['self-approved human request', r => { r.humanRequests[0].approver = r.humanRequests[0].requester }],

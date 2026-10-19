@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { validateHumanApproval } from './console-evidence.mjs'
+import { cycleRequester } from './managed-humans.mjs'
 
 export function assertDeadline(actual, expected) {
   const observed = Date.parse(actual), wanted = Date.parse(expected)
@@ -10,13 +11,13 @@ export function assertDeadline(actual, expected) {
   assert.equal(observed, wanted, 'the absolute instant must not change')
 }
 
-export async function runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, appHits }) {
+export async function runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, appHits, adminPage }) {
   const contexts = await Promise.all([browser.newContext(), browser.newContext()])
   const [requester, approver] = await Promise.all(contexts.map(c => c.newPage()))
   const errors = []
   try {
-    for (const [page, user] of [[requester, 'requester'], [approver, 'approver']]) {
-      page.on('pageerror', e => errors.push(e.message))
+    for (const page of [requester, approver]) page.on('pageerror', e => errors.push(e.message))
+    async function signIn(page, user) {
       await page.goto(origin + '/console/')
       await page.getByLabel('Sign-in method', { exact: true }).selectOption('password')
       await page.getByLabel('Username', { exact: true }).fill(user)
@@ -24,9 +25,17 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
       const response = page.waitForResponse(r => r.url().endsWith('/login/password') && r.request().method() === 'POST')
       await page.getByRole('button', { name: 'Sign in', exact: true }).click()
       assert.equal((await response).status(), 200, `actual human ${user} login`)
+      const me = await page.evaluate(async () => {
+        const r = await fetch('/console/api/v1/me'); if (!r.ok) throw Error(`identity ${r.status}`); return r.json()
+      })
+      const account = report.managedAccounts.directory.accounts.find(a => a.username === user)
+      assert.equal(me.id, account.id); assert.deepEqual(me.roles, account.roles)
       await page.getByRole('button', { name: 'Access requests', exact: true }).click()
       await page.getByRole('heading', { name: 'Access requests', exact: true }).waitFor()
+      return me
     }
+    for (const [page, user] of [[requester, 'requester'], [approver, 'approver']]) report.managedAccounts.logins.push(await signIn(page, user))
+    const identities = Object.fromEntries(report.managedAccounts.directory.accounts.map(a => [a.username, a.id]))
     assert.equal(await requester.getByLabel('Policy YAML').count(), 0)
     assert.equal(await requester.evaluate(async () => (await fetch('/console/api/v1/publication', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status), 403)
     const row = (page, reason) => page.locator('.request-row').filter({ hasText: reason })
@@ -48,7 +57,7 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
       assert.equal((await response).status(), 201)
       await row(requester, reason).getByText('Pending', { exact: true }).waitFor()
       const original = await read(reason)
-      assert.equal(original.requester, 'principal:requester')
+      assert.equal(original.requester, identities.requester)
       assert.equal(original.source, family === 4 ? '127.0.0.1/32' : '::1/128')
       return { family, reason, original }
     }
@@ -71,7 +80,7 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
       assert.deepEqual(accepted.resource, input.original.resource)
       assert.equal(accepted.expires_at, input.original.expires_at, 'original deadline immutable')
       assertDeadline(accepted.approved_expires_at, expiry)
-      assert.equal(accepted.approver, 'principal:approver')
+      assert.equal(accepted.approver, identities.approver)
       assert.deepEqual(accepted.approved_endpoints, ['web'])
       assert.equal(await confirmed(), accepted.revision, 'exact approved revision applied')
       const grant = (await api('grants?limit=100')).grants.find(g => g.uid === accepted.grant_uid)
@@ -87,7 +96,7 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
         grantEndpoints: grant.scopes[0].endpoint_names, grantExpiry: grant.expires_at, revision: accepted.revision,
         resource: { name: accepted.resource.name, uid: accepted.resource.uid }, decisionReason: accepted.decision_reason,
         grant, auditActor: audit.actor, auditReason: audit.reason, auditRevision: audit.revision }
-      validateHumanApproval(proof)
+      validateHumanApproval(proof, identities)
       report.humanRequests.push(proof)
       return accepted
     }
@@ -114,6 +123,7 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
     assert.equal(appHits() - before, 1)
     report.cases.push({ name: 'humanBrowser', revision: report.confirmations.at(-1).revision, status: 'pass', observations: [{ family: 4, outcome: 'allow', status: 200, appDelta: appHits() - before }] })
     await app.close()
+    await cycleRequester({ page: adminPage, requester, context: contexts[0], origin, report, confirmed, scenario, signIn, api })
     for (const width of [375, 1440]) {
       await requester.setViewportSize({ width, height: 1000 })
       await requester.getByRole('button', { name: 'Refresh requests', exact: true }).click()
