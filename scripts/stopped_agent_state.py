@@ -14,6 +14,23 @@ import stat
 STATE = {'owner.json', 'desired.json', 'owner.json.lock', 'desired.json.lock'}
 
 
+def quarantine_state(state):
+    private_directory(state)
+    target = state.with_name(state.name + '.stopped-original')
+    if os.path.lexists(target):
+        raise ValueError('quarantine target already exists')
+    state.rename(target)  # Same parent/filesystem, never /var/lib -> /run.
+    return target
+
+
+def finish_cleanup(successful, runtime_cleanup, private_cleanup):
+    # Runtime stop/reap/unregister always runs. Do not erase private recovery
+    # material on worker failure OR when runtime cleanup itself fails.
+    runtime_cleanup()
+    if successful:
+        private_cleanup()
+
+
 def require_stopped(stopped):
     if stopped() is not True:
         raise ValueError('exact Agent unit must be inactive with no main process')

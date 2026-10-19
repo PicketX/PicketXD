@@ -135,12 +135,12 @@ Offline verification substitutes the executable path temporarily and checks synt
 The separate required Controller-service gate runs `scripts/test-controller-service.py`
 with explicit `PICKETX_CONTROLLER_SERVICE_TESTS=1`, actual installed Core/Agent
 binaries and a real system manager. It requires current authenticated APPLIED,
-three distinct real Agent processes, unchanged desired cache, dual-stack TCP/UDP
+four distinct real Agent processes, unchanged desired cache, dual-stack TCP/UDP
 through startup/crash/outage/absolute expiry/offline restart/reconnect, independent
 unprotected peer health and correct notify state. Public evidence contains only
 allowlisted hashes/process/packet/receipt fields, never token/state/journal bodies.
 It also verifies a complete latest stopped checkpoint restored at original paths,
-with32 packet observations and no deadline renewal; see repository/source
+with36 packet observations and no deadline renewal; see repository/source
 `docs/validation/AGENT_STATE_RECOVERY.md` for procedure and limits. Same-boot recovery
 is not old-snapshot rollback, migration, host reboot or boot-order proof.
 

@@ -125,10 +125,10 @@ sudo env PICKETX_SYSTEMD_TESTS=1 python3 scripts/test-systemd.py \
 
 独立必需Controller服务门禁通过显式`PICKETX_CONTROLLER_SERVICE_TESTS=1`运行
 `scripts/test-controller-service.py`，使用真实安装版Core/Agent及系统管理器，要求当前
-鉴权APPLIED、三个不同Agent进程、desired缓存不变，以及启动/崩溃/断连/绝对期限/
+鉴权APPLIED、四个不同Agent进程、desired缓存不变，以及启动/崩溃/断连/绝对期限/
 离线重启/重连的双栈TCP/UDP、独立未保护端口健康和正确notify状态。公开证据只保留
 白名单哈希/进程/包观测/回执，不含密钥、状态或日志正文。同启动周期命名空间恢复
-另验证最新完整停服检查点原路径恢复、32项包观测和期限不续期；运维步骤与边界见
+另验证最新完整停服检查点原路径恢复、36项包观测和期限不续期；运维步骤与边界见
 仓库/源码的docs/validation/AGENT_STATE_RECOVERY.zh-CN.md。同启动周期恢复不代表
 旧快照回滚、迁移、宿主重启或开机排序证明。
 

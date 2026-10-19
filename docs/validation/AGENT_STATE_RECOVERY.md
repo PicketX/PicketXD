@@ -72,8 +72,15 @@ flush firewall/conntrack or delete state.
 Required native `scripts/test-controller-service.py` uses shipped static Agent/Core,
 sandboxed notify unit and disposable namespace. It captures all four state files,
 token/unit while stopped, quarantines originals, restores independent byte/mode/
-owner-identical copies at original paths, then observes32 real dual-stack TCP/UDP
+owner-identical copies at original paths, then observes36 real dual-stack TCP/UDP
 cases across startup/crash/outage/stop/expiry/offline start/reconnect. Only sanitized
 six-file count/booleans/times are public; no private backup/manifest is archived.
-Public PASS follows ALL assertions and owned cleanup. Exact source/CI/archive/main
+Four distinct PIDs preserve running/offline-across-deadline proof as well as stopped
+expiry. State quarantine stays on its original filesystem. Failed probes retain
+private originals/checkpoint/partial files while stopping/reaping/unregistering
+owned runtime resources. Only fixture root may inspect then remove the exact
+printed private paths after verifying no fixture service/process/namespace remains;
+never upload them or restore them into a new namespace. Successful probes remove
+only owned private data after runtime cleanup. Public PASS follows ALL assertions
+and owned cleanup. Exact source/CI/archive/main
 acceptance belongs in each PR final receipt; this is not a host-boot proof.

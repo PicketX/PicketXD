@@ -20,9 +20,16 @@ path unchanged. After Controller outage, stop Agent and capture while Grant rema
 valid; restore exact paths and let original deadline expire. Actual IPv4/IPv6 TCP/UDP
 must remain blocked while Agent stopped, on offline start (activating, not READY),
 and after current APPLIED reconnect. No new revision/cache mutation/renewal.
-Retain all existing cases; add stopped-before-expiry/restored-expired phases for
-32 packet observations. Only sanitized six-file count/booleans/times are public;
+Retain all existing cases: after restore, a fresh offline Agent remains RUNNING
+across the original deadline; then stop and start again expired. Four distinct
+PIDs and36 packet observations bind phase-specific live/stopped PID proof. Only
+sanitized six-file count/booleans/times are public;
 no token/cache/journal/backup or private manifest in artifacts.
+
+Quarantine state in its own filesystem, not across /var/lib to /run. On worker,
+timeout or runtime-cleanup failure, stop/reap/unregister owned runtime resources
+but retain all private backup/quarantine/partial state for root inspection. Remove
+only exact owned private paths after successful recovery and runtime cleanup.
 
 ## Boundaries
 Latest stopped checkpoint, same boot/namespace only. Old root-controlled snapshots

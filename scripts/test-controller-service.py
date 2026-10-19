@@ -21,13 +21,15 @@ import time
 import threading
 import unittest
 import urllib.request
-from stopped_agent_state import capture, restore
+from stopped_agent_state import capture, restore, quarantine_state, finish_cleanup
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = 'cdee150201a5e33036cd3d73e3be5a8201000698'
 TREE = 'a86a8905e76887c24dc25a12e8e945a55f8bedc6'
-PHASES = {'startup': True, 'crash': True, 'offline': True, 'stopped': True,
+PHASES = {'startup': True, 'crash': True, 'offline': True, 'stopped': True, 'restored': True,
           'expired': False, 'restoredExpired': False, 'offlineRestart': False, 'reconnected': False}
+PHASE_PROCESS = {'startup': 0, 'crash': 1, 'offline': 1, 'stopped': None, 'restored': 2,
+                 'expired': 2, 'restoredExpired': None, 'offlineRestart': 3, 'reconnected': 3}
 
 
 def controller_receipt(nodes, authority):
@@ -56,7 +58,7 @@ def validate_report(report):
     sha(report['agentSHA256']); sha(report['controllerSHA256'])
     assert re.fullmatch('controller:[a-f0-9]{32}', report['authority'])
     assert isinstance(report['namespace'], int) and report['namespace'] > 0
-    assert len(report['processes']) == 3
+    assert len(report['processes']) == 4
     pids = set()
     for process in report['processes']:
         keys(process, ['pid', 'capabilities', 'noNewPrivileges', 'binarySHA256', 'namespace'])
@@ -90,10 +92,14 @@ def validate_report(report):
     expected = {(phase, family, protocol) for phase in PHASES for family in [4, 6] for protocol in ['tcp', 'udp']}
     assert len(report['observations']) == len(expected)
     for observation in report['observations']:
-        keys(observation, ['phase', 'family', 'protocol', 'allow', 'health'])
+        keys(observation, ['phase', 'family', 'protocol', 'allow', 'health', 'agentRunning', 'pid'])
         key = (observation['phase'], observation['family'], observation['protocol'])
         assert key in expected; expected.remove(key)
         assert observation['allow'] is PHASES[observation['phase']] and observation['health'] is True
+        process_index = PHASE_PROCESS[observation['phase']]
+        assert observation['agentRunning'] is (process_index is not None)
+        assert type(observation['pid']) is int
+        assert observation['pid'] == (0 if process_index is None else report['processes'][process_index]['pid'])
     assert not expected
     assert report['offlineState'] == 'activating' and report['reconnectedState'] == 'active'
 
@@ -355,12 +361,15 @@ def worker(args, work, token):
         assert all(echo(family, 'tcp', 18449) for family in [4, 6]), 'independent unprotected dual-stack health'
     def packets(phase):
         health()
+        phase_pid = int(prop('MainPID'))
+        assert bool(phase_pid) == (PHASE_PROCESS[phase] is not None), 'actual phase process state'
         for family in [4, 6]:
             for protocol, port in [('tcp', 18443), ('udp', 18444)]:
                 allow = echo(family, protocol, port)
                 assert allow == PHASES[phase], (phase, family, protocol, 'actual packet outcome mismatch')
                 report['observations'].append({'phase': phase, 'family': family,
-                                               'protocol': protocol, 'allow': allow, 'health': True})
+                                               'protocol': protocol, 'allow': allow, 'health': True,
+                                               'agentRunning': bool(phase_pid), 'pid': phase_pid})
         health()
     try:
         peer = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), '--serve'],
@@ -431,7 +440,7 @@ def worker(args, work, token):
         captured = time.time(); assert captured < deadline
         capture(state, credential, unit_path, checkpoint, stopped)
         # Recoverable quarantine: never erase the prior files to manufacture success.
-        state.rename(work / 'state-original')
+        quarantine_state(state)
         credential.rename(work / 'token-original')
         unit_path.rename(work / 'unit-original')
         proof = restore(state, credential, unit_path, checkpoint, stopped)
@@ -440,8 +449,16 @@ def worker(args, work, token):
         report['backup'] = proof
         ctl('daemon-reload')
         assert stopped(), 'restore must not implicitly start the unit'
+        ctl('start', '--no-block', unit)
+        pid, restored = status(lambda value: value['enforcementConfirmed'] and value['desired']['restored'] and value['desired'].get('remoteState') in ['awaiting', 'disconnected'], pid)
+        assert restored['desired']['generation'] == 2 and prop('ActiveState') == 'activating'
+        process(pid); packets('restored')
         time.sleep(max(0, deadline + 0.2 - time.time()))
+        # Keep the former continuous running/disconnected-across-expiry gate.
+        assert int(prop('MainPID')) == pid
+        status(lambda value: value['desired'].get('remoteState') in ['awaiting', 'disconnected'])
         report['timeline']['expired'] = time.time(); packets('expired')
+        ctl('stop', unit)
         assert stopped(); packets('restoredExpired')
         ctl('start', '--no-block', unit)
         pid, expired = status(lambda value: value['enforcementConfirmed'] and value['desired']['restored'] and value['desired'].get('remoteState') in ['awaiting', 'disconnected'], pid)
@@ -473,6 +490,7 @@ def acceptance(args):
     work = Path(tempfile.mkdtemp(prefix='picketx-remote-service-', dir='/run')); token = work.name
     created = False
     child = None
+    completed_report = None
     try:
         command('ip', 'netns', 'add', token); created = True
         command('ip', '-n', token, 'link', 'set', 'lo', 'up')
@@ -485,8 +503,9 @@ def acceptance(args):
         result = child.wait(timeout=150)
         if result:
             raise subprocess.CalledProcessError(result, child.args)
-        completed_report = json.loads((work / 'report.json').read_text())
-        validate_report(completed_report)
+        candidate_report = json.loads((work / 'report.json').read_text())
+        validate_report(candidate_report)
+        completed_report = candidate_report
     finally:
         owned = (work / 'unit-owned').exists()
         def stop_owned_unit():
@@ -498,20 +517,40 @@ def acceptance(args):
                     command('systemctl', 'kill', '--kill-whom=all', '--signal=SIGKILL', token + '.service')
                     command('systemctl', 'stop', token + '.service')
                     raise
-        cleanup_steps(stop_owned_unit,
+        def runtime_cleanup():
+            cleanup_steps(stop_owned_unit,
             lambda: stop_process_group(child) if child is not None else None,
             # A successful stop can unload this ephemeral unit. reset-failed is
             # unnecessary and rejects that ordinary absence on real systemd.
             lambda: (Path('/run/systemd/system') / (token + '.service')).unlink(missing_ok=True) if owned else None,
             lambda: command('systemctl', 'daemon-reload') if owned else None,
-            lambda: command('ip', 'netns', 'delete', token) if created else None,
-            lambda: shutil.rmtree(Path('/var/lib') / token) if (Path('/var/lib') / token).exists() else None,
-            lambda: shutil.rmtree(work))
+            lambda: command('ip', 'netns', 'delete', token) if created else None)
+        def private_cleanup():
+            state = Path('/var/lib') / token
+            saved = state.with_name(state.name + '.stopped-original')
+            cleanup_steps(lambda: shutil.rmtree(state) if state.exists() else None,
+                          lambda: shutil.rmtree(saved) if saved.exists() else None,
+                          lambda: shutil.rmtree(work))
+        try:
+            finish_cleanup(completed_report is not None, runtime_cleanup, private_cleanup)
+        finally:
+            if work.exists():
+                # Paths only, never private bodies. Disposable-runner root may
+                # inspect then remove these exact owned paths after confirming
+                # no fixture unit/process/namespace remains; never restore them
+                # into a replacement namespace or upload them as evidence.
+                saved = (Path('/var/lib') / token).with_name(token + '.stopped-original')
+                print(f'Private failed-fixture material retained for root inspection only: {work}; /var/lib/{token}; {saved}', file=sys.stderr)
     (args.artifacts / 'controller-service-report.json').write_text(json.dumps(completed_report, indent=2) + '\n')
     print('PASS actual Controller-mode Agent systemd: remote APPLIED, crash LKG, stopped six-file original-path backup/restore, offline absolute expiry, offline readiness and reconnect')
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_expired_phase_keeps_independent_running_agent_proof(self):
+        observation = next(o for o in self.fixture()['observations'] if o['phase'] == 'expired')
+        self.assertIs(observation.get('agentRunning'), True,
+                      'prior running-disconnected-across-deadline proof missing')
+
     def test_old_restart_only_evidence_is_not_complete_backup_proof(self):
         report = self.fixture()
         report.pop('backup', None)
@@ -635,7 +674,7 @@ class EvidenceTests(unittest.TestCase):
                 'agentSHA256': 'a' * 64, 'controllerSHA256': 'b' * 64,
                 'authority': 'controller:' + 'c' * 32,
                 'processes': [{'pid': pid, 'capabilities': 4096, 'noNewPrivileges': 1,
-                               'binarySHA256': 'a' * 64, 'namespace': 99} for pid in [11, 22, 33]],
+                               'binarySHA256': 'a' * 64, 'namespace': 99} for pid in [11, 22, 33, 44]],
                 'namespace': 99, 'cache': {'before': 'd' * 64, 'after': 'd' * 64},
                 'timeline': {'published': 100, 'deadline': 160, 'offline': 110, 'expired': 161},
                 'backup': {'files': 6, 'byteIdentical': True, 'independentCopies': True,
@@ -646,7 +685,11 @@ class EvidenceTests(unittest.TestCase):
                               'phase': 'APPLIED', 'connection': 'connected',
                               'freshness': 'fresh', 'matchesDesired': True} for _ in range(2)],
                 'observations': [{'phase': phase, 'family': family, 'protocol': protocol,
-                                  'allow': allow, 'health': True}
+                                  'allow': allow, 'health': True,
+                                  'agentRunning': phase not in ['stopped', 'restoredExpired'],
+                                  'pid': {'startup':11, 'crash':22, 'offline':22, 'stopped':0,
+                                          'restored':33, 'expired':33, 'restoredExpired':0,
+                                          'offlineRestart':44, 'reconnected':44}[phase]}
                                  for phase, allow in PHASES.items()
                                  for family in [4, 6] for protocol in ['tcp', 'udp']],
                 'offlineState': 'activating', 'reconnectedState': 'active'}
@@ -674,6 +717,8 @@ class EvidenceTests(unittest.TestCase):
                      lambda r: r['receipts'][1].update(reportSHA256='f' * 64),
                      lambda r: r['observations'][-1].update(allow=True),
                      lambda r: r['observations'][0].update(health=False),
+                     lambda r: r['observations'][20].update(agentRunning=False),
+                     lambda r: r['observations'][20].update(pid=0),
                      lambda r: r['observations'].pop(),
                      lambda r: r.update(token='secret-sentinel')]
         for mutate in mutations:

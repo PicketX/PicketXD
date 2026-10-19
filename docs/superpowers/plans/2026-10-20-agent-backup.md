@@ -34,7 +34,10 @@ exact real unit inactive/MainPID0; caller quarantines only its fixture originals
 - [ ] Implement bounded helper; pass active/links/modes/extra/missing/tamper/path/
       existing-target tests without changing any rejected originals.
 - [ ] Strict public validator rejects old report (RED); extend fixture and real
-      systemd stop/snapshot/quarantine/restore/expiry flow for 32 packet observations.
+      systemd flow for36 packet observations/four PIDs, preserving running-offline
+      expiry alongside stopped restoration. Same-filesystem quarantine; preserve
+      private material after worker/runtime cleanup failure. Add real EXDEV and
+      partial-recovery cleanup tests before implementing review corrections.
 - [ ] Write bilingual runbook; full Node and Go normal/race/vet/build locally.
       Record inherited Unix EPERM; native full CI supplies required Linux proof.
 - [ ] Commit; publish draft using expected remote SHA; full three-job native CI,

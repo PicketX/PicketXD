@@ -3,6 +3,8 @@
 """Real filesystem tests for private native-probe checkpoint handling."""
 import importlib
 import os
+import errno
+import shutil
 from pathlib import Path
 import tempfile
 import unittest
@@ -101,6 +103,49 @@ class BackupTests(unittest.TestCase):
         def stopped():
             calls.append(1); return len(calls) == 1
         with self.assertRaises(ValueError): self.capture(stopped)
+
+    def test_state_quarantine_is_on_original_filesystem(self):
+        # A genuine Linux mount boundary, not a mocked rename.
+        with tempfile.TemporaryDirectory(dir='/dev/shm') as other:
+            remote = Path(other)
+            self.assertNotEqual(remote.stat().st_dev, self.root.stat().st_dev)
+            with self.assertRaises(OSError) as error:
+                self.state.rename(remote / 'wrong-quarantine')
+            self.assertEqual(error.exception.errno, errno.EXDEV)
+            self.assertTrue(callable(getattr(backup, 'quarantine_state', None)),
+                            'same-filesystem stopped-state quarantine missing')
+            saved = backup.quarantine_state(self.state)
+            self.assertEqual(saved.parent, self.state.parent)
+            self.assertEqual(saved.stat().st_dev, self.root.stat().st_dev)
+            self.assertEqual((saved / 'owner.json').read_bytes(), b'private-owner.json')
+
+    def test_failed_recovery_keeps_backup_originals_and_partial_restore(self):
+        self.capture(); self.quarantine()
+        self.state.mkdir(mode=0o700)
+        (self.state / 'partial').write_text('incomplete')
+        runtime = self.root / 'unit-runtime'; runtime.touch()
+        self.assertTrue(callable(getattr(backup, 'finish_cleanup', None)),
+                        'failure-aware checkpoint lifecycle missing')
+        backup.finish_cleanup(False, runtime.unlink, lambda: shutil.rmtree(self.archive))
+        self.assertFalse(runtime.exists())
+        self.assertTrue(self.archive.exists())
+        self.assertTrue((self.root / 'state-original' / 'owner.json').exists())
+        self.assertTrue((self.state / 'partial').exists())
+
+    def test_runtime_cleanup_failure_keeps_recovery_material(self):
+        self.capture()
+        self.assertTrue(callable(getattr(backup, 'finish_cleanup', None)),
+                        'failure-aware checkpoint lifecycle missing')
+        def fail(): raise RuntimeError('runtime cleanup sentinel')
+        with self.assertRaisesRegex(RuntimeError, 'runtime cleanup sentinel'):
+            backup.finish_cleanup(True, fail, lambda: shutil.rmtree(self.archive))
+        self.assertTrue(self.archive.exists())
+
+    def test_successful_recovery_cleans_only_owned_fixture_material(self):
+        self.capture()
+        self.assertTrue(callable(getattr(backup, 'finish_cleanup', None)))
+        backup.finish_cleanup(True, lambda: None, lambda: shutil.rmtree(self.archive))
+        self.assertFalse(self.archive.exists()); self.assertTrue(self.state.exists())
 
 
 if __name__ == '__main__':

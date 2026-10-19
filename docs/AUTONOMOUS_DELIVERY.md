@@ -1,5 +1,16 @@
 # Autonomous delivery checkpoint
 
+## PR25 review correction — 2026-10-19T21:52Z
+Same owner codex/agent-backup; short lease22:25Z or explicit release/merged+verified
+main. ONE full-branch review0Critical/3Important/1Minor; root ONE regression-first
+pass: real EXDEV/same-filesystem quarantine; failed-worker/runtime cleanup retains
+private originals/checkpoint; original running-offline expiry kept alongside restore.
+Now4 actual PIDs/36 packet observations, strict phase PID/running evidence. Minor
+inode/device comparison deferred (false rejection, no unsafe allow). Local12/13
+Python and full203Node pass; native final proof still pending, no merge claim.
+All declined scope rulings/costs: validation/AGENT_STATE_RECOVERY_REVIEW.md. Accurate
+final head/CI/four actual archives/main receipt and immediate release in PR25.
+
 ## Stopped Agent recovery acquisition — 2026-10-19T21:40Z
 Owner codex/agent-backup, short lease22:25Z or explicit release/merged+verified main.
 Fresh Corecdee150/main39308466228 and Agentc5d58ea/main39320434408 green, no open PR;
