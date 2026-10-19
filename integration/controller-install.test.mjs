@@ -15,7 +15,7 @@ async function fixture(run) {
   try {
     await mkdir(join(dir, 'bin')); await mkdir(join(dir, 'web'))
     const files = { 'bin/picketx': 'unit cli', 'bin/picketx-controller': 'unit Controller', 'web/index.html': 'unit Web',
-      'SOURCE.json': JSON.stringify({ commit: gate.coreCommit, tree: '64ed0dcc4b6a3232e093150d7fc100cc9a852e43', platform: 'linux-amd64' }) }
+      'SOURCE.json': JSON.stringify({ commit: gate.coreCommit, tree: 'a86a8905e76887c24dc25a12e8e945a55f8bedc6', platform: 'linux-amd64' }) }
     let manifest = ''
     for (const [path, body] of Object.entries(files)) {
       await writeFile(join(dir, path), body, { mode: path.startsWith('bin/') ? 0o755 : 0o644 })

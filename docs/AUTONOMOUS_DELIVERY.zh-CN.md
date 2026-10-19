@@ -1,5 +1,15 @@
 # 自动交付检查点
 
+## Agent Controller服务 — 2026-10-19T19:35Z
+负责人codex/agent-service，租约20:25Z或明确释放/合并且main完整验证全绿。
+Agent5373595与Corecdee150最新main全部必需步骤通过，PR23/37明确释放，无竞争PR。
+新建外部隔离worktree，原检出未改。设计/计划见superpowers/{specs,plans}/
+2026-10-20-agent-controller-service.md。先用旧静态单元+有效拒绝哨兵观察真实远程
+授权缺失RED，再交付独立Controller单元及真实systemd/断连/LKG/绝对期限验收。
+不改运行时/API/内核；graceful只保证新连接。必须真实Linux，保留全部旧门禁。
+一次独立全分支评审及准确head合并/main复核后立即释放，证据写入PR最终记录。
+宿主重启、Agent完整备份迁移另行验收，整体仍未完成。
+
 完整历史原始证据见[英文检查点](AUTONOMOUS_DELIVERY.md)及相应PR最终元数据。
 
 ## Agent安装包评审修复 — 2026-10-19T16:58Z

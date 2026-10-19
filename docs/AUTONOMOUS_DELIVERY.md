@@ -1,5 +1,19 @@
 # Autonomous delivery checkpoint
 
+## Agent Controller service acquisition — 2026-10-19T19:35Z
+Owner codex/agent-service; lease20:25Z or explicit release/merged+verified-green-main.
+Agent5373595/tree7e23d65/main39291377336 and Corecdee150/treea86a8905/main39308466228
+all3jobs/every step success, PR23/37 explicitly released; no competing open PRs.
+Fresh exact-main external isolated worktree (project-local .worktrees not ignored),
+original checkout untouched. Spec/plan superpowers/{specs,plans}/2026-10-20-agent-
+controller-service.md. Separate Controller-mode unit, actual systemd/remote cache/
+absolute deadline acceptance. Tests-first old static deny sentinel cannot stand in
+for actual remote APPLIED. No production runtime/API/kernel change; graceful new
+flows only. Full native mandatory; local no privileged systemd. Inline execution
+and ONE independent review, routine pauses waived by explicit mandate. Final exact
+PR/CI/source/archive/main evidence/release in PR metadata. Host reboot and complete
+Agent backup/relocation remain separate; overall goal active.
+
 ## Agent distribution review fix — 2026-10-19T16:58Z
 
 PR23 owner codex/agent-distribution heartbeat16:58Z, lease17:35Z or explicit release/
