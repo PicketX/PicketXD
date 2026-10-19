@@ -2,7 +2,7 @@
 
 ## Gitea application acquisition — 2026-10-19T11:45Z
 
-Owner codex/gitea-application; heartbeat11:52Z; lease until12:45Z or explicit release/
+Owner codex/gitea-application; heartbeat12:00Z; lease until12:45Z or explicit release/
 merged+verified-green-main. Latest Core298863f/tree437041c/mainCI39240788047 and
 Agent937b34c/treec5a3d5e/mainCI39234459599 green; no open PRs. PR34/20 final metadata
 explicitly released old leases. Local clean old branches retained; existing linked
@@ -24,6 +24,13 @@ RED→GREEN. Full new Gitea/native acceptance and independent review remain pend
 Local Go1.27.0 was subsequently downloaded and published SHA256 verified; local full
 normal/race have known5 Unixgram EPERM failures, vet/build pass. Locked npm ci/
 typecheck/lint/build passed. Native unrestricted tests remain mandatory.
+
+ONE independent whole-branch review found2 Important; one root fix pass: SSH generic
+footers no longer establish app denial (four regressions RED→GREEN, Node128/128);
+native EACCES bootstrap fix copies/rehashes only the public binary into its service
+directory, no checkout/home chmod. Complete native verification remains pending.
+One optional not_before value-validation Minor deferred. Full rulings/costs and
+review scope: validation/GITEA_APPLICATION_REVIEW.md. Do not merge on unit evidence.
 
 ## Managed DB human conjunction acquisition — 2026-10-19T09:43Z
 

@@ -23,10 +23,13 @@ export function redactFixtureFailure(error, secrets) {
   return new Error(message)
 }
 
-export function classifyGitFailure(message) {
+export function classifyGitFailure(message, endpoint = 'ssh') {
   if (/REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed/.test(message)) return 'host-key-deny'
   if (/timed out|Failed to connect|Connection refused|Couldn't connect to server/i.test(message)) return 'transport-deny'
-  if (/Authentication failed|could not read Username|repository.*not found|Could not read from remote repository|403|401/i.test(message)) return 'app-deny'
+  // Pinned upstream routers/private/serv.go and cmd/serv.go emit these actual
+  // repository-specific messages. Git's generic SSH footer proves no such thing.
+  if (endpoint === 'ssh' && /(?:User key \d+:native has no "read" permission for|Cannot find repository:?) owner\/private(?:\s|$)/.test(message)) return 'app-deny'
+  if (endpoint === 'https' && /Authentication failed|could not read Username|repository.*not found|403|401/i.test(message)) return 'app-deny'
   return null
 }
 
@@ -173,7 +176,7 @@ export async function runGiteaApplication({ root, core, temp, evidence, chromium
       return { outcome: 'allow' }
     } catch (e) {
       const message = String(e.stderr ?? '')
-      const outcome = classifyGitFailure(message)
+      const outcome = classifyGitFailure(message, endpoint)
       if (outcome) return { outcome }
       throw e
     }
@@ -225,7 +228,11 @@ export async function runGiteaApplication({ root, core, temp, evidence, chromium
     await scenario('both')
     for (const family of [4, 6]) {
       await health()
-      for (const options of [{ anonymous: true }, { user: 'outsider' }]) assert.equal((await git(family, 'https', options)).outcome, 'app-deny')
+      for (const options of [{ anonymous: true }, { user: 'outsider' }]) {
+        const hits = await upstreamHits()
+        assert.equal((await git(family, 'https', options)).outcome, 'app-deny')
+        assert(await upstreamHits() > hits, 'HTTP credential denial must actually reach Gitea, not be an ingress denial')
+      }
       assert.equal((await git(family, 'ssh', { user: 'outsider' })).outcome, 'app-deny')
       for (const endpoint of ['https', 'ssh']) assert.equal((await git(family, endpoint, { clone: true })).outcome, 'allow')
       await health()

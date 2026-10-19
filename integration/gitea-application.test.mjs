@@ -29,6 +29,18 @@ test('fixture failures redact credentials even when the process exception repeat
   assert(!e.message.includes('native-secret')); assert(!e.message.includes('PRIVATE KEY'))
   assert.match(e.message, /REDACTED/)
 })
+for (const message of [
+  'kex_exchange_identification: read: Connection reset by peer\nfatal: Could not read from remote repository.',
+  'ssh: connect to host ::1 port 19222: Network is unreachable\nfatal: Could not read from remote repository.',
+  'Load key "/private/outsider": invalid format\nnobody@127.0.0.1: Permission denied (publickey).\nfatal: Could not read from remote repository.',
+]) test(`unrecognized SSH failure is not app isolation: ${message.split('\n')[0]}`, () => {
+  assert.equal(module.classifyGitFailure(message, 'ssh'), null)
+})
+test('specific pinned Gitea read-permission rejection identifies application isolation', () => {
+  assert.equal(module.classifyGitFailure('error: User key 2:native has no "read" permission for owner/private\nfatal: Could not read from remote repository.', 'ssh'), 'app-deny')
+  assert.equal(module.classifyGitFailure('error: Cannot find repository owner/private\nfatal: Could not read from remote repository.', 'ssh'), 'app-deny')
+  assert.equal(module.classifyGitFailure('Authentication failed.\nfatal: Could not read from remote repository.', 'ssh'), null)
+})
 test('required complete Gitea proof is accepted', () => validate(giteaFixture(), confirmations))
 for (const [name, change] of [
   ['missing workflow', p => delete p.cases], ['missing family', p => p.applicationAuth.pop()],
