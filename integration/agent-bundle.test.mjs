@@ -96,3 +96,40 @@ test('native distribution gate accepts bound build/source/preparation proof', as
   const { validateAgentDistributionEvidence } = await import('../scripts/agent-bundle.mjs')
   validateAgentDistributionEvidence(distribution(), nativeReport())
 })
+
+// Real small Go repositories, not fake native-Agent acceptance. Each mutation
+// changes observable compiled code or ISA while the claimed Git commit stays clean.
+for (const mutation of ['ignored source', 'external overlay', 'ambient ISA']) {
+  test('builder compiles only committed source with baseline ISA despite ' + mutation, async t => {
+    const dir = await mkdtemp(join(tmpdir(), 'agent-source-identity-'))
+    t.after(() => rm(dir, { recursive: true, force: true }))
+    const cwd = join(dir, 'repo'), output = join(dir, 'bundle')
+    for (const file of ['scripts/build-agent-bundle.sh', 'scripts/agent-bundle.mjs', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'go.sum',
+      'deploy/agent/README.md', 'deploy/agent/README.zh-CN.md', 'deploy/systemd/picketxd.service', 'deploy/systemd/README.md', 'deploy/systemd/README.zh-CN.md']) {
+      await mkdir(join(cwd, file, '..'), { recursive: true }); await copyFile(join(root, file), join(cwd, file))
+    }
+    await mkdir(join(cwd, 'cmd/picketxd'), { recursive: true })
+    await writeFile(join(cwd, 'go.mod'), 'module github.com/PicketX/PicketXD\n\ngo 1.27.0\n\nrequire github.com/spf13/pflag v1.0.9\n')
+    const main = join(cwd, 'cmd/picketxd/main.go')
+    await writeFile(main, 'package main\nimport("fmt";_ "github.com/spf13/pflag")\nfunc main(){fmt.Println("COMMITTED")}\n')
+    const git = args => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
+    git(['init', '-q']); git(['add', '.']); git(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'committed fixture'])
+    const env = { ...process.env, GOENV: 'off', GOWORK: 'off', GOFLAGS: '', GOAMD64: 'v1' }
+    if (mutation === 'ignored source') {
+      await writeFile(join(cwd, '.git/info/exclude'), 'cmd/picketxd/ignored.go\n')
+      await writeFile(join(cwd, 'cmd/picketxd/ignored.go'), 'package main\nimport "fmt"\nfunc init(){fmt.Println("IGNORED_INPUT")}\n')
+    } else if (mutation === 'external overlay') {
+      const replacement = join(dir, 'replacement.go'), overlay = join(dir, 'overlay.json')
+      await writeFile(replacement, 'package main\nimport("fmt";_ "github.com/spf13/pflag")\nfunc main(){fmt.Println("OVERLAY_INPUT")}\n')
+      await writeFile(overlay, JSON.stringify({ Replace: { [main]: replacement } }))
+      env.GOFLAGS = '-overlay=' + overlay
+    } else env.GOAMD64 = 'v3'
+    assert.equal(git(['status', '--porcelain', '--untracked-files=all']), '', 'contamination invisible to ordinary Git status')
+    const p = spawnSync('bash', ['scripts/build-agent-bundle.sh', output], { cwd, env, encoding: 'utf8', timeout: 120000 })
+    assert.equal(p.status, 0, p.stderr)
+    const binary = join(output, 'bin/picketxd'), build = execFileSync('go', ['version', '-m', binary], { encoding: 'utf8' })
+    assert(build.includes('GOAMD64=v1'), 'portable baseline ISA, not ambient host selection')
+    assert(build.includes('vcs.revision=' + git(['rev-parse', 'HEAD'])) && build.includes('vcs.modified=false'))
+    assert.equal(execFileSync(binary, [], { cwd: dir, env: { PATH: '' }, encoding: 'utf8' }), 'COMMITTED\n')
+  })
+}

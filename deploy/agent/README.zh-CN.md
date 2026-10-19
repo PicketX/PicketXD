@@ -9,6 +9,9 @@ Agent使用GPL-3.0-or-later，Apache Controller另行分发。完整保留安装
 
 干净且已提交的源码需要Go1.27.x、Node、Bash、Git、GNU tar/coreutils、file/readelf。
 运行`bash scripts/build-agent-bundle.sh /absolute/new/bundle`，目标必须不存在，
+构建使用隔离的已提交源码克隆，验证模块缓存并固定Go输入设置/AMD64 v1；本地被忽略
+的Go文件、外部overlay/workspace或Go配置不会混入二进制。只移除新克隆的私有Git元数据，
+原仓库/工作区/分支保持不变。
 悬空符号链接也拒绝。不覆盖旧目录、不安装宿主；失败保留部分输出供排查。先通过可信
 发布渠道确认源码身份，再核对全部SHA256SUMS后运行二进制；摘要自身不能认证发布者。
 整包搬迁/解压并保留执行位，Linux-amd64程序运行时不需要Go/npm或共享库。

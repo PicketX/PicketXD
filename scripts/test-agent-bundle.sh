@@ -24,6 +24,7 @@ mkdir "$work/mod-cache" "$work/go-cache" "$work/unrelated-cwd"
 (
   cd "$work/payload/source/PicketXD"
   export CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOWORK=off GOENV=off GOFLAGS=''
+  export GOAMD64=v1 GOEXPERIMENT='' GO111MODULE=on
   export GOMODCACHE="$work/mod-cache" GOCACHE="$work/go-cache"
   # Do not accidentally discover the outer checkout while rebuilding an export.
   go build -buildvcs=false -mod=vendor -trimpath -o "$work/rebuilt-picketxd" ./cmd/picketxd

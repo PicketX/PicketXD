@@ -84,7 +84,7 @@ async function collect(directory) {
   await mkdir(join(directory, 'licenses')) // Exclusive: never replace a prior collection.
   const index = [], modules = await readFile(join(directory, 'source/PicketXD/vendor/modules.txt'), 'utf8')
   for (const match of modules.matchAll(/^# (\S+) (v\S+)$/gm)) {
-    const [, dependency, version] = match, root = run(['list', '-m', '-f', '{{.Dir}}', dependency])
+    const [, dependency, version] = match, root = run(['list', '-mod=mod', '-m', '-f', '{{.Dir}}', dependency])
     assert(root, 'actual module source directory: ' + dependency)
     const files = await notices(root); assert(files.length, 'actual upstream notices: ' + dependency)
     const retained = []

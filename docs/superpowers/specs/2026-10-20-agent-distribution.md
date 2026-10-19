@@ -9,7 +9,8 @@ No runtime/kernel/API/UI behavior change, root installer, service enablement, ho
 boot, actual backup/restore or legal-clearance claim in this increment.
 
 ## Decision and alternatives
-Use the existing CGO_ENABLED=0 Go build, Git archive and official go mod vendor.
+Use the existing CGO_ENABLED=0 Go build from an isolated committed-source clone
+and official go mod vendor, with module verification and normalized Go settings.
 This is smaller than a container/runtime distribution and more useful offline than
 a binary plus remote source URL. Vendoring omits upstream dependency tests by Go's
 documented contract; retain complete Agent source and all dependencies required to
@@ -22,7 +23,7 @@ scripts/build-agent-bundle.sh NEW_ABSOLUTE_DIRECTORY rejects existing/dangling
 symlink/noncanonical output and tracked/untracked dirty checkout before building.
 Never overwrite a previous bundle or recursively delete operator paths. Partial
 build output remains diagnosable. Output contains bin/picketxd, source/PicketXD
-(git archive HEAD plus vendor), deploy runbooks/systemd reference, LICENSE,
+(exact committed snapshot plus vendor; private clone Git metadata removed), deploy runbooks/systemd reference, LICENSE,
 THIRD_PARTY_NOTICES.md, licenses/index.json/upstream texts, SOURCE.json and
 SHA256SUMS covering every regular file except that root manifest. No symlinks,
 special files, private keys, node_modules, .git or build credentials are bundled.

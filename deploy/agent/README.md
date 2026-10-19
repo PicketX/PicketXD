@@ -10,6 +10,9 @@ The bundle is engineering evidence, not automated legal clearance or an OEM gran
 
 From a clean committed checkout with Go1.27.x, Node, Bash, Git, GNU tar/coreutils,
 file and readelf, run `bash scripts/build-agent-bundle.sh /absolute/new/bundle`.
+The builder compiles an isolated committed-source clone, verifies module-cache
+integrity and normalizes Go input-selection settings/AMD64 v1. Ignored local Go
+files, ambient overlays/workspaces or Go configuration cannot enter the binary.
 The target must not exist, even as a dangling symlink; no overwrite or host install
 is performed. A failed build leaves partial output for inspection. Confirm source
 identity over your trusted release channel, then verify every `SHA256SUMS` entry
@@ -19,7 +22,8 @@ modes. The shipped Linux-amd64 executable needs no Go, npm or shared libraries.
 
 ## Source and offline rebuild
 
-`source/PicketXD` contains the exact committed Agent source, build scripts and
+`source/PicketXD` contains the exact committed Agent source (private clone Git
+metadata removed), build scripts and
 official Go-vendored dependencies needed to build/test its packages. Upstream
 dependency tests are not included by `go mod vendor`. Actual upstream licenses/
 notices and the Go runtime LICENSE/PATENTS are retained under `licenses/` with a

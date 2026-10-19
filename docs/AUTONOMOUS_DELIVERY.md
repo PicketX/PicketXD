@@ -1,5 +1,20 @@
 # Autonomous delivery checkpoint
 
+## Agent distribution review fix — 2026-10-19T16:58Z
+
+PR23 owner codex/agent-distribution heartbeat16:58Z, lease17:35Z or explicit release/
+merged+verified-green-main. Full first implementation39288973797 all3jobs green,
+but ONE fresh whole-branch review found1Important exact-source escape via ignored
+Go source/ambient overlays; no final acceptance on that head. Root3 real Go fixture
+regressions RED→GREEN; complete Node200/200. Build only selected committed snapshot
+in a private clone, normalize Go settings/AMD64v1, verify modules/public metadata;
+vendor/notices/source from same snapshot, never working-tree ignored input. Original
+worktree/branches untouched. Full native/four-archive/final expected-head/main gates
+still required; final immutable receipt/release in PR23. Full rulings/costs/declined
+boundaries/TDD/native chronology: validation/AGENT_DISTRIBUTION_REVIEW.md. One copied
+systemd-reference-link Minor deferred; intact source-tree references retained.
+Overall goal remains active; host service boot and backup/restore remain separate.
+
 ## Agent distribution acquisition — 2026-10-19T16:40Z
 
 PR22 mainc02ab96/tree73d8b4b accepted: main39277801731 all3jobs/every step SUCCESS,
