@@ -1,5 +1,21 @@
 # Autonomous delivery checkpoint
 
+## Active M2D2 increment — 2026-10-19T01:42:00Z
+
+Owner: console/kernel conjunction. Remote branch: `codex/console-kernel-acceptance`.
+Short lease until 2026-10-19T03:15:00Z; released by merged PR + green main CI.
+Agent main verified 95a5f7f62dceb1c369d08b8e23ffda2f7b978ce4, tree
+a53a743e22254c0511b430e5b9e2ed0664180629; main CI39118687475 green.
+Core main a99d9fc479bdf1490f78e669291ec67ca84876e3, tree
+52746b5ffae3ef4e0ac6a4fc5d556f17e2a8648c; main CI39183852826 green.
+No open PRs at entry. Core PR29 and Agent PR16 are already merged; old lease below
+is historical. Core now has real management/API/React/HTTP authorization. Do not redo.
+Next: execute docs/superpowers/plans/2026-10-19-console-kernel.md to prove their
+conjunction with actual Agent kernel execution. Local Go baseline has five Unixgram
+permission failures; native Linux CI must run those tests, not suppress them.
+Whole product is not complete: human identity/request/approval and deployment limits
+remain. This increment makes no production code or dependency changes.
+
 Updated: 2026-10-18T10:11:00Z. The user authorized autonomous implementation, review,
 push/PR and expected-head merge until usable management and basic L7 exist. Do not repeat
 routine approvals. No competing implementation while the current lease is active.
