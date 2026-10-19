@@ -23,7 +23,11 @@ especially IPv4 which is explicitly revoked before its deadline. Six full-Grant
 readback regressions (missing receipt, expiry extension, source/scope changes)
 observed RED→GREEN. After each account edit, real API readback of both complete
 Grants must equal original approval snapshots, including exact absolute deadlines.
-Full Node99/99 green. The first native green is not final generation-safety proof;
+Four additional shipped helper-orchestration regressions were run against the
+original immutable e6c0eb7 helper: all4 RED; the patched helper passes all4. They
+exercise generation-blind destruction, true generation-aware stale resolution,
+same-session reuse and silent deadline extension; explicitly in-memory doubles,
+never native acceptance reports. Full Node103/103 green. The first native green is not final generation-safety proof;
 patched exact-head full native CI and main verification remain mandatory in PR20.
 
 ## Deferred Minor

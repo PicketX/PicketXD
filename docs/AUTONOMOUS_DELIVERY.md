@@ -2,7 +2,7 @@
 
 ## Managed DB human conjunction acquisition — 2026-10-19T09:43Z
 
-Owner codex/managed-human-kernel; heartbeat09:54Z; short lease until10:30Z or
+Owner codex/managed-human-kernel; heartbeat09:56Z; short lease until10:30Z or
 explicit release/merged+green main. Core main31c7ac7/treef53e60e/mainCI39225809309
 and Agent main1084a336/tree3d9e0bf/mainCI39214825482 green; no open PRs. Prior
 leases released by verified main. Existing host-owned isolated Agent branch kept.
@@ -25,11 +25,23 @@ archive12177492412 SHA2560137596761c321812a882265c13da5bbaf1af21b994b27602d5b981
 kernel12177262120 SHA25694a87701a725caa26a25834369dfa06e898254f4acd746bd9a6667cbd9cf6ff7
 match metadata. Actual Accounts/request375/1440 screenshots inspected.
 ONE fresh whole-branch review found2 Important evidence gaps; both fixed in one
-root RED→GREEN pass, Node99/99. Untouched independent old session and both complete
+root RED→GREEN pass, Node103/103. Untouched independent old session and both complete
 Grant/deadline readbacks now required; first green is not final session proof.
 One new serialization-boundary Minor deferred; full rulings/costs in
 validation/MANAGED_HUMAN_KERNEL_REVIEW.md. Patched exact-head native CI, expected-head
 merge and main verification pending; immutable final evidence/lease release in PR20.
+
+Patched code local425a9607ae5cb0036577b3de233e488471b9acf1 / remote
+6f88079990502dd164596d2553b919d3ed06b17a / actualcheckoutfa8147d376b543fe862b128c6640102be4e7e6b1
+share tree4771baba1acbce61b5a8270828cdfdf6c46cf8c8. CI39233290168 unit117996206162
+190/482 nofail/skip/race and console117996205953 actual31cases/13confirmations pass;
+kernel117996206428 in systemd stage at checkpoint. Actual untouched distinct session
+was200 before edits then401 only after re-enable; both full Grants reread after each
+edit unchanged. Downloaded console12178068023 SHA256
+71d7695f1b680ad31ae4bed3d68a1ad490ed76747c245962c1f2070b32a97a4e matches metadata.
+Final supplemental helper regression file makes Node103/103; unchanged runtime code
+from reviewed fix. Final exact source tree CI and main results must be recorded in
+PR20 before release; historical code CI alone does not establish final-head acceptance.
 
 ## Human conjunction code acceptance / review hardening — 2026-10-19T07:08Z
 
