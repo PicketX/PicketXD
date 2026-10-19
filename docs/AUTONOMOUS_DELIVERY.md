@@ -1,5 +1,22 @@
 # Autonomous delivery checkpoint
 
+## Managed DB human conjunction acquisition — 2026-10-19T09:43Z
+
+Owner codex/managed-human-kernel; heartbeat09:43Z; short lease until10:30Z or
+explicit release/merged+green main. Core main31c7ac7/treef53e60e/mainCI39225809309
+and Agent main1084a336/tree3d9e0bf/mainCI39214825482 green; no open PRs. Prior
+leases released by verified main. Existing host-owned isolated Agent branch kept.
+Spec/plan: superpowers/{specs,plans}/2026-10-19-managed-human-kernel.md. Extend
+existing actual29-case conjunction using real Accounts-created database humans,
+durable random-ID login/request/audit binding, disable/re-enable permanent cookie
+invalidation without revoking independent network Grants. No runtime/kernel change.
+Local baseline Node60 green; full Go shows only known5 Unixgram EPERM failures;
+native full Go/kernel/systemd/locked Web and actual conjunction remain mandatory.
+Core PR33 superseded-read failure warning Minor and PR32 Chinese UTF8 feedback
+Minor remain deferred, not changed here. Next after this: actual GiteaHTTPS/SSH
+and deployment/release acceptance as required; no OIDC/HA/PG runtime/full goal claim.
+中文：接续真实数据库开户到人员审批及内核/入口/应用验收，账户停用不冒充Grant撤销。
+
 ## Human conjunction code acceptance / review hardening — 2026-10-19T07:08Z
 
 PR19 code localbe932c2/remotecf91be10013de501e36cd3e74524ce974e11f340 and actual

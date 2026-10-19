@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import assert from 'node:assert/strict'
+import { validateManagedHumans } from './managed-humans.mjs'
 
-export const coreCommit = 'b79e242926c67d931537c160333008df699fa598'
+export const coreCommit = '31c7ac762ca0ea7d2d06ee2b30cb511c161cdad1'
 const both = outcome => [[4, outcome], [6, outcome]]
 export const requiredCases = {
   baseline: both('transport-deny'),
@@ -21,16 +22,18 @@ export const requiredCases = {
   humanPending6: [[4, 'allow'], [6, 'transport-deny']],
   humanApproved6: both('allow'), humanSibling: both('transport-deny'),
   humanBrowser: [[4, 'allow']],
+  humanAccountDisabled: both('allow'), humanAccountReenabled: both('allow'),
   humanRevoke4: [[4, 'transport-deny'], [6, 'allow']],
   humanEstablishedRevoke4: [[4, 'http-deny']],
   humanExpired: both('transport-deny'),
   humanEstablishedExpired6: [[6, 'http-deny']],
   humanRejected: both('transport-deny'),
 }
-export function validateHumanApproval(r) {
+export function validateHumanApproval(r, identities) {
   const source = r.family === 4 ? '127.0.0.1/32' : '::1/128'
   assert([4, 6].includes(r.family))
-  assert.equal(r.requester, 'principal:requester'); assert.equal(r.approver, 'principal:approver')
+  assert.notEqual(identities.requester, identities.approver)
+  assert.equal(r.requester, identities.requester); assert.equal(r.approver, identities.approver)
   assert.equal(r.source, source); assert.equal(r.grantSource, source)
   assert.deepEqual(r.resource, { name: 'demo', uid: 'resource-demo-v1' })
   assert.deepEqual([...r.requestedEndpoints].sort(), ['sibling', 'web'])
@@ -49,6 +52,7 @@ export function validateHumanApproval(r) {
 }
 export function validateEvidence(report) {
   assert.equal(report.coreCommit, coreCommit, 'pinned Core source')
+  const identities = validateManagedHumans(report)
   for (const name of ['agentCommit', 'agentTree']) assert.match(report[name] ?? '', /^[a-f0-9]{40}$/, name)
   for (const name of ['agentBinarySHA256', 'controllerBinarySHA256']) assert.match(report[name] ?? '', /^[a-f0-9]{64}$/, name)
   assert.equal(typeof report.kernel, 'string'); assert(report.kernel.length > 0)
@@ -73,6 +77,7 @@ export function validateEvidence(report) {
   assert.equal(timeline.expired, timeline.revoked4); assert.equal(timeline.rejected, timeline.revoked4)
   const caseRevisions = { humanPending4: timeline.baseline, humanApproved4: timeline.approved4, humanPending6: timeline.approved4,
     humanApproved6: timeline.approved6, humanSibling: timeline.approved6, humanBrowser: timeline.approved6,
+    humanAccountDisabled: timeline.approved6, humanAccountReenabled: timeline.approved6,
     humanRevoke4: timeline.revoked4, humanEstablishedRevoke4: timeline.revoked4, humanExpired: timeline.expired,
     humanEstablishedExpired6: timeline.expired, humanRejected: timeline.rejected }
   const uids = new Set(), grants = new Set()
@@ -82,7 +87,7 @@ export function validateEvidence(report) {
     for (const field of ['uid', 'grantUID']) assert.equal(typeof r[field], 'string')
     assert(r.uid.length > 0 && !uids.has(r.uid)); uids.add(r.uid)
     assert(r.grantUID.length > 0 && !grants.has(r.grantUID)); grants.add(r.grantUID)
-    validateHumanApproval(r)
+    validateHumanApproval(r, identities)
     assert.equal(r.revision, i === 0 ? timeline.approved4 : timeline.approved6, 'approval/case revision correlation')
     assert(report.confirmations.some(c => c.revision === r.revision), 'approved revision actually applied')
     assert.equal(r.finalGrantState, i === 0 ? 'revoked' : 'expired')

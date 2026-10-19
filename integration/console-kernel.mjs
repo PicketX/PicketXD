@@ -11,6 +11,7 @@ import { once } from 'node:events'
 import http from 'node:http'
 import { coreCommit, requiredCases, validateEvidence } from './console-evidence.mjs'
 import { runHumanRequests } from './human-requests.mjs'
+import { provisionManagedHumans } from './managed-humans.mjs'
 import { assertServicesAlive } from './process-health.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
@@ -22,7 +23,6 @@ const temp = await mkdtemp(join(tmpdir(), 'picketx-console-kernel-'))
 const hash = x => createHash('sha256').update(x).digest('hex')
 const adminToken = randomBytes(32).toString('hex'), agentToken = randomBytes(32).toString('hex'), ingressToken = randomBytes(32).toString('hex')
 const password = randomBytes(32).toString('hex')
-let passwordHash = ''
 const runtimeEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('PICKETX_')))
 const report = { coreCommit, agentCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), agentTree: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim(), kernel: release(), confirmations: [], cases: [] }
 const children = [], servers = [], keep = new Map(), status = [], logs = new Map()
@@ -132,14 +132,8 @@ try {
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: core, encoding: 'utf8' }).trim(), coreCommit)
   for (const [field, file] of [['agentBinarySHA256', 'picketxd-console'], ['controllerBinarySHA256', 'controller-console']]) report[field] = hash(await readFile(join(root, 'artifacts', file)))
   execFileSync('ip', ['link', 'set', 'lo', 'up'])
-  passwordHash = execFileSync(join(root, 'artifacts/picketx-console'), ['password-hash'], { input: password, encoding: 'utf8', env: runtimeEnv }).trim()
-  assert.match(passwordHash, /^\$2a\$12\$/)
   await privateFile('principals.json', JSON.stringify({
     principals: [{ id: 'principal:admin', sha256: hash(adminToken), roles: ['role:admin'] }],
-    users: [
-      { id: 'principal:requester', username: 'requester', password_hash: passwordHash, roles: ['role:requester'] },
-      { id: 'principal:approver', username: 'approver', password_hash: passwordHash, roles: ['role:admin'] },
-    ],
   }))
   await privateFile('agent.json', JSON.stringify({ credentials: [{ id: 'node-token', agent_ref: 'node', sha256: hash(agentToken) }] }))
   await privateFile('agent-token', agentToken)
@@ -148,7 +142,7 @@ try {
 database: ${JSON.stringify(join(temp, 'state/db.sqlite'))}
 credentials: ${JSON.stringify(join(temp, 'agent.json'))}
 source: {mode: database}
-management: {credentials: ${JSON.stringify(join(temp, 'principals.json'))}}
+management: {credentials: ${JSON.stringify(join(temp, 'principals.json'))}, users_mode: database}
 agent: {enabled: true, listen: "127.0.0.1:19090", authority: static-test}
 browser: {enabled: true, origin: ${origin}, assets: ${JSON.stringify(join(core, 'apps/web/dist'))}}
 authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${JSON.stringify(join(temp, 'callers.json'))}}
@@ -182,6 +176,7 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   await page.getByLabel('Access key', { exact: true }).fill(adminToken)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByLabel('Policy YAML').waitFor()
+  await provisionManagedHumans({ page, password, evidence, report })
   async function publish(policy, reason) {
     await page.getByRole('button', { name: 'Desired configuration', exact: true }).click()
     const reload = page.getByRole('button', { name: 'Reload latest into editor', exact: true })
@@ -258,7 +253,7 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   // The previous expiry case intentionally retained established connections.
   // The human sequence must establish its own sockets after pending denial.
   for (const entry of keep.values()) { entry.agent.destroy(); entry.agent = new http.Agent({ keepAlive: true, maxSockets: 1 }); entry.socket = null }
-  await runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, appHits: () => appHits })
+  await runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, adminPage: page, appHits: () => appHits })
   await page.getByRole('button', { name: 'Nodes', exact: true }).click()
   await page.getByRole('button', { name: 'Refresh nodes', exact: true }).click()
   await page.getByRole('heading', { name: 'node', exact: true }).waitFor()
@@ -283,7 +278,7 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
     }
   }
   for (const server of servers) { server.closeAllConnections(); await new Promise(r => server.close(r)) }
-  const redact = x => [adminToken, agentToken, ingressToken, password, passwordHash].filter(Boolean).reduce((s, secret) => s.replaceAll(secret, '[REDACTED]'), x)
+  const redact = x => [adminToken, agentToken, ingressToken, password].filter(Boolean).reduce((s, secret) => s.replaceAll(secret, '[REDACTED]'), x)
   for (const [name, log] of logs) await writeFile(join(evidence, name + '.log'), redact(log))
   await writeFile(join(evidence, 'report.json'), JSON.stringify(report, null, 2))
   await writeFile(join(evidence, 'agent-status.json'), JSON.stringify(status, null, 2))
