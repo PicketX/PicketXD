@@ -13,7 +13,7 @@ import { coreCommit, requiredCases, validateEvidence } from './console-evidence.
 import { runHumanRequests } from './human-requests.mjs'
 import { provisionManagedHumans } from './managed-humans.mjs'
 import { assertServicesAlive } from './process-health.mjs'
-import { runGiteaApplication, validateGiteaEvidence } from './gitea-application.mjs'
+import { runGiteaApplication, validateGiteaEvidence, redactFixtureFailure } from './gitea-application.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -271,6 +271,8 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   validateEvidence(report)
   report.result = 'pass'
   console.log(`PASS combined native evidence: ${report.cases.length} cases, ${report.confirmations.length} actual Agent confirmations`)
+} catch (error) {
+  throw redactFixtureFailure(error, [adminToken, agentToken, ingressToken, password, ...applicationSecrets])
 } finally {
   await browser?.close()
   for (const entry of keep.values()) entry.agent.destroy()

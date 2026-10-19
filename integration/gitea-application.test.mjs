@@ -20,6 +20,15 @@ export function giteaFixture() {
 const module = await import('./gitea-application.mjs').catch(e => { if (e.code === 'ERR_MODULE_NOT_FOUND') return {}; throw e })
 const validate = (...args) => { assert.equal(typeof module.validateGiteaEvidence, 'function', 'required real Gitea evidence validator missing'); return module.validateGiteaEvidence(...args) }
 const confirmations = Array.from({ length: 28 }, (_, i) => ({ revision: i + 1 }))
+test('SSH host-key rejection is not misclassified as application permission denial', () => {
+  assert.equal(module.classifyGitFailure('Host key verification failed.\nfatal: Could not read from remote repository.'), 'host-key-deny')
+})
+test('fixture failures redact credentials even when the process exception repeats its arguments', () => {
+  assert.equal(typeof module.redactFixtureFailure, 'function')
+  const e = module.redactFixtureFailure(new Error('Command failed: app --password native-secret\nPRIVATE KEY'), ['native-secret', 'PRIVATE KEY'])
+  assert(!e.message.includes('native-secret')); assert(!e.message.includes('PRIVATE KEY'))
+  assert.match(e.message, /REDACTED/)
+})
 test('required complete Gitea proof is accepted', () => validate(giteaFixture(), confirmations))
 for (const [name, change] of [
   ['missing workflow', p => delete p.cases], ['missing family', p => p.applicationAuth.pop()],
@@ -36,4 +45,7 @@ for (const [name, change] of [
   ['TLS bypass', p => p.tls.untrustedRejected = false],
   ['SSH key bypass', p => p.ssh.wrongHostKeyRejected = false],
   ['non-string case name', p => p.cases[0].name = ['baseline']],
+  ['secret extra field', p => p.password = 'unit-secret'],
+  ['secret Grant field', p => p.grants[0].grant.token = 'unit-secret'],
+  ['secret observation field', p => p.cases[0].observations[0].authorization = 'unit-secret'],
 ]) test(`gate rejects ${name}`, () => { const p = giteaFixture(); change(p); assert.throws(() => validate(p, confirmations)) })

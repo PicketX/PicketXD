@@ -17,7 +17,22 @@ const address = family => family === 4 ? '127.0.0.1' : '::1'
 const authority = 'gitea.example:19445'
 const command = promisify(execFile)
 
+export function redactFixtureFailure(error, secrets) {
+  const message = secrets.filter(Boolean).reduce((s, secret) => s.replaceAll(secret, '[REDACTED]'), String(error.stack ?? error))
+  // Do not propagate execFile's enumerable stdout/stderr/spawnargs/cause fields.
+  return new Error(message)
+}
+
+export function classifyGitFailure(message) {
+  if (/REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed/.test(message)) return 'host-key-deny'
+  if (/timed out|Failed to connect|Connection refused|Couldn't connect to server/i.test(message)) return 'transport-deny'
+  if (/Authentication failed|could not read Username|repository.*not found|Could not read from remote repository|403|401/i.test(message)) return 'app-deny'
+  return null
+}
+
 export function validateGiteaEvidence(p, confirmations) {
+  const only = (value, allowed) => { assert(value && typeof value === 'object'); for (const key of Object.keys(value)) assert(allowed.includes(key), `unexpected evidence field ${key}`) }
+  only(p, ['version', 'binarySHA256', 'oid', 'grants', 'cases', 'browser', 'applicationAuth', 'establishedHTTPS4', 'tls', 'ssh', 'healthyControls'])
   assert.equal(p.version, '28.2.0'); assert.equal(p.binarySHA256, giteaSHA256)
   assert.match(p.oid, /^[a-f0-9]{40}$/)
   assert.equal(p.cases.length, 7); assert.equal(p.grants.length, 4)
@@ -25,10 +40,12 @@ export function validateGiteaEvidence(p, confirmations) {
   const confirmed = revision => { assert(Number.isSafeInteger(revision) && revision > 0); assert(confirmations.some(c => c.revision === revision), 'actual Gitea revision confirmation required') }
   const ids = new Set()
   for (const [i, g] of p.grants.entries()) {
+    only(g, ['family', 'endpoint', 'revision', 'grant'])
     const family = i < 2 ? 4 : 6, endpoint = i % 2 === 0 ? 'https' : 'ssh'
     assert.equal(g.family, family); assert.equal(g.endpoint, endpoint)
     assert.equal(g.revision, baseline + 1 + (family === 4 ? 0 : 1) + (endpoint === 'ssh' ? 2 : 0)); confirmed(g.revision)
     const v = g.grant
+    only(v, ['name', 'uid', 'source', 'scopes', 'mode', 'expires_at', 'not_before', 'revoked'])
     assert.equal(typeof v.uid, 'string'); assert(v.uid.length > 0 && !ids.has(v.uid)); ids.add(v.uid)
     assert.equal(v.name, `gitea-${endpoint}-${family}`)
     assert.equal(v.source, family === 4 ? '127.0.0.1/32' : '::1/128')
@@ -36,9 +53,11 @@ export function validateGiteaEvidence(p, confirmations) {
     assert.equal(v.mode, 'bounded'); assert.equal(v.revoked, false); assert(Number.isFinite(Date.parse(v.expires_at)))
   }
   p.cases.forEach((c, index) => {
+    only(c, ['name', 'revision', 'observations'])
     assert.equal(c.name, caseNames[index]); assert.equal(c.revision, baseline + [0, 2, 4, 5, 6, 7, 8][index]); confirmed(c.revision)
     assert.equal(c.observations.length, 4)
     c.observations.forEach((o, i) => {
+      only(o, ['family', 'endpoint', 'outcome'])
       const family = i < 2 ? 4 : 6, endpoint = i % 2 === 0 ? 'https' : 'ssh'
       assert.equal(o.family, family); assert.equal(o.endpoint, endpoint)
       const denied = index === 0 || (index === 1 && endpoint === 'ssh') ||
@@ -150,9 +169,8 @@ export async function runGiteaApplication({ root, core, temp, evidence, chromium
       return { outcome: 'allow' }
     } catch (e) {
       const message = String(e.stderr ?? '')
-      if (/timed out|Failed to connect|Connection refused|Couldn't connect to server/i.test(message)) return { outcome: 'transport-deny' }
-      if (/Authentication failed|could not read Username|repository.*not found|Could not read from remote repository|403|401/i.test(message)) return { outcome: 'app-deny' }
-      if (/REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed/.test(message)) return { outcome: 'host-key-deny' }
+      const outcome = classifyGitFailure(message)
+      if (outcome) return { outcome }
       throw e
     }
   }
