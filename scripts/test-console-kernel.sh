@@ -18,6 +18,7 @@ CGO_ENABLED=0 go build -trimpath -o "$root/artifacts/picketxd-console" ./cmd/pic
 (
   cd "$core"
   CGO_ENABLED=1 go build -tags 'netgo osusergo sqlite_omit_load_extension' -ldflags '-linkmode external -extldflags -static' -o "$root/artifacts/controller-console" ./cmd/picketx-controller
+  CGO_ENABLED=1 go build -tags 'netgo osusergo sqlite_omit_load_extension' -ldflags '-linkmode external -extldflags -static' -o "$root/artifacts/picketx-console" ./cmd/picketx
 )
 go version > artifacts/console-kernel/go.txt
 go version -m artifacts/picketxd-console > artifacts/console-kernel/agent-build.txt

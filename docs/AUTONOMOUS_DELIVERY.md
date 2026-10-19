@@ -1,5 +1,18 @@
 # Autonomous delivery checkpoint
 
+## Human approval conjunction acquisition — 2026-10-19T06:55Z
+
+Owner codex/human-kernel; heartbeat06:55Z; lease until08:00Z or merged+green main/
+explicit release. Core mainb79e242/tree99c2068/mainCI39211404452 green; Agent
+maine013926/treeb58e0e7/mainCI39191015351 green. No open PRs or competing lease.
+PR32 and Agent PR17/18 are accepted, not missing work. Preserve existing clean
+host-owned isolated branch codex/controller-provider-verified. Spec/plan:
+superpowers/{specs,plans}/2026-10-19-human-kernel.md. Extend existing real Linux
+fixture through human request/independent narrowed approval and exact application,
+revoke/expiry; no runtime/kernel code change or complete-product claim. Local full
+Go baseline has the known five Unixgram EPERM failures; all native gates required.
+中文：接续人员申请审批的真实浏览器/Agent/内核联合验收，不重做既有能力。
+
 ## Evidence case identity follow-up — 2026-10-19T02:34:00Z
 
 Owner same console/kernel work; branch `codex/evidence-case-identity`; short lease

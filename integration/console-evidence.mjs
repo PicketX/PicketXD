@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import assert from 'node:assert/strict'
 
-export const coreCommit = 'a99d9fc479bdf1490f78e669291ec67ca84876e3'
+export const coreCommit = 'b79e242926c67d931537c160333008df699fa598'
 const both = outcome => [[4, outcome], [6, outcome]]
 export const requiredCases = {
   baseline: both('transport-deny'),
@@ -16,6 +16,16 @@ export const requiredCases = {
   revoke6: both('transport-deny'),
   expiring: both('allow'), expired4: [[4, 'transport-deny'], [6, 'allow']], expired: both('transport-deny'),
   establishedExpired: both('http-deny'), unmanaged: both('allow'),
+  humanPending4: both('transport-deny'),
+  humanApproved4: [[4, 'allow'], [6, 'transport-deny']],
+  humanPending6: [[4, 'allow'], [6, 'transport-deny']],
+  humanApproved6: both('allow'), humanSibling: both('transport-deny'),
+  humanBrowser: [[4, 'allow']],
+  humanRevoke4: [[4, 'transport-deny'], [6, 'allow']],
+  humanEstablishedRevoke4: [[4, 'http-deny']],
+  humanExpired: both('transport-deny'),
+  humanEstablishedExpired6: [[6, 'http-deny']],
+  humanRejected: both('transport-deny'),
 }
 export function validateEvidence(report) {
   assert.equal(report.coreCommit, coreCommit, 'pinned Core source')
@@ -30,6 +40,26 @@ export function validateEvidence(report) {
     assert.match(c.policyHash ?? '', /^[a-f0-9]{64}$/)
     assert.equal(c.appliedPolicyHash, c.policyHash)
   }
+  assert(Array.isArray(report.humanRequests), 'actual human workflow proof required')
+  assert.equal(report.humanRequests.length, 2, 'both human source families required')
+  const uids = new Set(), grants = new Set()
+  report.humanRequests.forEach((r, i) => {
+    const family = [4, 6][i], source = ['127.0.0.1/32', '::1/128'][i]
+    assert.equal(r.family, family)
+    for (const field of ['uid', 'grantUID']) assert.equal(typeof r[field], 'string')
+    assert(r.uid.length > 0 && !uids.has(r.uid)); uids.add(r.uid)
+    assert(r.grantUID.length > 0 && !grants.has(r.grantUID)); grants.add(r.grantUID)
+    assert.equal(r.requester, 'principal:requester'); assert.equal(r.approver, 'principal:approver')
+    assert.equal(r.source, source); assert.equal(r.grantSource, source)
+    assert.deepEqual([...r.requestedEndpoints].sort(), ['sibling', 'web'])
+    assert.deepEqual(r.approvedEndpoints, ['web']); assert.deepEqual(r.grantEndpoints, ['web'])
+    const requested = Date.parse(r.requestedExpiry), approved = Date.parse(r.approvedExpiry)
+    assert(Number.isFinite(requested) && Number.isFinite(approved) && approved < requested, 'shortened fixed absolute deadline')
+    assert.equal(r.grantExpiry, r.approvedExpiry)
+    assert(report.confirmations.some(c => c.revision === r.revision), 'approved revision actually applied')
+    assert.equal(r.auditActor, r.approver); assert.equal(typeof r.auditReason, 'string'); assert(r.auditReason.includes(r.uid))
+    assert.equal(r.finalGrantState, i === 0 ? 'revoked' : 'expired')
+  })
   assert.equal(report.cases.length, Object.keys(requiredCases).length, 'exact required cases')
   const names = new Set()
   for (const c of report.cases) {
