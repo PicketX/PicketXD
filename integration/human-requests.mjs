@@ -2,6 +2,7 @@
 // Native-only browser workflow; no route stubs or synthetic execution reports.
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
+import { validateHumanApproval } from './console-evidence.mjs'
 
 export function assertDeadline(actual, expected) {
   const observed = Date.parse(actual), wanted = Date.parse(expected)
@@ -64,6 +65,10 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
       assert.equal((await response).status(), 200)
       await row(approver, input.reason).getByText('Approved', { exact: true }).waitFor()
       const accepted = await read(input.reason)
+      assert.equal(accepted.uid, input.original.uid)
+      assert.equal(accepted.requester, input.original.requester)
+      assert.equal(accepted.source, input.original.source)
+      assert.deepEqual(accepted.resource, input.original.resource)
       assert.equal(accepted.expires_at, input.original.expires_at, 'original deadline immutable')
       assertDeadline(accepted.approved_expires_at, expiry)
       assert.equal(accepted.approver, 'principal:approver')
@@ -74,26 +79,32 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
       assert.equal(grant.source, accepted.source)
       assertDeadline(grant.expires_at, expiry)
       assert.deepEqual(grant.scopes[0].endpoint_names, ['web'])
-      const audit = (await api('audit?limit=100')).events.find(e => e.actor === accepted.approver && e.reason.includes(accepted.uid))
+      const audit = (await api('audit?limit=100')).events.find(e => e.revision === accepted.revision)
       assert(audit, 'independent human audit persisted')
-      report.humanRequests.push({ family: input.family, uid: accepted.uid, requester: accepted.requester, approver: accepted.approver,
+      const proof = { family: input.family, uid: accepted.uid, requester: accepted.requester, approver: accepted.approver,
         source: accepted.source, requestedEndpoints: accepted.endpoint_names, approvedEndpoints: accepted.approved_endpoints,
         requestedExpiry: accepted.expires_at, approvedExpiry: accepted.approved_expires_at, grantUID: grant.uid, grantSource: grant.source,
         grantEndpoints: grant.scopes[0].endpoint_names, grantExpiry: grant.expires_at, revision: accepted.revision,
-        auditActor: audit.actor, auditReason: audit.reason })
+        resource: { name: accepted.resource.name, uid: accepted.resource.uid }, decisionReason: accepted.decision_reason,
+        grant, auditActor: audit.actor, auditReason: audit.reason, auditRevision: audit.revision }
+      validateHumanApproval(proof)
+      report.humanRequests.push(proof)
       return accepted
     }
     report.humanRequests = []
     const baseRevision = (await api('publication')).revision
+    report.humanTimeline = { baseline: baseRevision }
     const four = await create(4)
     assert.equal((await api('publication')).revision, baseRevision, 'pending request does not publish')
     await scenario('humanPending4')
     const approved4 = await approve(four, 90000)
+    report.humanTimeline.approved4 = approved4.revision
     await scenario('humanApproved4', { persistent: true })
     const six = await create(6)
     assert.equal((await api('publication')).revision, approved4.revision)
     await scenario('humanPending6')
     const approved6 = await approve(six, 35000)
+    report.humanTimeline.approved6 = approved6.revision
     await scenario('humanApproved6', { persistent: true })
     await scenario('humanSibling', { port: 18446 })
     const app = await contexts[0].newPage(), before = appHits()
@@ -116,12 +127,13 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
     await approver.getByLabel('Revocation reason', { exact: true }).fill('Native human approved IPv4 revoke')
     const revoked = approver.waitForResponse(r => r.url().endsWith(`/grants/${approved4.grant_uid}/revoke`))
     await approver.getByRole('button', { name: 'Confirm revocation', exact: true }).click()
-    assert.equal((await revoked).status(), 200); await confirmed()
+    assert.equal((await revoked).status(), 200); report.humanTimeline.revoked4 = await confirmed()
     await scenario('humanRevoke4'); await scenario('humanEstablishedRevoke4', { persistent: true })
     const revision = (await api('publication')).revision
     await new Promise(r => setTimeout(r, Math.max(0, Date.parse(approved6.approved_expires_at) + 250 - Date.now())))
     await scenario('humanExpired'); await scenario('humanEstablishedExpired6', { persistent: true })
-    assert.equal((await api('publication')).revision, revision, 'expiry did not republish or renew')
+    report.humanTimeline.expired = (await api('publication')).revision
+    assert.equal(report.humanTimeline.expired, revision, 'expiry did not republish or renew')
     await requester.getByRole('button', { name: 'Refresh requests', exact: true }).click()
     await row(requester, four.reason).getByText('Desired Grant: revoked', { exact: true }).waitFor()
     await row(requester, six.reason).getByText('Desired Grant: expired', { exact: true }).waitFor()
@@ -135,7 +147,8 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
     await approver.getByRole('button', { name: 'Reject request', exact: true }).click()
     assert.equal((await rejectedResponse).status(), 200)
     await row(approver, rejected.reason).getByText('Rejected', { exact: true }).waitFor()
-    assert.equal((await api('publication')).revision, revision, 'rejection does not publish')
+    report.humanTimeline.rejected = (await api('publication')).revision
+    assert.equal(report.humanTimeline.rejected, revision, 'rejection does not publish')
     assert.equal((await read(rejected.reason)).grant_uid, undefined)
     await scenario('humanRejected')
     assert.deepEqual(errors, [])

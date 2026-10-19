@@ -12,7 +12,7 @@ expected=$(node --input-type=module -e 'import {coreCommit} from "./integration/
 test "$(git -C "$core" rev-parse HEAD)" = "$expected"
 test -z "$(git -C "$core" status --porcelain --untracked-files=no)"
 test -f "$core/apps/web/dist/index.html"
-node --test integration/console-evidence.test.mjs integration/human-requests.test.mjs
+node --test integration/*.test.mjs
 mkdir -p artifacts/console-kernel
 CGO_ENABLED=0 go build -trimpath -o "$root/artifacts/picketxd-console" ./cmd/picketxd
 (

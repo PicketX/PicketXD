@@ -1,5 +1,34 @@
 # Autonomous delivery checkpoint
 
+## Human conjunction code acceptance / review hardening — 2026-10-19T07:08Z
+
+PR19 code localbe932c2/remotecf91be10013de501e36cd3e74524ce974e11f340 and actual
+CI checkout6a26150c05305e1033151cd4e313085f9ffcae3b share tree34b6af63d2f2c6614dd9dd098735301be3878870.
+CI39213233712 unit117931107525/console117931107227/kernel117931107591 SUCCESS.
+Raw190 top-level/482 total, zero fail/skip/race; static/restart/offline unit checks,
+locked Web,29 actual combined cases/11 Agent confirmations and original91 required
+native gates/112 pass cases/9 systemd cases pass on kernel6.17.0-1022-azure/Go1.27.0.
+Console artifact12168940372 downloaded SHA256
+6810c5d509099b17f2af504774afd012fb6163df8bc28fecc67103c4f8fd7802;
+native artifact12168272604 downloaded SHA256
+483127090faed41b743830a25e7319f0d34cdd9d2a835ad2a380b68584cad237 match metadata.
+Actual375/1440 workflow screenshots inspected from first accepted identical-Web
+run39213036313 (archive12168362028/a3be8f029246391309efeb8b91870ea878e7fb6685c9ec42ece7218f2c80e08e).
+
+One independent whole-branch review found3 Important evidence/health issues, all
+reproduced RED→GREEN in one pass: exact human revision timeline, full Grant/audit
+provenance, signal death plus dual-stack contemporaneous Nginx health controls.
+Node60/60 green. Review rulings/costs: validation/HUMAN_KERNEL_REVIEW.md. No new
+Minor; Core PR32 Chinese reason byte-feedback Minor remains deferred. Final patched
+head full native CI/tree/artifact verification, expected-head merge and main CI
+remain mandatory; final immutable results and automatic lease release go in PR19.
+Owner codex/human-kernel heartbeat07:08Z; lease until08:00Z or merged+green main/
+explicit release. Core remains b79e242/mainCI39211404452. No runtime/kernel code
+change or full-product claim. Next: actual Gitea HTTPS/SSH, identity/account/OIDC
+and deployment/release hardening; do not repeat this accepted workflow as missing.
+中文：人员申请审批已真实贯通内核与应用；评审门禁缺陷已回归修复，最终提交仍须
+完整原生CI及合并后复核。OIDC/账户/实际Gitea部署与发布尚未完成，不暂停整体任务。
+
 ## Human approval conjunction acquisition — 2026-10-19T06:55Z
 
 Owner codex/human-kernel; heartbeat06:55Z; lease until08:00Z or merged+green main/

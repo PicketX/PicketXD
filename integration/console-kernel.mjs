@@ -11,6 +11,7 @@ import { once } from 'node:events'
 import http from 'node:http'
 import { coreCommit, requiredCases, validateEvidence } from './console-evidence.mjs'
 import { runHumanRequests } from './human-requests.mjs'
+import { assertServicesAlive } from './process-health.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -86,7 +87,18 @@ async function request(family, options = {}) {
 }
 async function scenario(name, options = {}) {
   assert(healthy, 'positive controls must establish healthy services first')
-  for (const c of children) assert.equal(c.exitCode, null, 'required subprocess remains alive')
+  async function health() {
+    assertServicesAlive(children)
+    // An unprotected Nginx-owned listener proves contemporaneous ingress health;
+    // unlike the protected probe it cannot mistake policy denial for health.
+    for (const family of [4, 6]) {
+      const control = await request(family, { port: 18447, path: '/health' })
+      assert.equal(control.status, 200, 'live dual-stack ingress positive control')
+      assert.equal(control.appDelta, 0, 'health listener must not forward to application')
+    }
+    assertServicesAlive(children)
+  }
+  await health()
   const observations = []
   for (const [family, outcome] of requiredCases[name]) {
     const o = await request(family, options); observations.push(o)
@@ -94,6 +106,7 @@ async function scenario(name, options = {}) {
     assert.equal(o.status, outcome === 'allow' ? 200 : outcome === 'http-deny' ? 403 : null, name)
     assert.equal(o.appDelta, outcome === 'allow' ? 1 : 0, name)
   }
+  await health()
   report.cases.push({ name, revision: report.confirmations.at(-1).revision, status: 'pass', observations }); console.log(`PASS ${name}`)
 }
 const basePolicy = `apiVersion: picketx.io/v1alpha1
@@ -149,6 +162,7 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   let nginx = await readFile(join(core, 'examples/http/nginx.conf.template'), 'utf8')
   for (const [key, value] of Object.entries({ PREFIX: temp, PORT: 18445, APP_PORT: 18443, AUTHZ_PORT: 19091, TOKEN: ingressToken })) nginx = nginx.replaceAll(`__${key}__`, String(value))
   nginx = nginx.replace('listen 127.0.0.1:18445;', 'listen 127.0.0.1:18445;\n        listen [::1]:18445 ipv6only=on;').replace('keepalive_timeout 30s;', 'keepalive_timeout 90s;')
+  nginx = nginx.replace('http {', 'http {\n    server { listen 127.0.0.1:18447; listen [::1]:18447 ipv6only=on; location = /health { return 200 "healthy"; } }')
   await privateFile('nginx.conf', nginx)
   execFileSync('nginx', ['-t', '-p', temp + '/', '-c', join(temp, 'nginx.conf')])
   start('nginx', 'nginx', ['-p', temp + '/', '-c', join(temp, 'nginx.conf'), '-g', 'daemon off;'])
