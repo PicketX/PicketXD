@@ -49,6 +49,13 @@ const fixture = () => {
     status: 'pass', observations: specs.map(([family, outcome]) => ({ family, outcome, status: outcome === 'allow' ? 200 : outcome === 'http-deny' ? 403 : null, appDelta: outcome === 'allow' ? 1 : 0 })) })),
  }
  const { directory, logins } = report.managedAccounts
+ report.agentDistribution = {
+   source: { commit: report.agentCommit, tree: report.agentTree, platform: 'linux-amd64', go: 'go1.27.0' },
+   manifestSHA256: 'f'.repeat(64), binarySHA256: report.agentBinarySHA256, files: 13,
+   offlineBuild: true, offlineTests: true, relocated: true, runtimePATH: '', preparationOnly: true,
+   originalPrepared: true, rebuiltPrepared: true, enforcementConfirmed: false,
+   originalPolicyHash: 'e'.repeat(64), rebuiltPolicyHash: 'e'.repeat(64),
+ }
  const changed = (disabled, version, revision, reason) => ({ ...structuredClone(directory), revision,
    accounts: directory.accounts.map(a => a.username === 'requester' ? { ...a, disabled, version } : structuredClone(a)),
    events: [{ actor: 'principal:bootstrap', accountId: directory.accounts[0].id, operation: 'update', reason, revision }, ...structuredClone(directory.events)] })

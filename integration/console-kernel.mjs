@@ -15,6 +15,7 @@ import { provisionManagedHumans } from './managed-humans.mjs'
 import { assertServicesAlive } from './process-health.mjs'
 import { runGiteaApplication, validateGiteaEvidence, redactFixtureFailure } from './gitea-application.mjs'
 import { initializeInstalledController, businessViewDigest, parseEnforceStatusLog } from './controller-install.mjs'
+import { validateAgentDistributionEvidence } from '../scripts/agent-bundle.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -144,6 +145,8 @@ try {
   const agentBinary = join(temp, 'installed-picketxd')
   await copyFile(join(root, 'artifacts/picketxd-console'), agentBinary); await chmod(agentBinary, 0o755)
   report.agentBinarySHA256 = hash(await readFile(agentBinary))
+  report.agentDistribution = JSON.parse(await readFile(join(root, 'artifacts/agent-distribution/proof.json'), 'utf8'))
+  validateAgentDistributionEvidence(report.agentDistribution, report)
   assert.equal(report.agentBinarySHA256, hash(await readFile(join(root, 'artifacts/picketxd-console'))))
   report.controllerBinarySHA256 = installed.proof.controllerSHA256
   report.deployment = { ...installed.proof, agentSHA256: report.agentBinarySHA256,

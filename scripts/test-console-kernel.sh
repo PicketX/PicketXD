@@ -15,7 +15,8 @@ test -f "$core/apps/web/dist/index.html"
 test -z "$(git status --porcelain --untracked-files=all)"
 node --test integration/*.test.mjs
 mkdir -p artifacts/console-kernel
-CGO_ENABLED=0 go build -trimpath -o "$root/artifacts/picketxd-console" ./cmd/picketxd
+bash scripts/test-agent-bundle.sh "$root/artifacts/agent-distribution"
+cp "$root/artifacts/agent-distribution/payload/bin/picketxd" "$root/artifacts/picketxd-console"
 file "$root/artifacts/picketxd-console"
 headers=$(readelf -l "$root/artifacts/picketxd-console")
 dynamic=$(readelf -d "$root/artifacts/picketxd-console")
