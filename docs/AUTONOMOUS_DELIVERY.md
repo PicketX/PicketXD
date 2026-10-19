@@ -1,5 +1,20 @@
 # Autonomous delivery checkpoint
 
+## Evidence case identity follow-up — 2026-10-19T02:34:00Z
+
+Owner same console/kernel work; branch `codex/evidence-case-identity`; short lease
+until03:30Z or merged+green main. PR17 merged to fb763f7676e575c11f0a716fc81788b7fb100812,
+tree4ea57e1ba5fb250a9110e68570c8b30a67d5220c. Final PR CI39189941312 fully green;
+mainCI39190309517 Go/console green, native still running at this checkpoint.
+Post-merge boundary check reproduced a distinct name-type issue: array ["baseline"]
+could replace a required case through property coercion/Set identity mismatch.
+Two regression tests RED→GREEN with an explicit string-type guard;26 tests green.
+Actual18-case native report still valid. This test-only follow-up must pass its own
+whole-branch review and complete Linux CI before expected-head merge. Plan/spec:
+superpowers/{plans,specs}/2026-10-19-evidence-case-identity.md. No product runtime change.
+Then resume human identity/request/approval; do not declare the whole goal complete.
+中文：已交付的实际联合证据有效；继续补齐门禁非字符串名称边界，再推进身份审批。
+
 ## M2D2 integration — 2026-10-19T02:25:00Z
 
 Agent PR17 remains the sole work item. Heartbeat 02:25Z, lease until 03:30Z or
