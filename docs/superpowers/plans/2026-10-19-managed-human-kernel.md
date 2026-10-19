@@ -24,7 +24,7 @@
 ### Task 1: Managed-account native workflow and evidence
 
 **Files:** Modify integration/{console-kernel,human-requests,console-evidence,console-evidence.test}.mjs and .github/workflows/validation.yml; create integration/managed-humans.mjs; synchronized validation docs/checkpoint.
-**Interfaces:** Consume Core GET/POST/PUT accounts, /me and existing runHumanRequests; produce provisionManagedHumans({page,password,evidence,report}), cycleRequester({page,requester,context,origin,report,confirmed,scenario,signIn}) and validateManagedHumans(report)→{requester,approver} IDs.
+**Interfaces:** Consume Core GET/POST/PUT accounts, /me and existing runHumanRequests; produce provisionManagedHumans({page,password,evidence,report}), cycleRequester({page,requester,context,origin,report,confirmed,scenario,signIn,api}) and validateManagedHumans(report)→{requester,approver} IDs. api reads both original Grants after each edit; independent pre-disable sessions separate disabled and untouched-revival probes.
 
 - [ ] Write independent directory/login/lifecycle fixture with two different32hex IDs; add missing-directory, file-mode, duplicate/mismatched ID, wrong role, disabled provision, wrong account-audit actor/subject/revision, revived-session, changed publication mutations.
 - [ ] Run node --test integration/*.test.mjs: new schema mutations FAIL before gate implementation (existing fixture remains meaningful).

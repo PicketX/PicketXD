@@ -49,7 +49,10 @@ const fixture = () => {
  const enabledDirectory = changed(false, 3, 4, 'Native re-enable requester')
  enabledDirectory.events.splice(1, 0, disabledDirectory.events[0])
  report.managedAccounts.lifecycle = { disabledDirectory, enabledDirectory, disabledMe: 401, oldCookieMe: 401,
-   freshMe: structuredClone(logins[0]), publicationBefore: 4, afterDisable: 4, afterEnable: 4 }
+   freshMe: structuredClone(logins[0]), publicationBefore: 4, afterDisable: 4, afterEnable: 4,
+   sessions: { disabledBefore: 200, revivalBefore: 200, distinct: true },
+   disabledGrants: report.humanRequests.map(r => structuredClone(r.grant)),
+   enabledGrants: report.humanRequests.map(r => structuredClone(r.grant)) }
  return report
 }
 test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validateEvidence(fixture())))
@@ -103,6 +106,16 @@ for (const [name, mutate] of [
   ['account lifecycle audit omitted', r => { r.managedAccounts.lifecycle.enabledDirectory.events.splice(1, 1) }],
   ['account lifecycle audit wrong actor', r => { r.managedAccounts.lifecycle.enabledDirectory.events[0].actor = r.managedAccounts.logins[1].id }],
   ['account lifecycle old audit changed', r => { r.managedAccounts.lifecycle.enabledDirectory.events[3].accountId = 'other' }],
+  ['missing independent pre-edit sessions', r => { delete r.managedAccounts.lifecycle.sessions }],
+  ['disabled probe started from invalid session', r => { r.managedAccounts.lifecycle.sessions.disabledBefore = 401 }],
+  ['revival probe started from invalid session', r => { r.managedAccounts.lifecycle.sessions.revivalBefore = 401 }],
+  ['revival reused already destroyed session', r => { r.managedAccounts.lifecycle.sessions.distinct = false }],
+  ['missing disabled full Grant readback', r => { delete r.managedAccounts.lifecycle.disabledGrants }],
+  ['missing enabled full Grant readback', r => { delete r.managedAccounts.lifecycle.enabledGrants }],
+  ['disabled account extended IPv4 Grant without publication', r => { r.managedAccounts.lifecycle.disabledGrants[0].expires_at = '2026-10-19T10:00:00Z' }],
+  ['reenabled account extended IPv4 Grant without publication', r => { r.managedAccounts.lifecycle.enabledGrants[0].expires_at = '2026-10-19T10:00:00Z' }],
+  ['account lifecycle retargeted IPv6 Grant', r => { r.managedAccounts.lifecycle.enabledGrants[1].source = '::2/128' }],
+  ['account lifecycle broadened IPv6 Grant', r => { r.managedAccounts.lifecycle.disabledGrants[1].scopes[0].selection = 'all' }],
   ['one-family human proof', r => { r.humanRequests.pop() }],
   ['duplicate human family', r => { r.humanRequests[1] = structuredClone(r.humanRequests[0]) }],
   ['self-approved human request', r => { r.humanRequests[0].approver = r.humanRequests[0].requester }],

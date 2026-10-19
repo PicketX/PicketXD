@@ -2,7 +2,7 @@
 
 ## Managed DB human conjunction acquisition — 2026-10-19T09:43Z
 
-Owner codex/managed-human-kernel; heartbeat09:43Z; short lease until10:30Z or
+Owner codex/managed-human-kernel; heartbeat09:54Z; short lease until10:30Z or
 explicit release/merged+green main. Core main31c7ac7/treef53e60e/mainCI39225809309
 and Agent main1084a336/tree3d9e0bf/mainCI39214825482 green; no open PRs. Prior
 leases released by verified main. Existing host-owned isolated Agent branch kept.
@@ -16,6 +16,20 @@ Core PR33 superseded-read failure warning Minor and PR32 Chinese UTF8 feedback
 Minor remain deferred, not changed here. Next after this: actual GiteaHTTPS/SSH
 and deployment/release acceptance as required; no OIDC/HA/PG runtime/full goal claim.
 中文：接续真实数据库开户到人员审批及内核/入口/应用验收，账户停用不冒充Grant撤销。
+
+PR20 initial code locale6c0eb7/remotedd6c596/actualcheckoutcb5c5be share
+treecc713b4c69548bb75bfc1e3cc56b344b849f57b2. CI39232335269 all3jobs green:
+unit117993028073190/482 zero fail/skip/race; console117993027768 actual31cases/
+13confirmations; kernel117993028172 actual112kernel/9systemd. Downloaded console
+archive12177492412 SHA2560137596761c321812a882265c13da5bbaf1af21b994b27602d5b981ba1ca07f7;
+kernel12177262120 SHA25694a87701a725caa26a25834369dfa06e898254f4acd746bd9a6667cbd9cf6ff7
+match metadata. Actual Accounts/request375/1440 screenshots inspected.
+ONE fresh whole-branch review found2 Important evidence gaps; both fixed in one
+root RED→GREEN pass, Node99/99. Untouched independent old session and both complete
+Grant/deadline readbacks now required; first green is not final session proof.
+One new serialization-boundary Minor deferred; full rulings/costs in
+validation/MANAGED_HUMAN_KERNEL_REVIEW.md. Patched exact-head native CI, expected-head
+merge and main verification pending; immutable final evidence/lease release in PR20.
 
 ## Human conjunction code acceptance / review hardening — 2026-10-19T07:08Z
 

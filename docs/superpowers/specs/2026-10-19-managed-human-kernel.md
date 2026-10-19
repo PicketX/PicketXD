@@ -20,11 +20,16 @@ Request, approval, full Grant and publication audit must retain those exact IDs,
 separate from the dual-stack IP subjects. Keep narrowing, independent approval,
 absolute expiry, sibling isolation, deny and revocation tests unchanged.
 
-After dual-stack approval, disable then re-enable requester via Accounts. Assert
-old cookie401 both while disabled and after re-enable, fresh login same durable ID,
+After dual-stack approval, establish two distinct requester sessions, both initially
+200. Disable then re-enable requester via Accounts: probe one session while disabled;
+leave the other completely unprobed until after re-enable and require401. A rejected
+SCS session is destroyed, so restoring its bytes cannot establish generation safety.
+Require fresh login same durable ID,
 generation3, directory revisions2→3→4 and exact persisted account audit. Neither
 account edit may change publication revision, renew deadlines or revoke independent
 network Grants: contemporaneous IPv4/IPv6 traffic still reaches the real app.
+After each edit reread both full Grants and compare exact original approval
+snapshots, including deadlines, source, UID, scopes and revoked state.
 Then retain explicit Grant revoke/absolute-expiry/rejection and actual Agent
 generation/hash/report checks. Add two named traffic cases, no skipped scenarios.
 

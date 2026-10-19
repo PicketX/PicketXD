@@ -123,7 +123,7 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
     assert.equal(appHits() - before, 1)
     report.cases.push({ name: 'humanBrowser', revision: report.confirmations.at(-1).revision, status: 'pass', observations: [{ family: 4, outcome: 'allow', status: 200, appDelta: appHits() - before }] })
     await app.close()
-    await cycleRequester({ page: adminPage, requester, context: contexts[0], origin, report, confirmed, scenario, signIn })
+    await cycleRequester({ page: adminPage, requester, context: contexts[0], origin, report, confirmed, scenario, signIn, api })
     for (const width of [375, 1440]) {
       await requester.setViewportSize({ width, height: 1000 })
       await requester.getByRole('button', { name: 'Refresh requests', exact: true }).click()

@@ -27,10 +27,12 @@ export function validateManagedHumans(report) {
     })
   }
   const l = report.managedAccounts.lifecycle
+  assert.deepEqual(l.sessions, { disabledBefore: 200, revivalBefore: 200, distinct: true })
   assert.equal(l.disabledMe, 401); assert.equal(l.oldCookieMe, 401)
   assert.equal(l.freshMe.id, identities.requester); assert.deepEqual(l.freshMe.roles, ['role:requester'])
   assert.equal(l.publicationBefore, report.humanTimeline.approved6)
   assert.equal(l.afterDisable, l.publicationBefore); assert.equal(l.afterEnable, l.publicationBefore)
+  for (const grants of [l.disabledGrants, l.enabledGrants]) assert.deepEqual(grants, report.humanRequests.map(r => r.grant), 'account lifecycle preserves both complete approved Grants and absolute deadlines')
   const original = directory.accounts.find(a => a.id === identities.requester)
   let previous = directory
   for (const [state, disabled, version, revision, reason] of [
@@ -78,13 +80,23 @@ export async function provisionManagedHumans({ page, password, evidence, report 
   console.log('PASS actual Accounts provisioning: database authority, durable IDs and audited roles')
 }
 
-export async function cycleRequester({ page, requester, context, origin, report, confirmed, scenario, signIn }) {
-  const oldCookies = await context.cookies()
-  assert.equal((await context.request.get(origin + '/console/api/v1/me')).status(), 200, 'old session initially valid')
+export async function cycleRequester({ page, requester, context, origin, report, confirmed, scenario, signIn, api }) {
+  const untouched = await context.browser().newContext()
+  try {
+  // A rejected /me destroys its server-side SCS session. A second, independently
+  // logged-in session must remain completely unprobed while the account is disabled.
+  await signIn(await untouched.newPage(), 'requester')
+  const disabledBefore = (await context.request.get(origin + '/console/api/v1/me')).status()
+  const revivalBefore = (await untouched.request.get(origin + '/console/api/v1/me')).status()
+  assert.equal(disabledBefore, 200); assert.equal(revivalBefore, 200)
+  const session = cookies => cookies.find(c => c.name === 'picketx_session')?.value
+  const disabledCookie = session(await context.cookies()), revivalCookie = session(await untouched.cookies())
+  assert(disabledCookie && revivalCookie); assert.notEqual(disabledCookie, revivalCookie)
   await page.getByRole('button', { name: 'Accounts', exact: true }).click()
   await page.getByRole('heading', { name: 'requester', exact: true }).waitFor()
   const row = page.locator('.account-row').filter({ has: page.getByRole('heading', { name: 'requester', exact: true }) })
-  const lifecycle = report.managedAccounts.lifecycle = { publicationBefore: report.confirmations.at(-1).revision }
+  const lifecycle = report.managedAccounts.lifecycle = { publicationBefore: report.confirmations.at(-1).revision,
+    sessions: { disabledBefore, revivalBefore, distinct: true } }
   for (const disabled of [true, false]) {
     await row.getByRole('button', { name: 'Edit account', exact: true }).click()
     await page.getByLabel('Account disabled', { exact: true }).setChecked(disabled)
@@ -98,11 +110,16 @@ export async function cycleRequester({ page, requester, context, origin, report,
     lifecycle[disabled ? 'disabledDirectory' : 'enabledDirectory'] = await page.evaluate(async () => {
       const r = await fetch('/console/api/v1/accounts'); if (!r.ok) throw Error(`directory ${r.status}`); return r.json()
     })
-    // Restore the exact originally valid cookie after each update, not a new or
-    // already destroyed anonymous session. Never serialize cookies in artifacts.
-    await context.addCookies(oldCookies)
-    lifecycle[disabled ? 'disabledMe' : 'oldCookieMe'] = (await context.request.get(origin + '/console/api/v1/me')).status()
+    // Never touch the revival session while disabled: restoring a cookie for a
+    // previously destroyed session would falsely pass a generation-blind resolver.
+    lifecycle[disabled ? 'disabledMe' : 'oldCookieMe'] = (await (disabled ? context : untouched).request.get(origin + '/console/api/v1/me')).status()
     assert.equal(lifecycle[disabled ? 'disabledMe' : 'oldCookieMe'], 401)
+    const grants = (await api('grants?limit=100')).grants
+    lifecycle[disabled ? 'disabledGrants' : 'enabledGrants'] = report.humanRequests.map(r => {
+      const actual = grants.find(g => g.uid === r.grantUID)
+      assert.deepEqual(actual, r.grant, 'account edit must preserve exact full Grant, including original absolute expiry')
+      return actual
+    })
     lifecycle[disabled ? 'afterDisable' : 'afterEnable'] = await confirmed()
     assert.equal(report.confirmations.at(-1).revision, lifecycle.publicationBefore, 'account edits never republish Grants')
     await scenario(disabled ? 'humanAccountDisabled' : 'humanAccountReenabled')
@@ -112,4 +129,5 @@ export async function cycleRequester({ page, requester, context, origin, report,
   assert.equal(me.status(), 200); lifecycle.freshMe = await me.json()
   assert.equal(lifecycle.freshMe.id, report.managedAccounts.logins[0].id)
   console.log('PASS actual account disable/re-enable: permanent old-cookie invalidation, independent dual-stack Grants unchanged')
+  } finally { await untouched.close() }
 }
