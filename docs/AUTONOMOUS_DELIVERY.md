@@ -1,5 +1,42 @@
 # Autonomous delivery checkpoint
 
+## Installed Controller code acceptance — 2026-10-19T15:16Z
+
+PR22 owner codex/installed-controller-conjunction; heartbeat15:16Z, lease15:45Z
+or explicit release/merged+verified-green-main. Localdeb9a24/remote176ab686/actual
+CIcheckoutf987437 share treeef0a5c39901b29df409a4ae1c07ea19097e79928.
+CI39275649986 unit118139162088/console118139162562/kernel118139162891 all SUCCESS,
+every mandatory step/raw/source independently checked: Go190top/482total normal/
+race/vet/build, Node175, locked Web,31prior+7Gitea/23actual Agent confirmations,
+112kernel/91required/9systemd. Actual empty-PATH relocated binaries/private init,
+clean dual-service restart, unchanged DB business/deadline views, old cookie401,
+fresh current raw Agent/Controller confirmation and real dual-stack200 verified.
+Three actual downloaded ZIP SHA values match metadata; inner static Core bundle,
+source manifest and clean Agent build provenance checked. Nodes1440/375 inspected.
+One fresh review:2Important fixed RED→GREEN, no Minor; initial green dirty-build
+receipt rejected then narrow secondary-checkout provenance fixed RED→GREEN. Full
+chronology/rulings/costs/hashes: validation/INSTALLED_CONTROLLER_REVIEW.md. Final
+documentation head still needs full CI/exact-head merge/main; final immutable
+receipt and immediate lease release belong in PR22. Next: formal GPL Agent package,
+host Controller/Agent service boot and actual backup/restore/first-use acceptance.
+Do not claim overall completion or start competing implementation while active.
+
+## Installed Controller acquisition — 2026-10-19T14:48Z
+
+Owner codex/installed-controller-conjunction; heartbeat14:48Z; lease until15:45Z
+or explicit release/merged+verified-green-main. Core93024b2/tree64ed0dc /
+mainCI39265034648 and Agent233f081/tree6ae6b77/mainCI39251805260 green; no open PRs.
+PR35/Core and PR21/Agent RELEASED. Clean host-owned isolated worktree retained;
+new branch from exact Agent main, old branches preserved. Spec/plan
+superpowers/{specs,plans}/2026-10-19-installed-controller.md self-reviewed; routine
+pauses waived under autonomous mandate, inline TDD/one fresh review retained.
+Actual installed private init + empty-PATH Controller/Agent + dual-service restart
+in full existing native conjunction. No production kernel/UI/API change. Local
+CLI baseline5 known Unixgram EPERM failures; Node129/129 passes. Full native gates
+mandatory, no bypass/local kernel success claim. Formal Agent distribution/host
+systemd boot acceptance separate; goal unfinished. Exact final evidence/release
+in this increment's PR metadata; Chinese summary AUTONOMOUS_DELIVERY.zh-CN.md.
+
 ## Gitea code acceptance — 2026-10-19T12:14Z
 
 PR21 is the sole active work item; owner codex/gitea-application, heartbeat12:14Z,
