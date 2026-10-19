@@ -1,5 +1,26 @@
 # Autonomous delivery checkpoint
 
+## Installed Controller code acceptance — 2026-10-19T15:16Z
+
+PR22 owner codex/installed-controller-conjunction; heartbeat15:16Z, lease15:45Z
+or explicit release/merged+verified-green-main. Localdeb9a24/remote176ab686/actual
+CIcheckoutf987437 share treeef0a5c39901b29df409a4ae1c07ea19097e79928.
+CI39275649986 unit118139162088/console118139162562/kernel118139162891 all SUCCESS,
+every mandatory step/raw/source independently checked: Go190top/482total normal/
+race/vet/build, Node175, locked Web,31prior+7Gitea/23actual Agent confirmations,
+112kernel/91required/9systemd. Actual empty-PATH relocated binaries/private init,
+clean dual-service restart, unchanged DB business/deadline views, old cookie401,
+fresh current raw Agent/Controller confirmation and real dual-stack200 verified.
+Three actual downloaded ZIP SHA values match metadata; inner static Core bundle,
+source manifest and clean Agent build provenance checked. Nodes1440/375 inspected.
+One fresh review:2Important fixed RED→GREEN, no Minor; initial green dirty-build
+receipt rejected then narrow secondary-checkout provenance fixed RED→GREEN. Full
+chronology/rulings/costs/hashes: validation/INSTALLED_CONTROLLER_REVIEW.md. Final
+documentation head still needs full CI/exact-head merge/main; final immutable
+receipt and immediate lease release belong in PR22. Next: formal GPL Agent package,
+host Controller/Agent service boot and actual backup/restore/first-use acceptance.
+Do not claim overall completion or start competing implementation while active.
+
 ## Installed Controller acquisition — 2026-10-19T14:48Z
 
 Owner codex/installed-controller-conjunction; heartbeat14:48Z; lease until15:45Z

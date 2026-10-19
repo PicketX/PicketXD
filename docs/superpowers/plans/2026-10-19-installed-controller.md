@@ -27,27 +27,30 @@ workflow and require correlated deployment/restart evidence.
 managed-humans.mjs and identity fixtures.
 **Interfaces:** verifyControllerBundle(path) returns verified public source/digests;
 initializeInstalledController(bundle,temp) returns private paths/keys/config only
-to driver; validateInstalledEvidence(proof,report) gates actual public deployment.
-- [ ] Add missing/tampered proof rejection tests; node --test integration/*.test.mjs
+to driver; validateInstalledEvidence(proof,report,nativeEvidence) gates public proof
+against actual complete Agent history and restarted-process stdout.
+- [x] Add missing/tampered proof rejection tests; node --test integration/*.test.mjs
   expected RED because old validator accepts invalid/missing deployment.
-- [ ] Add filesystem manifest unsafe/symlink/digest tests and implement minimal
+- [x] Add filesystem manifest unsafe/symlink/digest tests and implement minimal
   adapter/strict proof; full Node suite expected GREEN.
-- [ ] Commit tested adapter and limitations.
+- [x] Commit tested adapter and limitations.
 
 ### Task 2: Native installed workflow and recovery
 **Files:** integration/console-kernel.mjs, scripts/test-console-kernel.sh,
 .github/workflows/validation.yml, deploy/controller/README{,.zh-CN}.md, checkpoints.
 **Interfaces:** consume Task1 adapter/gate; produce real Linux report/source/binary
 identities with all prior cases and fresh post-restart confirmation.
-- [ ] Wire required deployment gate first; native missing-proof RED required.
-- [ ] Build/tar/re-extract actual bundle, relocate/init, empty-PATH runtime; retain
+- [x] Wire required deployment gate first; native missing-proof RED required.
+- [x] Build/tar/re-extract actual bundle, relocate/init, empty-PATH runtime; retain
   every prior human/Gitea/kernel/systemd scene.
-- [ ] Restart services with active dual-stack Grants, compare full saved views,
-  clear status/require fresh receipt, reject old cookie and reauthenticate.
-- [ ] Full Go/race/vet/build + locked Web and mandatory native gates; inspect raw
+- [x] Restart services with active dual-stack Grants, compare saved business views,
+  retain raw history/fence restart cursor, require fresh actual receipt, reject old
+  cookie and reauthenticate. Exclude only two endpoint-specific read clocks.
+- [x] Full Go/race/vet/build + locked Web and mandatory native gates; inspect raw
   checkouts/reports/downloaded hashes/screenshots.
 - [ ] One fresh independent full-branch review; one root Critical/Important TDD fix
   pass, defer Minors; final exact-head CI/merge/full main/source/archive verification.
+  Review and fixes complete; final immutable integration gate recorded in PR22.
 
 Final immutable PR/commit/CI/archive evidence and immediate lease release in PR
 metadata. Preserve host worktree/branches; no automatic whole-goal completion claim.
