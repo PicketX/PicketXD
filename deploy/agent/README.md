@@ -52,4 +52,6 @@ Native acceptance tar/extracts this bundle, offline rebuilds with empty module/c
 directories and runs the real binary with empty PATH. The existing actual Linux
 browser→Controller→Agent→trusted Nginx→Gitea conjunction executes the shipped binary,
 including restart, dual-stack traffic, denial, independent Grants and strict revoke.
-Host boot/Controller service installation and backup/restore execution remain separate.
+Separate required native gates cover installed Controller service recovery and the
+Agent's latest stopped original-path checkpoint; see source docs/validation/
+AGENT_STATE_RECOVERY.md. Host boot, migration and old-snapshot rollback remain excluded.
