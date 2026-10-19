@@ -5,9 +5,10 @@ import { cp, lstat, readFile, readdir, realpath, writeFile } from 'node:fs/promi
 import { join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
+import { validateInstalledIngress } from './installed-ingress.mjs'
 
-export const coreCommit = 'cdee150201a5e33036cd3d73e3be5a8201000698'
-export const coreTree = 'a86a8905e76887c24dc25a12e8e945a55f8bedc6'
+export const coreCommit = 'adfa1b111e719b606222f6643c7343afa98d3f03'
+export const coreTree = '7a5cbb6c764c5e2b4a98e956a3e23fb1b3169d71'
 export const digest = value => createHash('sha256').update(value).digest('hex')
 // Read-observation clocks are not persisted business state. All other fields,
 // including audit event timestamps and independent absolute Grant deadlines, stay.
@@ -105,12 +106,13 @@ export async function initializeInstalledController(bundle, temp) {
   await writeFile(callerPath, JSON.stringify(callers), { mode: 0o600 })
   return { proof, ...secrets, runtimeOptions, configPath, configBytes, instance,
     authority: config.agent.authority, agentTokenFile: join(instance, 'agent-token'),
+    cliBinary: join(deployed, 'bin/picketx'), ingressTokenFile: join(instance, 'ingress-token'),
     controllerBinary: join(deployed, 'bin/picketx-controller') }
 }
 
 export function validateInstalledEvidence(d, report, evidence) {
   keys(d, ['source', 'manifestSHA256', 'cliSHA256', 'controllerSHA256', 'agentSHA256', 'runtimePATH', 'relocated',
-    'initialized', 'configPreserved', 'credentialsPrivate', 'authority', 'sourceMode', 'usersMode', 'ingressRoutes', 'restart'])
+    'initialized', 'configPreserved', 'credentialsPrivate', 'authority', 'sourceMode', 'usersMode', 'ingressRoutes', 'ingress', 'restart'])
   assert.deepEqual(d.source, { commit: coreCommit, tree: coreTree, platform: 'linux-amd64' })
   for (const field of ['manifestSHA256', 'cliSHA256', 'controllerSHA256', 'agentSHA256']) assert.match(d[field], hashPattern)
   assert.equal(d.controllerSHA256, report.controllerBinarySHA256); assert.equal(d.agentSHA256, report.agentBinarySHA256)
@@ -119,6 +121,7 @@ export function validateInstalledEvidence(d, report, evidence) {
   assert.match(d.authority, /^controller:[a-f0-9]{32}$/)
   assert.equal(d.sourceMode, 'database'); assert.equal(d.usersMode, 'database')
   assert.deepEqual(d.ingressRoutes, ['route-v1', 'route-gitea-v1'])
+  validateInstalledIngress(d.ingress, d.cliSHA256, report.confirmations)
   const r = d.restart
   keys(r, ['revision', 'controllerExit', 'agentExit', 'oldSessionStatus', 'freshStatus', 'statusOffset', 'freshStatusIndex', 'freshGeneration', 'freshPolicyHash', 'views', 'observations', 'controllerReceipt'])
   assert.equal(r.controllerExit, 0); assert.equal(r.agentExit, 0); assert.equal(r.oldSessionStatus, 401)

@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: PicketX/PicketX
-          ref: cdee150201a5e33036cd3d73e3be5a8201000698
+          ref: adfa1b111e719b606222f6643c7343afa98d3f03
           path: .ci-core
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff

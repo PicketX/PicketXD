@@ -68,12 +68,19 @@ const fixture = () => {
    disabledGrants: report.humanRequests.map(r => structuredClone(r.grant)),
    enabledGrants: report.humanRequests.map(r => structuredClone(r.grant)) }
  report.deployment = {
-   source: { commit: coreCommit, tree: 'a86a8905e76887c24dc25a12e8e945a55f8bedc6', platform: 'linux-amd64' },
+   source: { commit: coreCommit, tree: '7a5cbb6c764c5e2b4a98e956a3e23fb1b3169d71', platform: 'linux-amd64' },
    manifestSHA256: 'f'.repeat(64), cliSHA256: 'a'.repeat(64),
    controllerSHA256: report.controllerBinarySHA256, agentSHA256: report.agentBinarySHA256,
    runtimePATH: '', relocated: true, initialized: true, configPreserved: true, credentialsPrivate: true,
    authority: 'controller:' + '1'.repeat(32), sourceMode: 'database', usersMode: 'database',
    ingressRoutes: ['route-v1', 'route-gitea-v1'],
+   ingress: { cliSHA256: 'a'.repeat(64), runtimePATH: '',
+     routes: ['route-v1', 'route-private-v1', 'route-gitea-v1'].map((uid, index) => ({ uid,
+       directoryMode: 0o700, locationMode: 0o600, serverMode: 0o600,
+       locationSHA256: String(index + 1).repeat(64), serverSHA256: String(index + 4).repeat(64) })),
+     servers: { demo: '7'.repeat(64), gitea: '8'.repeat(64) },
+     privateDenials: ['demo', 'gitea'].flatMap(server => [4, 6].map(family => ({ server, family,
+       revision: 2, status: 403, appDelta: 0, admittedStatus: 200, healthStatus: 200 }))) },
    restart: { revision: 2, controllerExit: 0, agentExit: 0, oldSessionStatus: 401,
      freshStatus: true, statusOffset: 10, freshStatusIndex: 10, freshGeneration: 2, freshPolicyHash: 'e'.repeat(64),
      views: Object.fromEntries(['publication', 'accounts', 'grants', 'audit'].map(k => [k, { before: 'b'.repeat(64), after: 'b'.repeat(64) }])),
@@ -86,6 +93,40 @@ const fixture = () => {
  return report
 }
 test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validate(fixture())))
+test('installed gate rejects an old report without generated ingress', () => {
+ const r = fixture(); delete r.deployment.ingress
+ assert.throws(() => validate(r))
+})
+test('installed gate requires actual private-route denials', () => {
+ const r = fixture(); delete r.deployment.ingress.privateDenials
+ assert.throws(() => validate(r))
+})
+for (const [name, mutate] of [
+ ['different CLI', i => { i.cliSHA256 = '0'.repeat(64) }],
+ ['inherited PATH', i => { i.runtimePATH = '/usr/bin' }],
+ ['missing private route', i => { i.routes.splice(1, 1) }],
+ ['wrong private route UID', i => { i.routes[1].uid = 'route-v1' }],
+ ['broad directory', i => { i.routes[0].directoryMode = 0o755 }],
+ ['broad include', i => { i.routes[0].serverMode = 0o644 }],
+ ['missing include hash', i => { delete i.routes[0].locationSHA256 }],
+ ['non-hash include', i => { i.routes[0].serverSHA256 = 'unknown' }],
+ ['duplicated fixed callback', i => { i.routes[1].serverSHA256 = i.routes[0].serverSHA256 }],
+ ['missing Gitea config', i => { delete i.servers.gitea }],
+ ['unhashed server config', i => { i.servers.demo = '' }],
+ ['private token path', i => { i.tokenFile = '/private/token' }],
+ ['secret include content', i => { i.routes[0].content = 'Bearer not-public' }],
+ ['missing private IPv6', i => { i.privateDenials.pop() }],
+ ['wrong private server', i => { i.privateDenials[2].server = 'demo' }],
+ ['duplicate private family', i => { i.privateDenials[1].family = 4 }],
+ ['private wrong revision', i => { i.privateDenials[0].revision = 999 }],
+ ['private transport failure', i => { i.privateDenials[0].status = null }],
+ ['private route authorized', i => { i.privateDenials[0].status = 200 }],
+ ['private unauthenticated instead of scoped denial', i => { i.privateDenials[0].status = 401 }],
+ ['private forwarded', i => { i.privateDenials[0].appDelta = 1 }],
+ ['private no admitted control', i => { i.privateDenials[0].admittedStatus = 403 }],
+ ['private unhealthy ingress', i => { i.privateDenials[0].healthStatus = 500 }],
+ ['private secret extra', i => { i.privateDenials[0].path = '/private/token' }],
+]) test(`installed ingress gate rejects ${name}`, () => { const r = fixture(); mutate(r.deployment.ingress); assert.throws(() => validate(r)) })
 for (const [name, mutate] of [
  ['missing raw evidence', (r, e) => { delete e.statuses }],
  ['truncated raw history', (r, e) => { e.statuses.length = 10 }],

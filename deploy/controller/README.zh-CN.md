@@ -2,7 +2,7 @@
 
 > [English](README.md) | 简体中文
 
-Apache Core包与GPL Agent分开部署。Core固定版本cdee150201a5e33036cd3d73e3be5a8201000698
+Apache Core包与GPL Agent分开部署。Core固定版本adfa1b111e719b606222f6643c7343afa98d3f03
 提供私有初始化、静态二进制/Web/部署文档及许可原文；保留LICENSE、notices、清单和
 SOURCE。本指南不发布GPL Agent二进制/源码分发包，也不自动改宿主机。既有入口负责
 TLS/转发，不得将回环明文Agent或本地决策端口暴露到不可信网络。
@@ -35,6 +35,21 @@ TLS/转发，不得将回环明文Agent或本地决策端口暴露到不可信�
 UID；若增加Gitea等第二路由，显式修改私有registry的allowed routes，或登记独立缩限
 caller，不得复用bootstrap/Agent密钥或默认扩大到所有路由。凭据登记不等于批准/应用。
 
+使用**交付包内**CLI（调整实际路径、准确HTTPRoute UID和本地决策端口）：
+
+```sh
+/opt/picketx/bin/picketx nginx-init --directory /etc/picketx/nginx/new-route \
+  --token-file /var/lib/picketx/instance/ingress-token \
+  --route-id YOUR_EXACT_HTTPROUTE_UID --authz-address 127.0.0.1:9091
+```
+
+生成全新0700目录及0600的location.conf/server.conf：前者include到受保护业务location，
+后者include到外围server，保留已审阅的监听/TLS/业务转发；每个准确UID单独生成目录。
+它不登记callers.json、不创建路由/Grant、不重载Nginx，也不自动配置信任。只接受私有
+生成的64位hex入口令牌，不用人员/Agent密钥。不复用输出目录，不公开这些片段或展开的
+`nginx -T`。启用前按交付包完整双语指南审阅real-IP信任、其他location、错误页及直连
+上游绕过风险。
+
 ## 恢复与检查
 
 按Core停服备份规则一起保留SQLite（必要WAL/SHM）、生成authority/config及私有凭据；
@@ -48,6 +63,9 @@ applied修订/哈希、enforcementConfirmed及当前真实gRPC报告，不以act
 独立cwd运行，携带活跃Grant重启，完整业务视图不变，要求重启后的新鲜Agent/Controller
 确认和真实IPv4/IPv6请求，再运行全部既有人工作流/Gitea/撤销/期限场景。测试驱动、Nginx、
 Gitea使用自己的依赖。公开证据保留源码/二进制/清单哈希、脱敏日志和完整Agent状态历史。
+联合验收以空PATH调用交付CLI，为demo、未登记的私有负向路由及Gitea生成独立片段，
+真实Nginx消费两个include上下文，不再读取Core源码树Nginx模板。回执仅含准确UID、
+私有权限和哈希，不包含片段内容或令牌路径。
 
 这仅是在一次性Linux命名空间中的进程恢复，**不是宿主机重启、正式Controller systemd
 安装、公网TLS部署、实际备份恢复或完整发布验收**。独立必需的Controller模式Agent

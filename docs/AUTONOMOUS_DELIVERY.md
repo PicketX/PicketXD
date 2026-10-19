@@ -1,5 +1,31 @@
 # Autonomous delivery checkpoint
 
+## Installed ingress review correction — 2026-10-19T23:49Z
+Same owner codex/installed-ingress; lease00:30Z or explicit release/verified main.
+PR26 initial5bcf252/tree6b3eeb6, native39343624737 underway, not accepted final.
+ONE independent full-branch review0Critical/1Important/1Minor, verdict With fixes.
+Root ONE regression-first pass requires four actual exact-private denial probes
+with admitted/healthy controls, zero app forwarding and confirmed revisions; old
+schema RED. Minor transient token-file PATH in failed CLI stack deferred (no value
+leak). All declined-scope rulings/costs: validation/INSTALLED_INGRESS_REVIEW.md.
+Corrected exact-head full native/archive/main evidence still mandatory, no merge
+claim. Final accurate receipt/release in PR metadata; overall goal remains active.
+
+## Installed ingress acquisition — 2026-10-19T23:44Z
+Owner codex/installed-ingress; short lease00:30Z or explicit release/merged+verified
+main. Fresh Coreadfa1b1/tree7a5cbb6/main39339061250 and Agentc0eb1b8/tree555e00e/
+main39331868711 green, no open PR; PR38/25 explicit releases checked. Isolated
+worktree clean from exact fetched Agent main, original checkouts untouched.
+Spec/plan superpowers/{specs,plans}/2026-10-20-installed-ingress.md self-reviewed.
+Inline TDD: old missing-ingress report accepted RED; old actual CLI unknown-command
+RED; strict receipt/new shipped CLI private outputs GREEN. Full217Node pass,
+Go vet/build pass; normal/race retain five inherited TestNotifyEmitter* Unixgram
+EPERM (not native success). Actual shipped CLI SHA53b506b0 verified against Core
+main archive; actual Linux generated-include conjunction/review/full raw/four
+archives/expected-head/main still pending. No runtime/kernel/API/UI behavior
+change; existing caller scope and every prior native gate retained. Final accurate
+head/CI/archive/main receipt/release goes in PR metadata. Overall goal active.
+
 ## PR25 review correction — 2026-10-19T21:52Z
 Same owner codex/agent-backup; short lease22:25Z or explicit release/merged+verified
 main. ONE full-branch review0Critical/3Important/1Minor; root ONE regression-first
