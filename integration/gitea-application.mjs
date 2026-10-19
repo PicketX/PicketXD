@@ -10,6 +10,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import https from 'node:https'
 import http from 'node:http'
 import { assertServicesAlive } from './process-health.mjs'
+import { installedNginxConfiguration } from './installed-ingress.mjs'
 
 export const giteaSHA256 = '15681fc615d56611c274f52803fef4d6d5316b620f93b677dd4b831a74e50b9f'
 const caseNames = ['baseline', 'httpsOnly', 'both', 'revokeHTTPS4', 'revokeSSH4', 'revokeHTTPS6', 'revokeSSH6']
@@ -83,7 +84,7 @@ export function validateGiteaEvidence(p, confirmations) {
   assert.equal(p.healthyControls, true)
 }
 
-export async function runGiteaApplication({ root, core, temp, evidence, chromium, page, publish, confirmed, api, start, children, ingressToken, secrets }) {
+export async function runGiteaApplication({ root, ingress, temp, evidence, chromium, page, publish, confirmed, api, start, children, secrets }) {
   const dir = join(temp, 'gitea'), sourceBinary = join(root, 'artifacts/gitea'), binary = join(dir, 'gitea')
   const proof = { version: '28.2.0', binarySHA256: createHash('sha256').update(await readFile(sourceBinary)).digest('hex'), grants: [], cases: [], applicationAuth: [] }
   assert.equal(proof.binarySHA256, giteaSHA256)
@@ -134,15 +135,10 @@ export async function runGiteaApplication({ root, core, temp, evidence, chromium
   proof.oid = (await appAPI('repos/owner/private/branches/main')).commit.id
   assert.match(proof.oid, /^[a-f0-9]{40}$/)
   const askpass = await file('askpass.sh', '#!/bin/sh\ncase "$1" in *Username*) printf "%s\\n" "$GITEA_GIT_USER";; *) printf "%s\\n" "$GITEA_GIT_TOKEN";; esac\n', 0o700)
-  let nginx = await readFile(join(core, 'examples/http/nginx.conf.template'), 'utf8')
-  for (const [key, value] of Object.entries({ PREFIX: dir, PORT: 19445, APP_PORT: 19443, AUTHZ_PORT: 19091, TOKEN: ingressToken })) nginx = nginx.replaceAll(`__${key}__`, String(value))
-  nginx = nginx.replace('listen 127.0.0.1:19445;', `listen 127.0.0.1:19445 ssl;\n        listen [::1]:19445 ssl ipv6only=on;\n        ssl_certificate ${dir}/tls.pem;\n        ssl_certificate_key ${dir}/tls.key;`)
-    .replace('keepalive_timeout 30s;', 'keepalive_timeout 300s;')
-    .replace('route-v1;', 'route-gitea-v1;').replace('proxy_set_header Host application.internal;', `proxy_set_header Host ${authority};\n            proxy_set_header X-Forwarded-Proto https;`)
-    .replace('access_log off;', `log_format upstream '$upstream_addr';\n    access_log ${dir}/upstreams.log upstream;`)
-    .replace('http {', 'http {\n    server { listen 127.0.0.1:19447; listen [::1]:19447 ipv6only=on; location / { return 200 "healthy"; } }')
+  const nginx = installedNginxConfiguration(dir, ingress.gitea, ingress.privateRoute, true)
   const conf = await file('nginx.conf', nginx)
   run('nginx', ['-t', '-p', dir + '/', '-c', conf])
+  ingress.proof.servers.gitea = createHash('sha256').update(await readFile(conf)).digest('hex')
   start('gitea-nginx', 'nginx', ['-p', dir + '/', '-c', conf, '-g', 'daemon off;'])
   const upstreamHits = async () => { try { return (await readFile(join(dir, 'upstreams.log'), 'utf8')).split('\n').filter(x => x.includes('127.0.0.1:19443')).length } catch { return 0 } }
   async function tlsRequest(family, { agent = false, trusted = true } = {}) {

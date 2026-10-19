@@ -1,5 +1,16 @@
 # 自动交付检查点
 
+## 安装版入口接续 — 2026-10-19T23:44Z
+Owner codex/installed-ingress，短租约00:30Z，或明确释放/合并且main完整验证即释放。
+核对Coreadfa1b1/tree7a5cbb6/main39339061250和Agentc0eb1b8/tree555e00e/
+main39331868711全绿、无开放PR，PR38/25明确释放；隔离区从准确main开始，原目录未动。
+聚焦设计/计划superpowers/{specs,plans}/2026-10-20-installed-ingress.md已自审。
+旧校验缺少生成证据仍接受及旧实际CLI不支持命令均RED，新严格校验/实际新包私有片段
+GREEN，217Node通过、Go vet/build通过。normal/race仅五个既有Unixgram EPERM，
+不冒充原生成功。保留凭据范围/全部门禁，无生产内核/API/UI行为修改。实际Linux联合
+场景、独立评审、四归档/准确head/main证据仍待完成；最终回执/释放写入PR元数据。
+整体目标继续，不宣告完成。
+
 ## PR25评审修复 — 2026-10-19T21:52Z
 仍由codex/agent-backup推进，租约22:25Z或明确释放/合并且main完整复核。
 一次全分支评审3阻塞/1小项，根代理单轮RED→GREEN：真实EXDEV与同文件系统隔离，

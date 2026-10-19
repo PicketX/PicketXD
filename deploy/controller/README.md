@@ -3,7 +3,7 @@
 > English (default) | [简体中文](README.zh-CN.md)
 
 Use the Apache Core Controller bundle separately from the GPL Agent. Core pinned
-cdee150201a5e33036cd3d73e3be5a8201000698 supplies private initialization and static
+adfa1b111e719b606222f6643c7343afa98d3f03 supplies private initialization and static
 binaries/Web/runbooks/notices. Keep its LICENSE/notices/manifest/SOURCE together.
 This guide does not publish a GPL Agent binary/source distribution or configure
 your host automatically. Existing ingress owns TLS/forwarding; never expose the
@@ -52,6 +52,24 @@ the private `callers.json` registry or provision a separate independently scoped
 caller. Never reuse bootstrap/Agent tokens or broaden to every route. This is
 credential enrollment, not an approval or proof of enforcement.
 
+Use the **shipped** CLI (adjust paths, exact HTTPRoute UID and local decision port):
+
+```sh
+/opt/picketx/bin/picketx nginx-init --directory /etc/picketx/nginx/new-route \
+  --token-file /var/lib/picketx/instance/ingress-token \
+  --route-id YOUR_EXACT_HTTPROUTE_UID --authz-address 127.0.0.1:9091
+```
+
+It creates a new0700 directory with0600 `location.conf` and `server.conf`. Include
+the former inside the protected business location and the latter inside its
+surrounding server; preserve reviewed listeners/TLS/business forwarding. Generate
+a separate directory per exact UID. This does not enroll the UID in callers.json,
+create a route/Grant, reload Nginx or configure upstream trust. Use only the private
+generated64-hex ingress token, never human/Agent keys. Do not reuse an output
+directory or publish these files / expanded `nginx -T`. Review real-IP trust,
+alternate locations, error pages and direct-upstream access; read the full bundled
+bilingual Controller runbook before enabling anything.
+
 ## Recovery and verification
 
 Keep Controller SQLite state (including WAL/SHM as required by its stopped backup
@@ -75,6 +93,10 @@ views; require fresh post-restart Agent/Controller receipts and real IPv4/IPv6
 requests before continuing every existing human/Gitea/revocation/expiry case. The
 test driver, Nginx and Gitea use their own dependencies. Public evidence retains
 source/binary/manifest hashes, redacted logs and complete Agent status history.
+The conjunction invokes that shipped CLI with empty PATH for demo, un-enrolled
+private negative route and Gitea; actual Nginx consumes both include contexts.
+It no longer reads a Core source-tree Nginx template. The receipt records exact
+UIDs, private modes and hashes, never include contents or token paths.
 
 This is process recovery inside disposable Linux namespaces, **not a host reboot,
 production systemd Controller installation, public TLS setup, backup/restore

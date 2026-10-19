@@ -14,6 +14,7 @@ import { runHumanRequests } from './human-requests.mjs'
 import { provisionManagedHumans } from './managed-humans.mjs'
 import { assertServicesAlive } from './process-health.mjs'
 import { runGiteaApplication, validateGiteaEvidence, redactFixtureFailure } from './gitea-application.mjs'
+import { prepareInstalledIngress, installedNginxConfiguration } from './installed-ingress.mjs'
 import { initializeInstalledController, businessViewDigest, parseEnforceStatusLog } from './controller-install.mjs'
 import { validateAgentDistributionEvidence } from '../scripts/agent-bundle.mjs'
 
@@ -161,12 +162,12 @@ try {
     const server = http.createServer((req, res) => { appHits++; res.end('protected real HTTP application') })
     server.listen({ host: '::', port, ipv6Only: false }); await once(server, 'listening'); servers.push(server)
   }
-  let nginx = await readFile(join(core, 'examples/http/nginx.conf.template'), 'utf8')
-  for (const [key, value] of Object.entries({ PREFIX: temp, PORT: 18445, APP_PORT: 18443, AUTHZ_PORT: 19091, TOKEN: ingressToken })) nginx = nginx.replaceAll(`__${key}__`, String(value))
-  nginx = nginx.replace('listen 127.0.0.1:18445;', 'listen 127.0.0.1:18445;\n        listen [::1]:18445 ipv6only=on;').replace('keepalive_timeout 30s;', 'keepalive_timeout 90s;')
-  nginx = nginx.replace('http {', 'http {\n    server { listen 127.0.0.1:18447; listen [::1]:18447 ipv6only=on; location = /health { return 200 "healthy"; } }')
+  const ingress = await prepareInstalledIngress(installed)
+  report.deployment.ingress = ingress.proof
+  const nginx = installedNginxConfiguration(temp, ingress.primary, ingress.privateRoute)
   await privateFile('nginx.conf', nginx)
   execFileSync('nginx', ['-t', '-p', temp + '/', '-c', join(temp, 'nginx.conf')])
+  ingress.proof.servers.demo = hash(await readFile(join(temp, 'nginx.conf')))
   start('nginx', 'nginx', ['-p', temp + '/', '-c', join(temp, 'nginx.conf'), '-g', 'daemon off;'])
   await until(async () => (await request(4)).status === 403, 'Nginx authorization startup')
   // Direct positive controls before kernel ownership: both listeners exist, not fake denial.
@@ -309,7 +310,7 @@ try {
   // The human sequence must establish its own sockets after pending denial.
   for (const entry of keep.values()) { entry.agent.destroy(); entry.agent = new http.Agent({ keepAlive: true, maxSockets: 1 }); entry.socket = null }
   await runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, adminPage: page, appHits: () => appHits })
-  report.gitea = await runGiteaApplication({ root, core, temp, evidence, chromium, page, publish, confirmed, api, start, children, ingressToken, secrets: applicationSecrets })
+  report.gitea = await runGiteaApplication({ root, ingress, temp, evidence, chromium, page, publish, confirmed, api, start, children, secrets: applicationSecrets })
   validateGiteaEvidence(report.gitea, report.confirmations)
   await page.getByRole('button', { name: 'Nodes', exact: true }).click()
   await page.getByRole('button', { name: 'Refresh nodes', exact: true }).click()
