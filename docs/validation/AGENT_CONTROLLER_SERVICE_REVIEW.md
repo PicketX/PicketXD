@@ -66,6 +66,16 @@ raw logs / expected-head merge / main recheck / immediate release belong in PR24
 metadata to avoid self-referential documentation CI cycles. Overall goal active;
 same-boot service recovery is not host reboot or complete backup/restore acceptance.
 
+Corrected39317313553 attempt1 unit193/485 and kernel pass; console stops before
+native execution on proxy.golang.org HTTP/2 INTERNAL_ERROR. Same-source failed-job
+retry attempt2 completes all business/24packet/private report validations, but
+fails parent cleanup at reset-failed on the normally stopped/unloaded ephemeral
+unit. Parent deliberately does NOT publish a pass report. This is actual native
+RED, not waived. Remove that unnecessary reset action: checked stop, group reaping,
+exact unit-file removal, manager reload, namespace/private-directory cleanup stay
+mandatory and failures still fail. Full new exact-head CI/main required. No change
+to production runtime/sandbox or reporting assertions, no second independent review.
+
 中文：一次全分支独立评审发现3项Important、2项Minor、无Critical，原结论不可合并。
 根执行器一次修复：独立远程状态与就绪门禁、超时子进程组/孤儿回收、全部处理线程
 健康监督；实际失败回归先RED后GREEN。两项Minor一并修复，无延后。严格保留原失败

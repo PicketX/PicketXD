@@ -471,7 +471,8 @@ def acceptance(args):
                     raise
         cleanup_steps(stop_owned_unit,
             lambda: stop_process_group(child) if child is not None else None,
-            lambda: command('systemctl', 'reset-failed', token + '.service') if owned else None,
+            # A successful stop can unload this ephemeral unit. reset-failed is
+            # unnecessary and rejects that ordinary absence on real systemd.
             lambda: (Path('/run/systemd/system') / (token + '.service')).unlink(missing_ok=True) if owned else None,
             lambda: command('systemctl', 'daemon-reload') if owned else None,
             lambda: command('ip', 'netns', 'delete', token) if created else None,

@@ -1,5 +1,17 @@
 # Autonomous delivery checkpoint
 
+## Native cleanup correction — 2026-10-19T20:25Z
+Same PR24 owner codex/agent-service heartbeat20:25Z, short lease20:55Z or explicit
+release/merged+fully-verified-green-main (supersedes20:45Z). Corrected native
+39317313553 first attempt has transient Go proxy HTTP/2 failure before conjunction;
+same-source retry2 passes actual business and all new service/24packet validations,
+but parent cleanup fails reset-failed on normally unloaded temporary unit. No public
+pass report produced, no accepted CI/merge claim. Actual native RED identifies
+unnecessary reset; remove only that action. Checked stop/group reaping/unit-file /
+manager/namespace/private-dir cleanup unchanged, all errors still fail. Full new
+exact-head three-job CI/four actual archives/expected-head/main proof still required.
+Original failed logs and complete rulings retained in review record and PR24.
+
 ## Controller service review correction — 2026-10-19T20:10Z
 PR24 owner codex/agent-service heartbeat20:10Z; short lease20:45Z or explicit
 release/merged+fully-verified-green-main (supersedes20:25Z). ONE independent entire
