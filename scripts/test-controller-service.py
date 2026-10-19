@@ -21,12 +21,13 @@ import time
 import threading
 import unittest
 import urllib.request
+from stopped_agent_state import capture, restore
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = 'cdee150201a5e33036cd3d73e3be5a8201000698'
 TREE = 'a86a8905e76887c24dc25a12e8e945a55f8bedc6'
-PHASES = {'startup': True, 'crash': True, 'offline': True,
-          'expired': False, 'offlineRestart': False, 'reconnected': False}
+PHASES = {'startup': True, 'crash': True, 'offline': True, 'stopped': True,
+          'expired': False, 'restoredExpired': False, 'offlineRestart': False, 'reconnected': False}
 
 
 def controller_receipt(nodes, authority):
@@ -49,7 +50,7 @@ def validate_report(report):
         assert isinstance(value, str) and re.fullmatch('[a-f0-9]{64}', value)
     keys(report, ['result', 'coreCommit', 'coreTree', 'agentSHA256', 'controllerSHA256',
                   'authority', 'processes', 'namespace', 'cache', 'timeline', 'receipts',
-                  'observations', 'offlineState', 'reconnectedState'])
+                  'observations', 'offlineState', 'reconnectedState', 'backup'])
     assert report['result'] == 'pass'
     assert report['coreCommit'] == CORE and report['coreTree'] == TREE
     sha(report['agentSHA256']); sha(report['controllerSHA256'])
@@ -70,6 +71,13 @@ def validate_report(report):
     assert all(isinstance(value, (int, float)) for value in timeline.values())
     assert 30 <= timeline['deadline'] - timeline['published'] <= 90
     assert timeline['published'] < timeline['offline'] < timeline['deadline'] <= timeline['expired']
+    backup = report['backup']
+    keys(backup, ['files', 'byteIdentical', 'independentCopies', 'private',
+                  'originalPaths', 'stopped', 'captured', 'restored'])
+    assert type(backup['files']) is int and backup['files'] == 6
+    for key in ['byteIdentical', 'independentCopies', 'private', 'originalPaths', 'stopped']:
+        assert backup[key] is True
+    assert timeline['offline'] <= backup['captured'] <= backup['restored'] < timeline['deadline']
     assert len(report['receipts']) == 2
     for receipt in report['receipts']:
         keys(receipt, ['authority', 'revision', 'desiredSHA256', 'reportSHA256', 'phase',
@@ -355,7 +363,7 @@ def worker(args, work, token):
                                                'protocol': protocol, 'allow': allow, 'health': True})
         health()
     try:
-        peer = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--serve'],
+        peer = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), '--serve'],
                                 stdout=(work / 'peer.log').open('ab'), stderr=subprocess.STDOUT)
         wait_for(lambda: all(echo(family, 'tcp', 18449) for family in [4, 6]), 'actual packet peer')
         controller = start_controller()
@@ -412,9 +420,30 @@ def worker(args, work, token):
         status(lambda value: value['desired'].get('remoteState') == 'disconnected')
         report['timeline']['offline'] = time.time(); assert time.time() < deadline
         packets('offline')
+        # Latest checkpoint only, no newer publication/revocation has occurred.
+        ctl('stop', unit)
+        def stopped():
+            return prop('ActiveState') == 'inactive' and prop('MainPID') == '0'
+        assert stopped(), 'actual exact Agent stopped before filesystem capture'
+        packets('stopped')
+        checkpoint = work / 'agent-checkpoint'
+        credential = instance / 'agent-token'
+        captured = time.time(); assert captured < deadline
+        capture(state, credential, unit_path, checkpoint, stopped)
+        # Recoverable quarantine: never erase the prior files to manufacture success.
+        state.rename(work / 'state-original')
+        credential.rename(work / 'token-original')
+        unit_path.rename(work / 'unit-original')
+        proof = restore(state, credential, unit_path, checkpoint, stopped)
+        proof.update(captured=captured, restored=time.time())
+        assert proof['restored'] < deadline
+        report['backup'] = proof
+        ctl('daemon-reload')
+        assert stopped(), 'restore must not implicitly start the unit'
         time.sleep(max(0, deadline + 0.2 - time.time()))
         report['timeline']['expired'] = time.time(); packets('expired')
-        ctl('kill', '--signal=SIGKILL', '--kill-whom=main', unit)
+        assert stopped(); packets('restoredExpired')
+        ctl('start', '--no-block', unit)
         pid, expired = status(lambda value: value['enforcementConfirmed'] and value['desired']['restored'] and value['desired'].get('remoteState') in ['awaiting', 'disconnected'], pid)
         assert expired['desired']['generation'] == 2
         process(pid); packets('offlineRestart')
@@ -448,7 +477,7 @@ def acceptance(args):
         command('ip', 'netns', 'add', token); created = True
         command('ip', '-n', token, 'link', 'set', 'lo', 'up')
         # Keep public stdout body-free; private process logs/state stay in work.
-        child = start_process_group(['ip', 'netns', 'exec', token, sys.executable, str(Path(__file__).resolve()),
+        child = start_process_group(['ip', 'netns', 'exec', token, sys.executable, '-B', str(Path(__file__).resolve()),
                         '--worker', str(work), '--binary', str(args.binary.resolve()),
                         '--controller-bundle', str(args.controller_bundle.resolve()),
                         '--artifacts', str(args.artifacts.resolve()), '--unit', str(args.unit.resolve())],
@@ -479,10 +508,16 @@ def acceptance(args):
             lambda: shutil.rmtree(Path('/var/lib') / token) if (Path('/var/lib') / token).exists() else None,
             lambda: shutil.rmtree(work))
     (args.artifacts / 'controller-service-report.json').write_text(json.dumps(completed_report, indent=2) + '\n')
-    print('PASS actual Controller-mode Agent systemd: remote APPLIED, crash LKG, offline absolute expiry, offline readiness and reconnect')
+    print('PASS actual Controller-mode Agent systemd: remote APPLIED, crash LKG, stopped six-file original-path backup/restore, offline absolute expiry, offline readiness and reconnect')
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_old_restart_only_evidence_is_not_complete_backup_proof(self):
+        report = self.fixture()
+        report.pop('backup', None)
+        with self.assertRaises(AssertionError):
+            validate_report(report)
+
     def test_failed_protected_worker_invalidates_independent_health(self):
         stop = threading.Event()
         fail = threading.Event()
@@ -603,6 +638,9 @@ class EvidenceTests(unittest.TestCase):
                                'binarySHA256': 'a' * 64, 'namespace': 99} for pid in [11, 22, 33]],
                 'namespace': 99, 'cache': {'before': 'd' * 64, 'after': 'd' * 64},
                 'timeline': {'published': 100, 'deadline': 160, 'offline': 110, 'expired': 161},
+                'backup': {'files': 6, 'byteIdentical': True, 'independentCopies': True,
+                           'private': True, 'originalPaths': True, 'stopped': True,
+                           'captured': 115, 'restored': 120},
                 'receipts': [{'authority': 'controller:' + 'c' * 32, 'revision': 2,
                               'desiredSHA256': 'e' * 64, 'reportSHA256': 'e' * 64,
                               'phase': 'APPLIED', 'connection': 'connected',
@@ -618,6 +656,14 @@ class EvidenceTests(unittest.TestCase):
 
     def test_mutations_rejected(self):
         mutations = [lambda r: r['processes'][1].update(pid=11),
+                     lambda r: r['backup'].update(files=5),
+                     lambda r: r['backup'].update(stopped=False),
+                     lambda r: r['backup'].update(byteIdentical=False),
+                     lambda r: r['backup'].update(independentCopies=False),
+                     lambda r: r['backup'].update(private=False),
+                     lambda r: r['backup'].update(originalPaths=False),
+                     lambda r: r['backup'].update(restored=170),
+                     lambda r: r['backup'].update(token='secret'),
                      lambda r: r['processes'][0].update(capabilities=0),
                      lambda r: r['processes'][0].update(binarySHA256='f' * 64),
                      lambda r: r['cache'].update(after='f' * 64),

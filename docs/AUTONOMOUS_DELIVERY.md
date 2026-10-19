@@ -1,5 +1,17 @@
 # Autonomous delivery checkpoint
 
+## Stopped Agent recovery acquisition — 2026-10-19T21:40Z
+Owner codex/agent-backup, short lease22:25Z or explicit release/merged+verified main.
+Fresh Corecdee150/main39308466228 and Agentc5d58ea/main39320434408 green, no open PR;
+PR24 explicit20:44:31Z release verified. Clean isolated worktree fresh branch from
+fetched exact main; original checkouts/old branch untouched. Spec/plan superpowers/
+{specs,plans}/2026-10-20-agent-backup.md self-reviewed; inline TDD/ONE review.
+Complete private latest stopped checkpoint at ORIGINAL paths, same boot/namespace;
+no old rollback/foreign adoption/deadline renewal. No production Go/kernel/API/UI
+change. Full native/source/four archives/head/main proof mandatory, no local
+privileged success claim. Final receipt/release in PR metadata. Next packaged
+ingress/application operational walkthrough; overall goal active.
+
 ## Native cleanup correction — 2026-10-19T20:25Z
 Same PR24 owner codex/agent-service heartbeat20:25Z, short lease20:55Z or explicit
 release/merged+fully-verified-green-main (supersedes20:45Z). Corrected native

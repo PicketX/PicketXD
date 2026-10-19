@@ -38,4 +38,6 @@ CGO_ENABLED=0、GOOS=linux、GOARCH=amd64，然后执行
 
 原生验收实际打包/解压、空模块缓存离线重建及空PATH运行；既有真实Linux浏览器→
 Controller→Agent→可信Nginx→Gitea链路直接执行包内二进制，保留重启、双栈流量、拒绝、
-独立Grant及严格撤销。宿主开机、Controller服务安装及真实备份恢复仍另行验收。
+独立Grant及严格撤销。另有必需原生门禁验证已安装Controller服务恢复及Agent最新停服
+检查点原路径恢复，见源码docs/validation/AGENT_STATE_RECOVERY.zh-CN.md。宿主开机、
+迁移和旧快照回滚不在已验证范围。

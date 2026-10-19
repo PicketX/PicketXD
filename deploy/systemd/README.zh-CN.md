@@ -128,6 +128,8 @@ sudo env PICKETX_SYSTEMD_TESTS=1 python3 scripts/test-systemd.py \
 鉴权APPLIED、三个不同Agent进程、desired缓存不变，以及启动/崩溃/断连/绝对期限/
 离线重启/重连的双栈TCP/UDP、独立未保护端口健康和正确notify状态。公开证据只保留
 白名单哈希/进程/包观测/回执，不含密钥、状态或日志正文。同启动周期命名空间恢复
-不是宿主重启、备份恢复或开机排序证明。
+另验证最新完整停服检查点原路径恢复、32项包观测和期限不续期；运维步骤与边界见
+仓库/源码的docs/validation/AGENT_STATE_RECOVERY.zh-CN.md。同启动周期恢复不代表
+旧快照回滚、迁移、宿主重启或开机排序证明。
 
 通知须显式开启；独立 enforce 与 prepare 不会仅因 NOTIFY_SOCKET 存在就发送通知。--systemd-notify 在命名空间效果前拒绝 --once、缺失或格式错误的 Linux 文件路径/抽象套接字地址。采用纯 Go Unix 数据报，连接及写入各有一秒期限，STATUS 固定文本不插入发布/错误内容，不依赖 libsystemd/C。发送失败使进程停止、保留规则；发送成功不等于管理器确认，systemctl start 完成与有序依赖验收验证管理器实际处理。
