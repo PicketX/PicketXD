@@ -33,6 +33,7 @@ export function validateEvidence(report) {
   assert.equal(report.cases.length, Object.keys(requiredCases).length, 'exact required cases')
   const names = new Set()
   for (const c of report.cases) {
+    assert.equal(typeof c.name, 'string', 'case name must be a string')
     assert(!names.has(c.name), 'duplicate case'); names.add(c.name)
     assert(Object.hasOwn(requiredCases, c.name), 'unknown case')
     const expected = requiredCases[c.name]

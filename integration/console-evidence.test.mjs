@@ -16,6 +16,8 @@ for (const [name, mutate] of [
   ['duplicate case', r => r.cases.push(r.cases[0])],
   ...['toString', 'valueOf', 'toLocaleString', 'constructor', '__proto__'].map(name => [`inherited case name ${name}`, r => { r.cases[0].name = name; r.cases[0].observations = [] }]),
   ['same-length missing required case', r => { r.cases[0].name = 'unexpected'; r.cases[0].observations = [] }],
+  ['array name replacing a distinct required case', r => { r.cases[1].name = ['baseline']; r.cases[1].observations = structuredClone(r.cases[0].observations) }],
+  ['nested array name replacing a distinct required case', r => { r.cases[1].name = [['baseline']]; r.cases[1].observations = structuredClone(r.cases[0].observations) }],
   ['failed case', r => { r.cases[0].status = 'fail' }],
   ['skipped case', r => { r.cases[0].status = 'skip' }],
   ['missing IPv6', r => r.cases[0].observations.pop()],
