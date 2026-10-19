@@ -10,6 +10,8 @@ import { spawn, execFileSync } from 'node:child_process'
 import { once } from 'node:events'
 import http from 'node:http'
 import { coreCommit, requiredCases, validateEvidence } from './console-evidence.mjs'
+import { runHumanRequests } from './human-requests.mjs'
+import { assertServicesAlive } from './process-health.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -19,6 +21,8 @@ await mkdir(evidence, { recursive: true })
 const temp = await mkdtemp(join(tmpdir(), 'picketx-console-kernel-'))
 const hash = x => createHash('sha256').update(x).digest('hex')
 const adminToken = randomBytes(32).toString('hex'), agentToken = randomBytes(32).toString('hex'), ingressToken = randomBytes(32).toString('hex')
+const password = randomBytes(32).toString('hex')
+let passwordHash = ''
 const runtimeEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('PICKETX_')))
 const report = { coreCommit, agentCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), agentTree: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim(), kernel: release(), confirmations: [], cases: [] }
 const children = [], servers = [], keep = new Map(), status = [], logs = new Map()
@@ -54,6 +58,7 @@ async function confirmed() {
     const node = observations.nodes.find(n => n.agent_ref === 'node')
     return node?.report?.phase === 'APPLIED' && Number(node.report.revision) === revision && node.report.sha256 === node.desired_sha256
   }, `Controller receiving actual Agent report ${revision}`)
+  return revision
 }
 async function request(family, options = {}) {
   const { port = 18445, path = '/allowed', method = 'GET', headers = {}, persistent = false } = options
@@ -82,7 +87,18 @@ async function request(family, options = {}) {
 }
 async function scenario(name, options = {}) {
   assert(healthy, 'positive controls must establish healthy services first')
-  for (const c of children) assert.equal(c.exitCode, null, 'required subprocess remains alive')
+  async function health() {
+    assertServicesAlive(children)
+    // An unprotected Nginx-owned listener proves contemporaneous ingress health;
+    // unlike the protected probe it cannot mistake policy denial for health.
+    for (const family of [4, 6]) {
+      const control = await request(family, { port: 18447, path: '/health' })
+      assert.equal(control.status, 200, 'live dual-stack ingress positive control')
+      assert.equal(control.appDelta, 0, 'health listener must not forward to application')
+    }
+    assertServicesAlive(children)
+  }
+  await health()
   const observations = []
   for (const [family, outcome] of requiredCases[name]) {
     const o = await request(family, options); observations.push(o)
@@ -90,6 +106,7 @@ async function scenario(name, options = {}) {
     assert.equal(o.status, outcome === 'allow' ? 200 : outcome === 'http-deny' ? 403 : null, name)
     assert.equal(o.appDelta, outcome === 'allow' ? 1 : 0, name)
   }
+  await health()
   report.cases.push({ name, revision: report.confirmations.at(-1).revision, status: 'pass', observations }); console.log(`PASS ${name}`)
 }
 const basePolicy = `apiVersion: picketx.io/v1alpha1
@@ -115,7 +132,15 @@ try {
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: core, encoding: 'utf8' }).trim(), coreCommit)
   for (const [field, file] of [['agentBinarySHA256', 'picketxd-console'], ['controllerBinarySHA256', 'controller-console']]) report[field] = hash(await readFile(join(root, 'artifacts', file)))
   execFileSync('ip', ['link', 'set', 'lo', 'up'])
-  await privateFile('principals.json', JSON.stringify({ principals: [{ id: 'principal:admin', sha256: hash(adminToken), roles: ['role:admin'] }] }))
+  passwordHash = execFileSync(join(root, 'artifacts/picketx-console'), ['password-hash'], { input: password, encoding: 'utf8', env: runtimeEnv }).trim()
+  assert.match(passwordHash, /^\$2a\$12\$/)
+  await privateFile('principals.json', JSON.stringify({
+    principals: [{ id: 'principal:admin', sha256: hash(adminToken), roles: ['role:admin'] }],
+    users: [
+      { id: 'principal:requester', username: 'requester', password_hash: passwordHash, roles: ['role:requester'] },
+      { id: 'principal:approver', username: 'approver', password_hash: passwordHash, roles: ['role:admin'] },
+    ],
+  }))
   await privateFile('agent.json', JSON.stringify({ credentials: [{ id: 'node-token', agent_ref: 'node', sha256: hash(agentToken) }] }))
   await privateFile('agent-token', agentToken)
   await privateFile('callers.json', JSON.stringify({ callers: [{ id: 'nginx', sha256: hash(ingressToken), routes: ['route-v1'] }] }))
@@ -137,6 +162,7 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   let nginx = await readFile(join(core, 'examples/http/nginx.conf.template'), 'utf8')
   for (const [key, value] of Object.entries({ PREFIX: temp, PORT: 18445, APP_PORT: 18443, AUTHZ_PORT: 19091, TOKEN: ingressToken })) nginx = nginx.replaceAll(`__${key}__`, String(value))
   nginx = nginx.replace('listen 127.0.0.1:18445;', 'listen 127.0.0.1:18445;\n        listen [::1]:18445 ipv6only=on;').replace('keepalive_timeout 30s;', 'keepalive_timeout 90s;')
+  nginx = nginx.replace('http {', 'http {\n    server { listen 127.0.0.1:18447; listen [::1]:18447 ipv6only=on; location = /health { return 200 "healthy"; } }')
   await privateFile('nginx.conf', nginx)
   execFileSync('nginx', ['-t', '-p', temp + '/', '-c', join(temp, 'nginx.conf')])
   start('nginx', 'nginx', ['-p', temp + '/', '-c', join(temp, 'nginx.conf'), '-g', 'daemon off;'])
@@ -229,6 +255,10 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   await pause(Math.max(0, expiry + 8250 - Date.now()))
   await scenario('expired'); await scenario('establishedExpired', { persistent: true })
   await scenario('unmanaged', { port: 18448 })
+  // The previous expiry case intentionally retained established connections.
+  // The human sequence must establish its own sockets after pending denial.
+  for (const entry of keep.values()) { entry.agent.destroy(); entry.agent = new http.Agent({ keepAlive: true, maxSockets: 1 }); entry.socket = null }
+  await runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, appHits: () => appHits })
   await page.getByRole('button', { name: 'Nodes', exact: true }).click()
   await page.getByRole('button', { name: 'Refresh nodes', exact: true }).click()
   await page.getByRole('heading', { name: 'node', exact: true }).waitFor()
@@ -253,7 +283,7 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
     }
   }
   for (const server of servers) { server.closeAllConnections(); await new Promise(r => server.close(r)) }
-  const redact = x => [adminToken, agentToken, ingressToken].reduce((s, secret) => s.replaceAll(secret, '[REDACTED]'), x)
+  const redact = x => [adminToken, agentToken, ingressToken, password, passwordHash].filter(Boolean).reduce((s, secret) => s.replaceAll(secret, '[REDACTED]'), x)
   for (const [name, log] of logs) await writeFile(join(evidence, name + '.log'), redact(log))
   await writeFile(join(evidence, 'report.json'), JSON.stringify(report, null, 2))
   await writeFile(join(evidence, 'agent-status.json'), JSON.stringify(status, null, 2))

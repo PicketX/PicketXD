@@ -12,12 +12,13 @@ expected=$(node --input-type=module -e 'import {coreCommit} from "./integration/
 test "$(git -C "$core" rev-parse HEAD)" = "$expected"
 test -z "$(git -C "$core" status --porcelain --untracked-files=no)"
 test -f "$core/apps/web/dist/index.html"
-node --test integration/console-evidence.test.mjs
+node --test integration/*.test.mjs
 mkdir -p artifacts/console-kernel
 CGO_ENABLED=0 go build -trimpath -o "$root/artifacts/picketxd-console" ./cmd/picketxd
 (
   cd "$core"
   CGO_ENABLED=1 go build -tags 'netgo osusergo sqlite_omit_load_extension' -ldflags '-linkmode external -extldflags -static' -o "$root/artifacts/controller-console" ./cmd/picketx-controller
+  CGO_ENABLED=1 go build -tags 'netgo osusergo sqlite_omit_load_extension' -ldflags '-linkmode external -extldflags -static' -o "$root/artifacts/picketx-console" ./cmd/picketx
 )
 go version > artifacts/console-kernel/go.txt
 go version -m artifacts/picketxd-console > artifacts/console-kernel/agent-build.txt
