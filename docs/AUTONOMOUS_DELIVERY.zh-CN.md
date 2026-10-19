@@ -1,5 +1,15 @@
 # 自动交付检查点
 
+## Controller服务评审修复 — 2026-10-19T20:10Z
+PR24负责人codex/agent-service心跳20:10Z，短租约延至20:45Z或明确释放/合并且main
+完整复核全绿，取代20:25Z。一次独立全分支评审0Critical/3Important/2Minor，原结论
+不可合并；首轮新单元原生39315655520也在断连状态等待处RED，不作成功。根执行器
+一次先回归后修复：独立remoteState/就绪、真实gRPC/缓存恢复/期限、私有进程组/
+subreaper超时回收、全部echo线程健康/RST存活；TLS/旧报告两项Minor一并修复，无延后。
+收窄运行时修复是必要语义纠错，不放宽门禁；不改缓存/协议/内核策略。完整取舍/代价/
+拒绝评估项及失败时间线见validation/AGENT_CONTROLLER_SERVICE_REVIEW.md。修复后全量
+测试、最终原生/head/四归档/main证据仍需完成，不宣称合并或总目标完成；最终见PR24。
+
 ## Controller服务实现 — 2026-10-19T19:59Z
 PR24负责人codex/agent-service，心跳19:59Z，租约20:25Z或明确释放/合并且main完整
 复核全绿。真实旧静态服务RED39314552719/job118272524446：服务启动成功，但当前

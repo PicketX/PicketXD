@@ -9,9 +9,12 @@ Controller, named disposable netns, actual shipped binary and packet peers.
 **Spec:** docs/superpowers/specs/2026-10-20-agent-controller-service.md
 
 ## Global constraints
-No runtime/API/kernel schema changes; IPv4/IPv6 equal; graceful new-flow guarantees
+No business API/kernel schema changes; IPv4/IPv6 equal; graceful new-flow guarantees
 only; no host reboot/backup migration claim. Native setup failures fail, never skip.
 Private token only file, public evidence allowlisted. All existing checks retained.
+Review ruling20:10Z: add narrowly scoped process-local remoteState/readiness fix
+and actual restore/outage/reconnect/expiry regressions; immutable caches/protocol/
+kernel policy semantics unchanged. Full rationale/cost in spec and review record.
 
 ## Review focus
 - A valid static deny sentinel cannot substitute for authenticated remote permission.

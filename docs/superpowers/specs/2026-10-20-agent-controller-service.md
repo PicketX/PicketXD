@@ -45,12 +45,26 @@ skip. Keep all existing kernel/systemd/console/Gitea checks unchanged.
 
 Dependencies: existing test-systemd.py echo/probe patterns, controller-init JSON
 config, agent-observations APPLIED receipt and agentstate desired cache. No public
-API/schema/migration/runtime policy changes. Full Go normal/race/vet/build and
+business API/schema/migration/kernel policy changes. Full Go normal/race/vet/build and
 locked Core Web plus all3native jobs/four artifacts/exact tree/main are required.
 Context-map extension self-reviewed: adding a service without including it in the
 installed bundle is incomplete delivery, so require its manifest-covered content.
 Private test binaries must be staged byte-identically outside ProtectHome paths;
 failed startup/stop must reap only the fixture's actual child processes.
+
+## Independent-review scope ruling — 2026-10-19T20:10Z
+
+Original intent to leave runtime unchanged cannot deliver the required clean remote
+startup: independent review and native39315655520 expose restored LKG mistaken for
+current acceptance and ignored disconnection. Under the explicit autonomous fix
+mandate, narrowly add process-local `remoteState` (awaiting/current/disconnected)
+to Store/host-agent diagnostic JSON, gate notify on current remote acceptance, and
+serialize stream-loss events with acceptance. Do not change snapshot protocol,
+durable cache format, authority, policy compilation, permission or expiry semantics.
+Publication errors remain separate. Extend map to internal/agentstate/{store.go,
+remote_linux.go,transport_linux.go,*test.go}, internal/hostagent/run_linux.go and
+internal/agentcli/notify_linux{,_test}.go. Cost: additive diagnostic output and a
+tighter intentional remote startup gate; full native execution remains mandatory.
 
 中文：增加可审查的Controller模式Agent单元及真实同启动周期崩溃/断连/绝对期限
 验收。静态与Controller示例不能同时运行，不替操作者启用服务；不声称宿主重启、

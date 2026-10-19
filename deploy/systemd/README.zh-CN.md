@@ -25,7 +25,7 @@ sudoedit /etc/systemd/system/picketxd-controller.service
 将`controller:REPLACE_WITH_GENERATED_AUTHORITY`换成初始化后真实公开的`agent.authority`，
 逐项核对Agent ref、状态路径、目的范围、独占mark及处理模式，与管理事实/Binding匹配。
 模板明文仅限可信同机回环。正常校验证书的TLS监听须移除`--controller-plaintext`并设置
-实际地址；必要时加`--controller-server-name`和`--controller-ca /etc/picketx/controller-ca.pem`，
+实际地址和必需的`--controller-server-name`；自定义根证书可选`--controller-ca /etc/picketx/controller-ca.pem`，
 不能绕过证书校验，不要求mTLS。检查沙箱中的Token/CA文件与父目录权限，不放到受保护home下。
 
 审阅后才verify、daemon-reload并显式启用/启动`picketxd-controller.service`；下方状态、
@@ -35,6 +35,8 @@ sudoedit /etc/systemd/system/picketxd-controller.service
 干净的当前远程发布确认后才READY；仅有LKG仍是activating。重连不续期Grant、不复活
 过期权限。核对新鲜本地JSON与当前Controller APPLIED修订/哈希；审批、下发、active或
 旧回执都不等于应用。
+`desired.remoteState`独立区分`awaiting`、`current`、`disconnected`，属于当前进程，
+不能从磁盘恢复为current；`desired.lastError`仍表示发布拒绝，不混入传输健康。
 
 ## 首次静态安装
 

@@ -41,6 +41,7 @@ type Dependencies struct {
 	Now       func() time.Time
 }
 type DesiredStatus struct {
+	RemoteState   string    `json:"remoteState,omitempty"`
 	Prepared      bool      `json:"prepared"`
 	Generation    uint64    `json:"generation"`
 	PolicyHash    string    `json:"policyHash"`
@@ -66,7 +67,7 @@ type Status struct {
 }
 
 func desired(st agentstate.Status) DesiredStatus {
-	return DesiredStatus{Prepared: st.Prepared, Generation: st.Generation, PolicyHash: st.PolicyHash, AcceptedAt: st.AcceptedAt, LastAttemptAt: st.LastAttemptAt, LastError: st.LastError, Restored: st.Restored, SameBoot: st.SameBoot, CacheFault: st.CacheFault, NextChange: st.Projection.NextChange}
+	return DesiredStatus{RemoteState: st.RemoteState, Prepared: st.Prepared, Generation: st.Generation, PolicyHash: st.PolicyHash, AcceptedAt: st.AcceptedAt, LastAttemptAt: st.LastAttemptAt, LastError: st.LastError, Restored: st.Restored, SameBoot: st.SameBoot, CacheFault: st.CacheFault, NextChange: st.Projection.NextChange}
 }
 
 // Run owns the resources it opens. An application/verification error is fatal;

@@ -31,6 +31,11 @@ func enforceNotifySocket(enabled, once bool) (string, error) {
 // ownership, application and strict cleanup. A rejected current publication
 // can still confirm retained policy, but must not complete service startup.
 // READY is a one-time startup event; STATUS never revokes that event.
+func cleanCurrentPolicy(st hostagent.Status) bool {
+	return st.EnforcementConfirmed && st.Desired.LastError == "" && st.LastApplyError == "" &&
+		(st.Desired.RemoteState == "" || st.Desired.RemoteState == "current")
+}
+
 func newEnforceEmitter(out io.Writer, socket string) func(hostagent.Status) error {
 	encoder := json.NewEncoder(out)
 	ready := false
@@ -41,13 +46,15 @@ func newEnforceEmitter(out io.Writer, socket string) func(hostagent.Status) erro
 		if socket == "" {
 			return nil
 		}
-		clean := st.EnforcementConfirmed && st.Desired.LastError == "" && st.LastApplyError == ""
+		clean := cleanCurrentPolicy(st)
 		status := "Waiting for confirmed host policy"
 		switch {
 		case st.LastApplyError != "":
 			status = "Host policy confirmation failed; installed rules retained"
 		case st.Desired.LastError != "":
 			status = "Publication rejected; accepted policy retained"
+		case st.Desired.RemoteState != "" && st.Desired.RemoteState != "current":
+			status = "Waiting for current Controller policy; accepted state retained"
 		case clean:
 			status = fmt.Sprintf("Confirmed host policy generation %d", st.Desired.Generation)
 		}

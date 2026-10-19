@@ -29,8 +29,8 @@ Replace `controller:REPLACE_WITH_GENERATED_AUTHORITY` with the exact public
 destinations, exclusive mark range and handling against actual managed facts and
 Binding. The shipped plaintext transport is for trusted same-host loopback only.
 For a normally verified TLS listener, remove `--controller-plaintext`, set the
-actual address, and if needed use `--controller-server-name` and
-`--controller-ca /etc/picketx/controller-ca.pem`; never disable certificate checks.
+actual address and mandatory `--controller-server-name`; optionally use
+`--controller-ca /etc/picketx/controller-ca.pem` for custom roots. Never disable certificate checks.
 No mTLS is required. Check token/CA parent traversal and read permissions under
 the sandbox; do not place required files beneath protected home directories.
 
@@ -45,6 +45,9 @@ but remains activating until a clean current remote publication is confirmed;
 LKG alone is not READY. Reconnect does not renew a Grant or resurrect expired
 permission. Inspect both fresh local JSON and current Controller APPLIED revision/
 hash; approval, delivery, an active service or an old receipt is not application.
+`desired.remoteState` independently distinguishes `awaiting`, `current` and
+`disconnected`; it is process-local, never restored as current from disk.
+`desired.lastError` remains publication rejection, not transport health.
 
 ## First static installation
 

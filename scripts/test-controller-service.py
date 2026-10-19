@@ -3,6 +3,7 @@
 """Opt-in real Controller-mode Agent service; public evidence never includes state."""
 import argparse
 import copy
+import ctypes
 import datetime as dt
 import hashlib
 import json
@@ -10,11 +11,14 @@ import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
 import time
+import threading
 import unittest
 import urllib.request
 
@@ -112,6 +116,63 @@ def stop_process(child, timeout=10):
             child.kill(); child.wait(timeout=5)
 
 
+def start_process_group(argv, **options):
+    # Linux test driver only: adopt/reap our orphaned descendants after a worker
+    # timeout, instead of relying on the runner's PID1 to reap them later.
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(36, 1, 0, 0, 0) != 0:  # PR_SET_CHILD_SUBREAPER
+        raise OSError(ctypes.get_errno(), 'set probe child subreaper')
+    return subprocess.Popen(argv, start_new_session=True, **options)
+
+
+def stop_process_group(child, timeout=1):
+    # Only a Popen started with start_new_session=True is passed here. Its group
+    # includes Controller/peer descendants, never the manager-owned Agent.
+    def send(sig):
+        try:
+            os.killpg(child.pid, sig)
+        except ProcessLookupError:
+            pass
+    send(signal.SIGTERM)
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        try:
+            os.killpg(child.pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.02)
+    send(signal.SIGKILL)
+    child.wait(timeout=5)
+    end = time.monotonic() + 5
+    while True:
+        try:
+            pid, _ = os.waitpid(-child.pid, os.WNOHANG)
+        except ChildProcessError:
+            break
+        if pid:
+            continue
+        if time.monotonic() >= end:
+            raise TimeoutError('owned worker descendants not reaped')
+        time.sleep(0.02)
+
+
+def cleanup_steps(*actions):
+    errors = []
+    for action in actions:
+        try:
+            action()
+        except Exception as error:
+            errors.append(error)
+    if errors:
+        # If invoked by finally, Python retains the original failure as context.
+        raise ExceptionGroup('owned probe cleanup failed', errors)
+
+
+def begin_report(artifacts):
+    artifacts.mkdir(parents=True, exist_ok=True)
+    (artifacts / 'controller-service-report.json').unlink(missing_ok=True)
+
+
 def start_ready_process(argv, ready, **options):
     child = subprocess.Popen(argv, **options)
     try:
@@ -132,18 +193,51 @@ def wait_for(check, label, limit=25):
     raise AssertionError('timed out: ' + label)
 
 
+class EchoSupervisor:
+    def __init__(self):
+        self.failed = threading.Event()
+        self.threads = []
+
+    def start(self, target, *args):
+        def guarded():
+            try:
+                target(*args)
+            except Exception:
+                pass  # Private handler details never enter public evidence.
+            finally:
+                self.failed.set()
+        thread = threading.Thread(target=guarded, daemon=True)
+        self.threads.append(thread)
+        thread.start()
+
+    def healthy(self):
+        return not self.failed.is_set() and len(self.threads) == 6 and all(t.is_alive() for t in self.threads)
+
+
+def echo_connection(conn, healthy=None):
+    try:
+        conn.settimeout(1)
+        data = conn.recv(32)
+        if data:
+            conn.sendall(data if healthy is None or healthy() else b'peer-unhealthy')
+    except (ConnectionError, TimeoutError):
+        # Ordinary reset/disconnect cannot terminate the protected listener.
+        pass
+
+
 def serve():
-    import threading
-    def echo(sock, tcp):
+    supervisor = EchoSupervisor()
+    def echo(sock, tcp, health):
         while True:
             if tcp:
                 conn, _ = sock.accept()
                 with conn:
-                    data = conn.recv(32)
-                    if data:
-                        conn.sendall(data)
+                    echo_connection(conn, supervisor.healthy if health else None)
             else:
-                data, peer = sock.recvfrom(32); sock.sendto(data, peer)
+                try:
+                    data, peer = sock.recvfrom(32); sock.sendto(data, peer)
+                except ConnectionError:
+                    continue
     for family, host in [(socket.AF_INET, '127.0.0.1'), (socket.AF_INET6, '::1')]:
         for tcp, port in [(True, 18443), (False, 18444), (True, 18449)]:
             sock = socket.socket(family, socket.SOCK_STREAM if tcp else socket.SOCK_DGRAM)
@@ -152,7 +246,7 @@ def serve():
             sock.bind((host, port))
             if tcp:
                 sock.listen(16)
-            threading.Thread(target=echo, args=(sock, tcp), daemon=True).start()
+            supervisor.start(echo, sock, tcp, port == 18449)
     threading.Event().wait()
 
 
@@ -301,78 +395,170 @@ def worker(args, work, token):
         command('systemd-analyze', 'verify', '--man=no', '--generators=no', str(unit_path))
         ctl('daemon-reload'); ctl('start', unit)
         report['receipts'].append(wait_for(receipt, 'actual connected Controller APPLIED receipt'))
-        pid, first = status(lambda value: value['enforcementConfirmed'] and not value['desired'].get('lastError'))
+        pid, first = status(lambda value: value['enforcementConfirmed'] and not value['desired'].get('lastError') and value['desired'].get('remoteState') == 'current')
         assert prop('ActiveState') == 'active' and prop('Type') == 'notify'
         process(pid); packets('startup')
         report['cache']['before'] = digest(state / 'desired.json')
         ctl('kill', '--signal=SIGKILL', '--kill-whom=main', unit)
-        pid, recovered = status(lambda value: value['enforcementConfirmed'] and value['desired']['restored'] and not value['desired'].get('lastError'), pid)
+        pid, recovered = status(lambda value: value['enforcementConfirmed'] and value['desired']['restored'] and not value['desired'].get('lastError') and value['desired'].get('remoteState') == 'current', pid)
+        ctl('start', unit)
+        assert prop('ActiveState') == 'active'
         assert int(prop('NRestarts')) >= 1
         assert recovered['desired']['generation'] == first['desired']['generation'] == 2
         assert recovered['appliedPolicyHash'] == first['appliedPolicyHash']
         process(pid); packets('crash')
         stop_process(controller)
-        status(lambda value: bool(value['desired'].get('lastError')))
+        assert controller.poll() is not None, 'actual Controller process stopped'
+        status(lambda value: value['desired'].get('remoteState') == 'disconnected')
         report['timeline']['offline'] = time.time(); assert time.time() < deadline
         packets('offline')
         time.sleep(max(0, deadline + 0.2 - time.time()))
         report['timeline']['expired'] = time.time(); packets('expired')
         ctl('kill', '--signal=SIGKILL', '--kill-whom=main', unit)
-        pid, expired = status(lambda value: value['enforcementConfirmed'] and value['desired']['restored'] and bool(value['desired'].get('lastError')), pid)
+        pid, expired = status(lambda value: value['enforcementConfirmed'] and value['desired']['restored'] and value['desired'].get('remoteState') in ['awaiting', 'disconnected'], pid)
         assert expired['desired']['generation'] == 2
         process(pid); packets('offlineRestart')
         report['offlineState'] = prop('ActiveState'); assert report['offlineState'] == 'activating'
         controller = start_controller()
         ctl('start', unit)
-        status(lambda value: value['enforcementConfirmed'] and not value['desired'].get('lastError'))
+        status(lambda value: value['enforcementConfirmed'] and not value['desired'].get('lastError') and value['desired'].get('remoteState') == 'current')
         report['receipts'].append(wait_for(receipt, 'fresh reconnected Controller APPLIED receipt'))
         report['reconnectedState'] = prop('ActiveState')
         packets('reconnected'); report['cache']['after'] = digest(state / 'desired.json')
         assert api('publication')['revision'] == 2, 'recovery must not publish/renew authority'
         report['result'] = 'pass'; validate_report(report)
-        (args.artifacts / 'controller-service-report.json').write_text(json.dumps(report, indent=2) + '\n')
-        print('PASS actual Controller-mode Agent systemd: remote APPLIED, crash LKG, offline absolute expiry, offline readiness and reconnect')
+        (work / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     finally:
-        if unit_owned:
-            subprocess.run(['systemctl', 'stop', unit], capture_output=True, timeout=35)
-        try:
-            stop_process(controller)
-        finally:
-            stop_process(peer)
+        cleanup_steps(lambda: command('systemctl', 'stop', unit) if unit_owned else None,
+                      lambda: stop_process(controller), lambda: stop_process(peer))
 
 
 def acceptance(args):
     assert os.environ.get('PICKETX_CONTROLLER_SERVICE_TESTS') == '1', 'explicit native opt-in required'
     assert os.geteuid() == 0, 'actual system manager and fresh namespace require root'
-    args.artifacts.mkdir(parents=True, exist_ok=True)
     if args.worker:
         work = args.worker.resolve(); assert work.parent == Path('/run') and work.name.startswith('picketx-remote-service-')
         worker(args, work, work.name); return
+    begin_report(args.artifacts)
     command('systemctl', 'show', '--property=Version')
     work = Path(tempfile.mkdtemp(prefix='picketx-remote-service-', dir='/run')); token = work.name
     created = False
+    child = None
     try:
         command('ip', 'netns', 'add', token); created = True
         command('ip', '-n', token, 'link', 'set', 'lo', 'up')
         # Keep public stdout body-free; private process logs/state stay in work.
-        subprocess.run(['ip', 'netns', 'exec', token, sys.executable, str(Path(__file__).resolve()),
+        child = start_process_group(['ip', 'netns', 'exec', token, sys.executable, str(Path(__file__).resolve()),
                         '--worker', str(work), '--binary', str(args.binary.resolve()),
                         '--controller-bundle', str(args.controller_bundle.resolve()),
                         '--artifacts', str(args.artifacts.resolve()), '--unit', str(args.unit.resolve())],
-                       check=True, timeout=150)
+                                 )
+        result = child.wait(timeout=150)
+        if result:
+            raise subprocess.CalledProcessError(result, child.args)
+        completed_report = json.loads((work / 'report.json').read_text())
+        validate_report(completed_report)
     finally:
-        if (work / 'unit-owned').exists():
-            subprocess.run(['systemctl', 'stop', token + '.service'], capture_output=True, timeout=35)
-            (Path('/run/systemd/system') / (token + '.service')).unlink(missing_ok=True)
-            subprocess.run(['systemctl', 'daemon-reload'], capture_output=True, timeout=30)
-            subprocess.run(['systemctl', 'reset-failed', token + '.service'], capture_output=True, timeout=30)
-        if created:
-            command('ip', 'netns', 'delete', token)
-        shutil.rmtree(Path('/var/lib') / token, ignore_errors=True)
-        shutil.rmtree(work)
+        owned = (work / 'unit-owned').exists()
+        def stop_owned_unit():
+            if owned:
+                try:
+                    command('systemctl', 'stop', token + '.service')
+                except Exception:
+                    # Exact fixture unit only; never kill a host/global service.
+                    command('systemctl', 'kill', '--kill-whom=all', '--signal=SIGKILL', token + '.service')
+                    command('systemctl', 'stop', token + '.service')
+                    raise
+        cleanup_steps(stop_owned_unit,
+            lambda: stop_process_group(child) if child is not None else None,
+            lambda: command('systemctl', 'reset-failed', token + '.service') if owned else None,
+            lambda: (Path('/run/systemd/system') / (token + '.service')).unlink(missing_ok=True) if owned else None,
+            lambda: command('systemctl', 'daemon-reload') if owned else None,
+            lambda: command('ip', 'netns', 'delete', token) if created else None,
+            lambda: shutil.rmtree(Path('/var/lib') / token) if (Path('/var/lib') / token).exists() else None,
+            lambda: shutil.rmtree(work))
+    (args.artifacts / 'controller-service-report.json').write_text(json.dumps(completed_report, indent=2) + '\n')
+    print('PASS actual Controller-mode Agent systemd: remote APPLIED, crash LKG, offline absolute expiry, offline readiness and reconnect')
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_failed_protected_worker_invalidates_independent_health(self):
+        stop = threading.Event()
+        fail = threading.Event()
+        supervisor = EchoSupervisor()
+        def protected():
+            fail.wait()
+            raise RuntimeError('protected handler sentinel')
+        supervisor.start(protected)
+        for _ in range(5):
+            supervisor.start(stop.wait)
+        try:
+            self.assertTrue(supervisor.healthy())
+            fail.set()
+            supervisor.threads[0].join(timeout=1)
+            self.assertTrue(all(t.is_alive() for t in supervisor.threads[1:]))
+            self.assertFalse(supervisor.healthy())
+        finally:
+            fail.set(); stop.set()
+            for thread in supervisor.threads:
+                thread.join(timeout=1)
+
+    def test_actual_tcp_reset_does_not_kill_protected_handler(self):
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0)); listener.listen(2); listener.settimeout(2)
+            errors = []
+            def protected():
+                try:
+                    for _ in range(2):
+                        conn, _ = listener.accept()
+                        with conn:
+                            echo_connection(conn)
+                except BaseException as error:
+                    errors.append(error)
+            thread = threading.Thread(target=protected, daemon=True); thread.start()
+            with socket.create_connection(listener.getsockname(), timeout=1) as client:
+                client.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
+            with socket.create_connection(listener.getsockname(), timeout=1) as client:
+                client.sendall(b'second'); self.assertEqual(client.recv(32), b'second')
+            thread.join(timeout=2)
+            self.assertFalse(thread.is_alive()); self.assertEqual(errors, [])
+
+    def test_cleanup_continues_after_unit_stop_timeout(self):
+        child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
+        def timeout():
+            raise subprocess.TimeoutExpired('owned unit stop', 0.01)
+        try:
+            with self.assertRaises(ExceptionGroup):
+                cleanup_steps(timeout, lambda: stop_process(child))
+            self.assertIsNotNone(child.poll())
+        finally:
+            if child.poll() is None:
+                child.kill(); child.wait(timeout=5)
+
+    def test_outer_timeout_terminates_actual_owned_worker_descendants(self):
+        child = start_process_group([sys.executable, '-u', '-c',
+            'import subprocess,sys,time; p=subprocess.Popen([sys.executable,"-u","-c","import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); print(1); time.sleep(60)"],stdout=subprocess.PIPE,text=True); p.stdout.readline(); print(p.pid); time.sleep(60)'],
+            stdout=subprocess.PIPE, text=True)
+        descendant = int(child.stdout.readline())
+        try:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                child.wait(timeout=0.05)
+            stop_process_group(child, timeout=0.1)
+            self.assertIsNotNone(child.poll())
+            self.assertFalse(Path(f'/proc/{descendant}').exists(), 'owned descendant fully reaped')
+        finally:
+            os.killpg(child.pid, signal.SIGKILL) if child.poll() is None else None
+            child.wait(timeout=5); child.stdout.close()
+
+    def test_new_run_removes_only_previous_report(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            artifacts = Path(temporary)
+            report = artifacts / 'controller-service-report.json'
+            report.write_text('{"result":"pass"}')
+            sentinel = artifacts / 'operator-data'; sentinel.write_text('keep')
+            begin_report(artifacts)
+            self.assertFalse(report.exists()); self.assertEqual(sentinel.read_text(), 'keep')
+
     def test_failed_readiness_reaps_actual_child(self):
         children = []
         def reject(child):

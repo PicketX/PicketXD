@@ -16,6 +16,27 @@ import (
 	"github.com/PicketX/PicketXD/internal/hostagent"
 )
 
+func TestCleanCurrentPolicyRequiresRemoteAcceptanceNotJustLKG(t *testing.T) {
+	st := hostagent.Status{EnforcementConfirmed: true}
+	if !cleanCurrentPolicy(st) {
+		t.Fatal("static readiness changed")
+	}
+	for _, state := range []string{"awaiting", "disconnected", "unknown"} {
+		st.Desired.RemoteState = state
+		if cleanCurrentPolicy(st) {
+			t.Fatal("cached remote state is not clean", state)
+		}
+	}
+	st.Desired.RemoteState = "current"
+	if !cleanCurrentPolicy(st) {
+		t.Fatal("current remote confirmation rejected")
+	}
+	st.Desired.LastError = "rejected"
+	if cleanCurrentPolicy(st) {
+		t.Fatal("rejected publication is not clean")
+	}
+}
+
 func notifyTestPath(t *testing.T) string {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "pxn-")
@@ -66,11 +87,16 @@ func TestNotifyEmitterFirstCleanConfirmationOnly(t *testing.T) {
 	rejected := clean
 	rejected.Desired.LastError = "bad\nREADY=1"
 	failed := hostagent.Status{LastApplyError: "drift\nREADY=1"}
+	awaiting, disconnected := clean, clean
+	awaiting.Desired.RemoteState = "awaiting"
+	disconnected.Desired.RemoteState = "disconnected"
 	cases := []struct {
 		status hostagent.Status
 		want   string
 	}{
 		{hostagent.Status{}, "STATUS=Waiting for confirmed host policy"},
+		{awaiting, "STATUS=Waiting for current Controller policy; accepted state retained"},
+		{disconnected, "STATUS=Waiting for current Controller policy; accepted state retained"},
 		{rejected, "STATUS=Publication rejected; accepted policy retained"},
 		{clean, "READY=1\nSTATUS=Confirmed host policy generation 7"},
 		{clean, "STATUS=Confirmed host policy generation 7"},

@@ -87,5 +87,9 @@ func (s *Store) AcceptSnapshot(ctx context.Context, snap *agentv1.Snapshot) erro
 	if snap.Revision == s.record.Generation && !bytes.Equal(raw, s.record.Remote) {
 		return reject(fmt.Errorf("remote revision equivocation"))
 	}
-	return s.acceptLocked(ctx, policy, writeJournal, &remoteEnvelope{snap.Revision, raw})
+	if e = s.acceptLocked(ctx, policy, writeJournal, &remoteEnvelope{snap.Revision, raw}); e != nil {
+		return e
+	}
+	s.remoteState = "current"
+	return nil
 }

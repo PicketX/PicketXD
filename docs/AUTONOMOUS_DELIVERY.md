@@ -1,5 +1,19 @@
 # Autonomous delivery checkpoint
 
+## Controller service review correction — 2026-10-19T20:10Z
+PR24 owner codex/agent-service heartbeat20:10Z; short lease20:45Z or explicit
+release/merged+fully-verified-green-main (supersedes20:25Z). ONE independent entire
+5373595..4b2f3e4 review:0Critical/3Important/2Minor, original verdict No. Native
+39315655520 also RED at outage status, not success. Root ONE regression-first pass:
+process-local remoteState/readiness independent from publication errors; actual
+gRPC/restore/expiry tests; owned session/subreaper timeout cleanup and all-worker
+echo health/RST survival; both TLS/stale-report Minors fixed. No deferred items.
+Ruling: narrow runtime diagnostic/readiness repair required by discovered bug,
+not weakening gate; immutable caches/protocol/kernel semantics unchanged. Complete
+findings/rulings/costs/declined boundaries/chronology: validation/AGENT_CONTROLLER_
+SERVICE_REVIEW.md. Corrected full local tests and final native/head/four archives /
+main proof still pending; no merge/overall-completion claim. Final receipt in PR24.
+
 ## Agent Controller service implementation — 2026-10-19T19:59Z
 PR24 owner codex/agent-service, heartbeat19:59Z, short lease20:25Z or explicit
 release/merged+fully-verified-green-main. Actual old-static target RED39314552719 /
