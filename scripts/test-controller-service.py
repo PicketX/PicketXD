@@ -94,6 +94,15 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def stage_agent(binary, work):
+    # ProtectHome=yes hides GitHub's /home/runner checkout from the service.
+    # Preserve the actual verified artifact, not a wrapper or relaxed sandbox.
+    staged = work / 'picketxd'
+    shutil.copy2(binary, staged)
+    assert digest(staged) == digest(binary)
+    return staged
+
+
 def wait_for(check, label, limit=25):
     end = time.monotonic() + limit
     while time.monotonic() < end:
@@ -130,7 +139,7 @@ def serve():
 
 def worker(args, work, token):
     assert os.stat('/proc/self/ns/net').st_ino != os.stat('/proc/1/ns/net').st_ino
-    binary, bundle = args.binary.resolve(), args.controller_bundle.resolve()
+    binary, bundle = stage_agent(args.binary.resolve(), work), args.controller_bundle.resolve()
     source = json.loads((bundle / 'SOURCE.json').read_text())
     assert source == {'commit': CORE, 'tree': TREE, 'platform': 'linux-amd64'}
     state = Path('/var/lib') / token
@@ -347,6 +356,16 @@ def acceptance(args):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_stage_actual_binary_outside_protected_home(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary)
+            original = Path('/usr/bin/true').resolve()
+            staged = stage_agent(original, work)
+            self.assertEqual(staged, work / 'picketxd')
+            self.assertNotEqual(staged.stat().st_ino, original.stat().st_ino)
+            self.assertEqual(digest(staged), digest(original))
+            subprocess.run([str(staged)], env={'PATH': ''}, check=True)
+
     def test_real_pending_controller_report_is_not_applied(self):
         self.assertFalse(controller_receipt([{'agent_ref': 'node', 'report': None}], 'controller:pending'))
 
