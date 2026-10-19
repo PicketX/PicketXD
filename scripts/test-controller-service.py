@@ -25,6 +25,19 @@ PHASES = {'startup': True, 'crash': True, 'offline': True,
           'expired': False, 'offlineRestart': False, 'reconnected': False}
 
 
+def controller_receipt(nodes, authority):
+    node = next((n for n in nodes if n['agent_ref'] == 'node'), None)
+    if not node or not node.get('report') or node['report'].get('phase') != 'APPLIED' or not node.get('matches_desired'):
+        return False
+    if node.get('connection') != 'connected' or node.get('freshness') != 'fresh':
+        return False
+    assert int(node['desired_revision']) == int(node['report']['revision']) == 2
+    assert node['desired_sha256'] == node['report']['sha256']
+    return {'authority': authority, 'revision': 2, 'desiredSHA256': node['desired_sha256'],
+            'reportSHA256': node['report']['sha256'], 'phase': 'APPLIED',
+            'connection': node['connection'], 'freshness': node['freshness'], 'matchesDesired': True}
+
+
 def validate_report(report):
     def keys(value, expected):
         assert isinstance(value, dict) and set(value) == set(expected), 'public evidence fields'
@@ -57,7 +70,7 @@ def validate_report(report):
     for receipt in report['receipts']:
         keys(receipt, ['authority', 'revision', 'desiredSHA256', 'reportSHA256', 'phase',
                        'connection', 'freshness', 'matchesDesired'])
-        assert receipt['authority'] == report['authority'] and receipt['revision'] == 1
+        assert receipt['authority'] == report['authority'] and receipt['revision'] == 2
         sha(receipt['desiredSHA256']); assert receipt['reportSHA256'] == receipt['desiredSHA256']
         assert receipt['phase'] == 'APPLIED' and receipt['connection'] == 'connected'
         assert receipt['freshness'] == 'fresh' and receipt['matchesDesired'] is True
@@ -168,17 +181,7 @@ def worker(args, work, token):
         wait_for(ready, 'real Controller ready')
         return child
     def receipt():
-        nodes = api('agent-observations')['nodes']
-        node = next((n for n in nodes if n['agent_ref'] == 'node'), None)
-        if not node or node.get('report', {}).get('phase') != 'APPLIED' or not node.get('matches_desired'):
-            return False
-        if node.get('connection') != 'connected' or node.get('freshness') != 'fresh':
-            return False
-        assert int(node['desired_revision']) == int(node['report']['revision']) == 1
-        assert node['desired_sha256'] == node['report']['sha256']
-        return {'authority': authority, 'revision': 1, 'desiredSHA256': node['desired_sha256'],
-                'reportSHA256': node['report']['sha256'], 'phase': 'APPLIED',
-                'connection': node['connection'], 'freshness': node['freshness'], 'matchesDesired': True}
+        return controller_receipt(api('agent-observations')['nodes'], authority)
     def status(predicate, old_pid=0):
         def check():
             pid = int(prop('MainPID'))
@@ -254,9 +257,10 @@ def worker(args, work, token):
                                'Stage': 'original-destination', 'Handling': 'graceful',
                                'Destinations': ['127.0.0.1/32', '::1/128']}]}
         current = api('publication')['revision']
+        assert current == 1, 'private init publishes explicit empty revision1'
         published = api('publication', {'policy': policy, 'facts': json.dumps(facts),
                                        'reason': 'Actual Agent service bounded policy'}, current)
-        assert published['revision'] == 1
+        assert published['revision'] == 2
         report['timeline'].update(published=now, deadline=deadline)
         service = args.unit.read_text()
         for old, new in [('/usr/local/libexec/picketxd', str(binary)),
@@ -282,7 +286,7 @@ def worker(args, work, token):
         ctl('kill', '--signal=SIGKILL', '--kill-whom=main', unit)
         pid, recovered = status(lambda value: value['enforcementConfirmed'] and value['desired']['restored'] and not value['desired'].get('lastError'), pid)
         assert int(prop('NRestarts')) >= 1
-        assert recovered['desired']['generation'] == first['desired']['generation'] == 1
+        assert recovered['desired']['generation'] == first['desired']['generation'] == 2
         assert recovered['appliedPolicyHash'] == first['appliedPolicyHash']
         process(pid); packets('crash')
         stop(controller)
@@ -293,7 +297,7 @@ def worker(args, work, token):
         report['timeline']['expired'] = time.time(); packets('expired')
         ctl('kill', '--signal=SIGKILL', '--kill-whom=main', unit)
         pid, expired = status(lambda value: value['enforcementConfirmed'] and value['desired']['restored'] and bool(value['desired'].get('lastError')), pid)
-        assert expired['desired']['generation'] == 1
+        assert expired['desired']['generation'] == 2
         process(pid); packets('offlineRestart')
         report['offlineState'] = prop('ActiveState'); assert report['offlineState'] == 'activating'
         controller = start_controller()
@@ -302,7 +306,7 @@ def worker(args, work, token):
         report['receipts'].append(wait_for(receipt, 'fresh reconnected Controller APPLIED receipt'))
         report['reconnectedState'] = prop('ActiveState')
         packets('reconnected'); report['cache']['after'] = digest(state / 'desired.json')
-        assert api('publication')['revision'] == 1, 'recovery must not publish/renew authority'
+        assert api('publication')['revision'] == 2, 'recovery must not publish/renew authority'
         report['result'] = 'pass'; validate_report(report)
         (args.artifacts / 'controller-service-report.json').write_text(json.dumps(report, indent=2) + '\n')
         print('PASS actual Controller-mode Agent systemd: remote APPLIED, crash LKG, offline absolute expiry, offline readiness and reconnect')
@@ -344,6 +348,9 @@ def acceptance(args):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_real_pending_controller_report_is_not_applied(self):
+        self.assertFalse(controller_receipt([{'agent_ref': 'node', 'report': None}], 'controller:pending'))
+
     def fixture(self):
         return {'result': 'pass', 'coreCommit': CORE, 'coreTree': TREE,
                 'agentSHA256': 'a' * 64, 'controllerSHA256': 'b' * 64,
@@ -352,7 +359,7 @@ class EvidenceTests(unittest.TestCase):
                                'binarySHA256': 'a' * 64, 'namespace': 99} for pid in [11, 22, 33]],
                 'namespace': 99, 'cache': {'before': 'd' * 64, 'after': 'd' * 64},
                 'timeline': {'published': 100, 'deadline': 160, 'offline': 110, 'expired': 161},
-                'receipts': [{'authority': 'controller:' + 'c' * 32, 'revision': 1,
+                'receipts': [{'authority': 'controller:' + 'c' * 32, 'revision': 2,
                               'desiredSHA256': 'e' * 64, 'reportSHA256': 'e' * 64,
                               'phase': 'APPLIED', 'connection': 'connected',
                               'freshness': 'fresh', 'matchesDesired': True} for _ in range(2)],
@@ -373,6 +380,7 @@ class EvidenceTests(unittest.TestCase):
                      lambda r: r['timeline'].update(expired=159),
                      lambda r: r.update(offlineState='active'),
                      lambda r: r['receipts'][1].update(matchesDesired=False),
+                     lambda r: r['receipts'][1].update(revision=1),
                      lambda r: r['receipts'][1].update(reportSHA256='f' * 64),
                      lambda r: r['observations'][-1].update(allow=True),
                      lambda r: r['observations'][0].update(health=False),
