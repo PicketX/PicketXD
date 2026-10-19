@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Trusted same-host loopback example. Review EVERY argument before deployment.
+# Replace authority/Agent/destinations/marks and provision the private Agent Token.
+# For verified server TLS remove --controller-plaintext and configure address/CA/name.
+# Select this OR picketxd.service, never both; shared retained state is not migration.
+[Unit]
+Description=PicketXD Controller-managed host policy enforcement
+Documentation=https://github.com/PicketX/PicketXD/tree/main/deploy/systemd
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+# Cached LKG alone does not release startup; require clean current remote policy.
+Type=notify
+NotifyAccess=main
+User=root
+Group=root
+ExecStart=/usr/local/libexec/picketxd enforce \
+    --controller 127.0.0.1:9090 \
+    --agent-token-file /etc/picketx/agent-token --controller-plaintext \
+    --state-dir /var/lib/picketx \
+    --provider controller:REPLACE_WITH_GENERATED_AUTHORITY --agent node --profile host \
+    --destination 127.0.0.1 --destination ::1 \
+    --mark-first 0x504a0000 --mark-last 0x504a003f \
+    --handling graceful --poll 5s --systemd-notify
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+TimeoutStartSec=60s
+KillSignal=SIGTERM
+UMask=0077
+StateDirectory=picketx
+StateDirectoryMode=0700
+RuntimeDirectory=picketx
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=picketxd
+# Stop retains filtering/state. Reconnect never renews an absolute Grant deadline.
+
+[Install]
+WantedBy=multi-user.target

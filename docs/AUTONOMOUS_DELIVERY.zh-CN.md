@@ -1,5 +1,16 @@
 # 自动交付检查点
 
+## Controller服务实现 — 2026-10-19T19:59Z
+PR24负责人codex/agent-service，心跳19:59Z，租约20:25Z或明确释放/合并且main完整
+复核全绿。真实旧静态服务RED39314552719/job118272524446：服务启动成功，但当前
+Controller APPLIED回执超时。此前三次39312474772/39312789768/39313499231只属夹具
+诊断，不作目标RED；修正初始revision/null报告、固定运行锁目录及ProtectHome外同字节
+二进制复制，未放宽沙箱。真实子进程启动失败/忽略SIGTERM回归RED→GREEN。现增加
+独立Controller单元并纳入/强制校验GPL安装包，两种unit语法通过、Node202全通过。
+本地Go普通/race仍仅5项既有Unixgram EPERM，vet/build通过；全量原生、新24包观测、
+一次独立全分支评审、准确源码/四归档/head/main证据仍必需，不宣称新服务原生成功。
+仅同启动周期，宿主重启/完整备份恢复另行验收，整体仍在推进；最终回执见PR24。
+
 ## Agent Controller服务 — 2026-10-19T19:35Z
 负责人codex/agent-service，租约20:25Z或明确释放/合并且main完整验证全绿。
 Agent5373595与Corecdee150最新main全部必需步骤通过，PR23/37明确释放，无竞争PR。

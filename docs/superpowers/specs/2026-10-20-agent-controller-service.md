@@ -40,11 +40,17 @@ skip. Keep all existing kernel/systemd/console/Gitea checks unchanged.
 | deploy/systemd/README{,.zh-CN}.md | Operator selection, lifecycle and scope boundaries |
 | deploy/controller/README{,.zh-CN}.md | Link new reviewed unit and accepted Core |
 | scripts/verify-systemd.sh | Offline syntax check both selected units |
+| scripts/build-agent-bundle.sh, scripts/agent-bundle.mjs | Ship and require the selected Controller unit in the verified GPL bundle |
+| integration/agent-bundle.test.mjs | Manifest-complete missing-unit RED and actual builder fixtures |
 
 Dependencies: existing test-systemd.py echo/probe patterns, controller-init JSON
 config, agent-observations APPLIED receipt and agentstate desired cache. No public
 API/schema/migration/runtime policy changes. Full Go normal/race/vet/build and
 locked Core Web plus all3native jobs/four artifacts/exact tree/main are required.
+Context-map extension self-reviewed: adding a service without including it in the
+installed bundle is incomplete delivery, so require its manifest-covered content.
+Private test binaries must be staged byte-identically outside ProtectHome paths;
+failed startup/stop must reap only the fixture's actual child processes.
 
 中文：增加可审查的Controller模式Agent单元及真实同启动周期崩溃/断连/绝对期限
 验收。静态与Controller示例不能同时运行，不替操作者启用服务；不声称宿主重启、

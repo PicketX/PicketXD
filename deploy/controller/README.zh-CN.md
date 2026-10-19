@@ -2,7 +2,7 @@
 
 > [English](README.md) | 简体中文
 
-Apache Core包与GPL Agent分开部署。Core固定版本93024b229c072ce1db8512323c3d7fa35e3df74e
+Apache Core包与GPL Agent分开部署。Core固定版本cdee150201a5e33036cd3d73e3be5a8201000698
 提供私有初始化、静态二进制/Web/部署文档及许可原文；保留LICENSE、notices、清单和
 SOURCE。本指南不发布GPL Agent二进制/源码分发包，也不自动改宿主机。既有入口负责
 TLS/转发，不得将回环明文Agent或本地决策端口暴露到不可信网络。
@@ -26,10 +26,10 @@ TLS/转发，不得将回环明文Agent或本地决策端口暴露到不可信�
 5. 在现有Desired configuration/Resources管理流程配置实际能力、部署事实和Binding，
    匹配authority、Agent/profile/目的范围；再配Resource、HTTPRoute、独立审批/Grant及
    可信入口。声明式network-space ID不是本地命名空间身份。
-6. 按[systemd指南](../systemd/README.zh-CN.md)审阅服务。现成unit是静态策略示例，不是
-   Controller登记成品；复制为操作者管理的unit，按上述Controller参数替换ExecStart，
-   保留必需state/provider/Agent/destination/mark及notify/沙箱/权限限制，检查后启用。
-   不可盲目使用示例mark和目的范围。
+6. 按[systemd指南](../systemd/README.zh-CN.md)审阅独立附带的`picketxd-controller.service`，
+   不是静态`picketxd.service`。替换authority占位值，逐项核对state/Agent/destination/mark/
+   传输参数，保留notify/沙箱/权限限制，检查后才显式启用。不能同时启用共用状态的两种
+   服务；这不是自动登记或身份/来源迁移，不可盲目使用示例mark和目的范围。
 
 入口启动前，用它自己的入口密钥生成私有配置。初始callers.json只授权一个准确route
 UID；若增加Gitea等第二路由，显式修改私有registry的allowed routes，或登记独立缩限
@@ -50,5 +50,7 @@ applied修订/哈希、enforcementConfirmed及当前真实gRPC报告，不以act
 Gitea使用自己的依赖。公开证据保留源码/二进制/清单哈希、脱敏日志和完整Agent状态历史。
 
 这仅是在一次性Linux命名空间中的进程恢复，**不是宿主机重启、正式Controller systemd
-安装、公网TLS部署、实际备份恢复或完整发布验收**。既有Agent systemd/内核证据单独
-保留。graceful SSH仅保证新连接拒绝，不承诺断开已建立SSH。
+安装、公网TLS部署、实际备份恢复或完整发布验收**。独立必需的Controller模式Agent
+systemd门禁覆盖同启动周期崩溃、provider绑定LKG、断连、绝对期限、离线重启未就绪及
+重连后的当前APPLIED，不证明上述其他运维场景；全部既有静态systemd/内核门禁保留。
+graceful SSH仅保证新连接拒绝，不承诺断开已建立SSH。

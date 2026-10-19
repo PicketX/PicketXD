@@ -47,7 +47,7 @@ fi
 go mod vendor
 cp LICENSE THIRD_PARTY_NOTICES.md "$output/"
 cp deploy/agent/README.md deploy/agent/README.zh-CN.md "$output/deploy/"
-cp deploy/systemd/picketxd.service deploy/systemd/README.md deploy/systemd/README.zh-CN.md "$output/deploy/systemd/"
+cp deploy/systemd/picketxd.service deploy/systemd/picketxd-controller.service deploy/systemd/README.md deploy/systemd/README.zh-CN.md "$output/deploy/systemd/"
 printf '{"commit":"%s","tree":"%s","platform":"linux-amd64","go":"%s"}\n' \
   "$source_commit" "$source_tree" "$(go env GOVERSION)" > "$output/SOURCE.json"
 node scripts/agent-bundle.mjs collect "$output"

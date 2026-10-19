@@ -3,7 +3,7 @@
 > English (default) | [简体中文](README.zh-CN.md)
 
 Use the Apache Core Controller bundle separately from the GPL Agent. Core pinned
-93024b229c072ce1db8512323c3d7fa35e3df74e supplies private initialization and static
+cdee150201a5e33036cd3d73e3be5a8201000698 supplies private initialization and static
 binaries/Web/runbooks/notices. Keep its LICENSE/notices/manifest/SOURCE together.
 This guide does not publish a GPL Agent binary/source distribution or configure
 your host automatically. Existing ingress owns TLS/forwarding; never expose the
@@ -38,12 +38,12 @@ loopback plaintext Agent or local decision listener to untrusted networks.
    authority and matching Agent/profile/destination bounds. Then configure Resource,
    HTTPRoute, independent approval/Grants and the existing trusted ingress adapter.
    A declarative network-space ID is not a local namespace identity.
-6. Review the [systemd service guide](../systemd/README.md). Its shipped unit is a
-   static-policy demonstration, **not** ready-made Controller enrollment. Make an
-   operator-owned copy and replace its ExecStart with the reviewed Controller-mode
-   arguments above plus the existing required state/provider/Agent/destination/mark
-   settings. Preserve notify/sandbox/privilege restrictions; inspect before enabling.
-   Do not install a sample mark range or destination bound blindly.
+6. Review the [systemd service guide](../systemd/README.md) and separately shipped
+   `picketxd-controller.service`, **not** the static `picketxd.service`. Replace the
+   authority placeholder and review every actual state/Agent/destination/mark and
+   transport argument. Preserve notify/sandbox/privilege restrictions; inspect
+   before explicitly enabling. Never enable both units sharing retained state;
+   this is not automatic enrollment or an identity/source migration.
 
 Before starting ingress, render its private config with only its own ingress key.
 The initial caller registry authorizes one exact route UID. If a second actual
@@ -78,5 +78,8 @@ source/binary/manifest hashes, redacted logs and complete Agent status history.
 
 This is process recovery inside disposable Linux namespaces, **not a host reboot,
 production systemd Controller installation, public TLS setup, backup/restore
-execution or complete release acceptance**. Existing Agent systemd/kernel evidence
-is separate. Graceful SSH denial concerns new flows only, not established SSH.
+execution or complete release acceptance**. The separate required Controller-mode
+Agent systemd gate covers same-boot crash, provider-bound LKG, outage, absolute
+expiry, offline-not-ready restart and current APPLIED reconnect; it does not prove
+those other operational scenarios. Existing static systemd/kernel evidence remains
+mandatory. Graceful SSH denial concerns new flows only, not established SSH.

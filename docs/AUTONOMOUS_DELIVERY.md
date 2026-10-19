@@ -1,5 +1,21 @@
 # Autonomous delivery checkpoint
 
+## Agent Controller service implementation — 2026-10-19T19:59Z
+PR24 owner codex/agent-service, heartbeat19:59Z, short lease20:25Z or explicit
+release/merged+fully-verified-green-main. Actual old-static target RED39314552719 /
+job118272524446 at19:57:33Z (remoteb0295a6/tree14fcb27): manager start succeeds,
+then expected current connected Controller APPLIED receipt times out. Prior3runs
+39312474772/39312789768/39313499231 are fixture diagnostics only, NOT target RED.
+Real initial revision/null-report wiring, preserved fixed runtime lock directory,
+and byte-identical artifact staging outside ProtectHome corrected without reducing
+sandbox. Child readiness/stop actual subprocess regressions RED→GREEN. Separate
+Controller unit now included and required in verified GPL distribution; both unit
+syntax checks pass; fullNode202/202 nofail/skip. Full local Go normal/race still
+only5 inherited Unixgram EPERM; vet/build pass. All native jobs/new24packet cases,
+one independent whole-branch review, exact-source/four-archive/head/main proof still
+required; no new service native-success claim yet. Same-boot scope, not host reboot
+or complete backup/restore; overall goal remains active. Final receipt in PR24.
+
 ## Agent Controller service acquisition — 2026-10-19T19:35Z
 Owner codex/agent-service; lease20:25Z or explicit release/merged+verified-green-main.
 Agent5373595/tree7e23d65/main39291377336 and Corecdee150/treea86a8905/main39308466228

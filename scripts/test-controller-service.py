@@ -103,6 +103,25 @@ def stage_agent(binary, work):
     return staged
 
 
+def stop_process(child, timeout=10):
+    if child is not None and child.poll() is None:
+        child.terminate()
+        try:
+            child.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            child.kill(); child.wait(timeout=5)
+
+
+def start_ready_process(argv, ready, **options):
+    child = subprocess.Popen(argv, **options)
+    try:
+        wait_for(lambda: ready(child), 'real Controller ready')
+        return child
+    except BaseException:
+        stop_process(child)
+        raise
+
+
 def wait_for(check, label, limit=25):
     end = time.monotonic() + limit
     while time.monotonic() < end:
@@ -177,18 +196,17 @@ def worker(args, work, token):
             assert response.status == 200
             return json.load(response)
     def start_controller():
-        child = subprocess.Popen([str(controller_binary), '-config', str(config_path)],
-                                 cwd=work, env={'PATH': ''}, stdout=(work / 'controller.log').open('ab'),
-                                 stderr=subprocess.STDOUT)
-        def ready():
+        def ready(child):
             assert child.poll() is None, 'actual Controller must remain alive'
             try:
                 with urllib.request.urlopen('http://127.0.0.1:18080/readyz', timeout=0.5) as response:
                     return response.status == 200
             except OSError:
                 return False
-        wait_for(ready, 'real Controller ready')
-        return child
+        with (work / 'controller.log').open('ab') as log:
+            return start_ready_process([str(controller_binary), '-config', str(config_path)],
+                                       ready, cwd=work, env={'PATH': ''}, stdout=log,
+                                       stderr=subprocess.STDOUT)
     def receipt():
         return controller_receipt(api('agent-observations')['nodes'], authority)
     def status(predicate, old_pid=0):
@@ -242,10 +260,6 @@ def worker(args, work, token):
                 report['observations'].append({'phase': phase, 'family': family,
                                                'protocol': protocol, 'allow': allow, 'health': True})
         health()
-    def stop(child):
-        if child is not None and child.poll() is None:
-            child.terminate(); child.wait(timeout=10)
-
     try:
         peer = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--serve'],
                                 stdout=(work / 'peer.log').open('ab'), stderr=subprocess.STDOUT)
@@ -297,7 +311,7 @@ def worker(args, work, token):
         assert recovered['desired']['generation'] == first['desired']['generation'] == 2
         assert recovered['appliedPolicyHash'] == first['appliedPolicyHash']
         process(pid); packets('crash')
-        stop(controller)
+        stop_process(controller)
         status(lambda value: bool(value['desired'].get('lastError')))
         report['timeline']['offline'] = time.time(); assert time.time() < deadline
         packets('offline')
@@ -321,7 +335,10 @@ def worker(args, work, token):
     finally:
         if unit_owned:
             subprocess.run(['systemctl', 'stop', unit], capture_output=True, timeout=35)
-        stop(controller); stop(peer)
+        try:
+            stop_process(controller)
+        finally:
+            stop_process(peer)
 
 
 def acceptance(args):
@@ -356,6 +373,28 @@ def acceptance(args):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_failed_readiness_reaps_actual_child(self):
+        children = []
+        def reject(child):
+            children.append(child)
+            raise ValueError('readiness sentinel')
+        with self.assertRaisesRegex(ValueError, 'readiness sentinel'):
+            start_ready_process([sys.executable, '-c', 'import time; time.sleep(60)'], reject)
+        self.assertIsNotNone(children[0].poll())
+
+    def test_cleanup_reaps_actual_sigterm_resistant_child(self):
+        child = subprocess.Popen([sys.executable, '-u', '-c',
+            'import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print("ready"); time.sleep(60)'],
+            stdout=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(child.stdout.readline().strip(), 'ready')
+            stop_process(child, timeout=0.05)
+            self.assertIsNotNone(child.poll())
+        finally:
+            if child.poll() is None:
+                child.kill(); child.wait(timeout=5)
+            child.stdout.close()
+
     def test_stage_actual_binary_outside_protected_home(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = Path(temporary)
@@ -419,7 +458,7 @@ if __name__ == '__main__':
     parser.add_argument('--binary', type=Path)
     parser.add_argument('--controller-bundle', type=Path)
     parser.add_argument('--artifacts', type=Path)
-    parser.add_argument('--unit', type=Path, default=ROOT / 'deploy/systemd/picketxd.service')
+    parser.add_argument('--unit', type=Path, default=ROOT / 'deploy/systemd/picketxd-controller.service')
     args = parser.parse_args()
     if args.self_test:
         unittest.main(argv=[sys.argv[0]], exit=True)
