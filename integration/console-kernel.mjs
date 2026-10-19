@@ -14,6 +14,7 @@ import { runHumanRequests } from './human-requests.mjs'
 import { provisionManagedHumans } from './managed-humans.mjs'
 import { assertServicesAlive } from './process-health.mjs'
 import { runGiteaApplication, validateGiteaEvidence, redactFixtureFailure } from './gitea-application.mjs'
+import { validateInstalledEvidence } from './controller-install.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -131,6 +132,8 @@ spec: {resourceRef: {name: demo, uid: resource-demo-v1}, endpointName: web, host
 `
 const facts = { authorityID: 'static-test', agents: [{ Name: 'node', Labels: {}, Capabilities: { Classes: ['host-local'], Protocols: ['tcp', 'udp'], Families: [4, 6], Handling: ['graceful'], OriginalDestination: true } }], contexts: [{ AgentRef: 'node', ProfileRef: 'host', ID: 'controller-context', NetworkSpaceID: 'declarative-not-local', Class: 'host-local', Stage: 'original-destination', Handling: 'graceful', Destinations: ['127.0.0.1/32', '::1/128'] }] }
 try {
+  // Tests-first gate: a source-runtime fixture cannot stand for installed proof.
+  validateInstalledEvidence(report.deployment, report)
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: core, encoding: 'utf8' }).trim(), coreCommit)
   for (const [field, file] of [['agentBinarySHA256', 'picketxd-console'], ['controllerBinarySHA256', 'controller-console']]) report[field] = hash(await readFile(join(root, 'artifacts', file)))
   execFileSync('ip', ['link', 'set', 'lo', 'up'])

@@ -1,5 +1,21 @@
 # Autonomous delivery checkpoint
 
+## Installed Controller acquisition — 2026-10-19T14:48Z
+
+Owner codex/installed-controller-conjunction; heartbeat14:48Z; lease until15:45Z
+or explicit release/merged+verified-green-main. Core93024b2/tree64ed0dc /
+mainCI39265034648 and Agent233f081/tree6ae6b77/mainCI39251805260 green; no open PRs.
+PR35/Core and PR21/Agent RELEASED. Clean host-owned isolated worktree retained;
+new branch from exact Agent main, old branches preserved. Spec/plan
+superpowers/{specs,plans}/2026-10-19-installed-controller.md self-reviewed; routine
+pauses waived under autonomous mandate, inline TDD/one fresh review retained.
+Actual installed private init + empty-PATH Controller/Agent + dual-service restart
+in full existing native conjunction. No production kernel/UI/API change. Local
+CLI baseline5 known Unixgram EPERM failures; Node129/129 passes. Full native gates
+mandatory, no bypass/local kernel success claim. Formal Agent distribution/host
+systemd boot acceptance separate; goal unfinished. Exact final evidence/release
+in this increment's PR metadata; Chinese summary AUTONOMOUS_DELIVERY.zh-CN.md.
+
 ## Gitea code acceptance — 2026-10-19T12:14Z
 
 PR21 is the sole active work item; owner codex/gitea-application, heartbeat12:14Z,

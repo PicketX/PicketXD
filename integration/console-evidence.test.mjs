@@ -13,8 +13,8 @@ const fixture = () => {
       { id: 'principal:account-' + '1'.repeat(32), username: 'requester', roles: ['role:requester'], disabled: false, version: 1 },
       { id: 'principal:account-' + '2'.repeat(32), username: 'approver', roles: ['role:admin'], disabled: false, version: 1 },
     ], events: [
-      { actor: 'principal:admin', accountId: 'principal:account-' + '2'.repeat(32), operation: 'create', reason: 'Native onboard approver', revision: 2 },
-      { actor: 'principal:admin', accountId: 'principal:account-' + '1'.repeat(32), operation: 'create', reason: 'Native onboard requester', revision: 1 },
+      { actor: 'principal:bootstrap', accountId: 'principal:account-' + '2'.repeat(32), operation: 'create', reason: 'Native onboard approver', revision: 2 },
+      { actor: 'principal:bootstrap', accountId: 'principal:account-' + '1'.repeat(32), operation: 'create', reason: 'Native onboard requester', revision: 1 },
     ] },
     logins: [
       { id: 'principal:account-' + '1'.repeat(32), roles: ['role:requester'] },
@@ -44,7 +44,7 @@ const fixture = () => {
  const { directory, logins } = report.managedAccounts
  const changed = (disabled, version, revision, reason) => ({ ...structuredClone(directory), revision,
    accounts: directory.accounts.map(a => a.username === 'requester' ? { ...a, disabled, version } : structuredClone(a)),
-   events: [{ actor: 'principal:admin', accountId: directory.accounts[0].id, operation: 'update', reason, revision }, ...structuredClone(directory.events)] })
+   events: [{ actor: 'principal:bootstrap', accountId: directory.accounts[0].id, operation: 'update', reason, revision }, ...structuredClone(directory.events)] })
  const disabledDirectory = changed(true, 2, 3, 'Native disable requester')
  const enabledDirectory = changed(false, 3, 4, 'Native re-enable requester')
  enabledDirectory.events.splice(1, 0, disabledDirectory.events[0])
@@ -53,9 +53,46 @@ const fixture = () => {
    sessions: { disabledBefore: 200, revivalBefore: 200, distinct: true },
    disabledGrants: report.humanRequests.map(r => structuredClone(r.grant)),
    enabledGrants: report.humanRequests.map(r => structuredClone(r.grant)) }
+ report.deployment = {
+   source: { commit: coreCommit, tree: '64ed0dcc4b6a3232e093150d7fc100cc9a852e43', platform: 'linux-amd64' },
+   manifestSHA256: 'f'.repeat(64), cliSHA256: 'a'.repeat(64),
+   controllerSHA256: report.controllerBinarySHA256, agentSHA256: report.agentBinarySHA256,
+   runtimePATH: '', relocated: true, initialized: true, configPreserved: true, credentialsPrivate: true,
+   authority: 'controller:' + '1'.repeat(32), sourceMode: 'database', usersMode: 'database',
+   ingressRoutes: ['route-v1', 'route-gitea-v1'],
+   restart: { revision: 2, controllerExit: 0, agentExit: 0, oldSessionStatus: 401,
+     freshStatus: true, freshGeneration: 2, freshPolicyHash: 'e'.repeat(64),
+     views: Object.fromEntries(['publication', 'accounts', 'grants', 'audit'].map(k => [k, { before: 'b'.repeat(64), after: 'b'.repeat(64) }])),
+     observations: [4, 6].map(family => ({ family, outcome: 'allow', status: 200, appDelta: 1 })),
+   },
+ }
  return report
 }
 test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validateEvidence(fixture())))
+for (const [name, mutate] of [
+ ['missing deployment', r => { delete r.deployment }],
+ ['source runtime instead of installed', r => { r.deployment.relocated = false }],
+ ['inherited runtime PATH', r => { r.deployment.runtimePATH = '/usr/bin' }],
+ ['wrong bundle source', r => { r.deployment.source.commit = '0'.repeat(40) }],
+ ['wrong bundle tree', r => { r.deployment.source.tree = '0'.repeat(40) }],
+ ['different running Controller', r => { r.deployment.controllerSHA256 = '0'.repeat(64) }],
+ ['different running Agent', r => { r.deployment.agentSHA256 = '0'.repeat(64) }],
+ ['changed generated config', r => { r.deployment.configPreserved = false }],
+ ['file policy authority', r => { r.deployment.sourceMode = 'file' }],
+ ['failed Controller exit', r => { r.deployment.restart.controllerExit = 1 }],
+ ['failed Agent exit', r => { r.deployment.restart.agentExit = null }],
+ ['surviving old session', r => { r.deployment.restart.oldSessionStatus = 200 }],
+ ['stale pre-restart confirmation', r => { r.deployment.restart.freshStatus = false }],
+ ['unconfirmed restart revision', r => { r.deployment.restart.revision = 99 }],
+ ['wrong fresh status hash', r => { r.deployment.restart.freshPolicyHash = '0'.repeat(64) }],
+ ['renewed Grant state', r => { r.deployment.restart.views.grants.after = '0'.repeat(64) }],
+ ['missing saved audit', r => { delete r.deployment.restart.views.audit }],
+ ['missing restart IPv6', r => { r.deployment.restart.observations.pop() }],
+ ['denied post-restart request', r => { r.deployment.restart.observations[0].status = 403 }],
+ ['private key in deployment', r => { r.deployment.agentToken = 'not-public' }],
+ ['private key in source', r => { r.deployment.source.secret = 'not-public' }],
+ ['private key in restart', r => { r.deployment.restart.secret = 'not-public' }],
+]) test(`installed gate rejects ${name}`, () => { const r = fixture(); mutate(r); assert.throws(() => validateEvidence(r)) })
 for (const [name, mutate] of [
   ['missing case', r => r.cases.pop()],
   ['duplicate case', r => r.cases.push(r.cases[0])],

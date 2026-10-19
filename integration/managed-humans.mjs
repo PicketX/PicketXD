@@ -22,7 +22,7 @@ export function validateManagedHumans(report) {
     assert(!Object.values(identities).includes(account.id), 'independent human identities')
     identities[username] = account.id
     assert.deepEqual(directory.events[i === 0 ? 1 : 0], {
-      ...directory.events[i === 0 ? 1 : 0], actor: 'principal:admin', accountId: account.id,
+      ...directory.events[i === 0 ? 1 : 0], actor: 'principal:bootstrap', accountId: account.id,
       operation: 'create', reason: `Native onboard ${username}`, revision: i + 1,
     })
   }
@@ -44,7 +44,7 @@ export function validateManagedHumans(report) {
     assert.equal(state.events.length, revision)
     assert.deepEqual(state.events.slice(1), previous.events, 'all previous account audit retained')
     const event = state.events[0]
-    assert.equal(event.actor, 'principal:admin'); assert.equal(event.accountId, original.id)
+    assert.equal(event.actor, 'principal:bootstrap'); assert.equal(event.accountId, original.id)
     assert.equal(event.operation, 'update'); assert.equal(event.reason, reason); assert.equal(event.revision, revision)
     previous = state
   }
