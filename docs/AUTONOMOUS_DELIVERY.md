@@ -1,5 +1,45 @@
 # Autonomous delivery checkpoint
 
+## Gitea code acceptance — 2026-10-19T12:14Z
+
+PR21 is the sole active work item; owner codex/gitea-application, heartbeat12:14Z,
+lease until12:45Z or explicit release/merged+verified-green-main. Do not start a
+competing implementation. Local42a35c9db9e46052d21e19a1d8ad2c7c8c6af3da,
+remote293ca7f57c82bcd9afdbddc5571dcc07484b3d08 and actual CI checkout
+235e61484de7d96cc1ab28774faf94939a8cc346 share tree
+ba4ec296dab18f47bd6763b3cec6a971333043e8. Native CI39249604347 unit118049866403 /
+console118049866069 / kernel118049866356 ALL SUCCESS; every required step and raw
+checkout tree checked. Raw190top/482total, no fail/skip/race; Go normal/race/vet/build,
+static/restart/offline-systemd, locked Web install/typecheck/lint/build all pass.
+Native129 Node tests, original31 conjunction cases +7 real Gitea cases,22 actual
+Agent confirmations,112 original kernel cases/91required gates and9systemd pass on
+kernel6.17.0-1022-azure/Go1.27.0. No sample app or mock execution stands for Gitea.
+
+Actual Gitea28.2.0 browser password/private repo, normal CA/SAN TLS, native dual-stack
+Git HTTPS token and SSH key clones with exact OID; anonymous/real outsider rejected,
+wrong host key rejected; independent family/HTTPS/SSH Grants and staged revokes;
+same established HTTPS connection200→403 after revoke, zero upstream hits. Source
+admission is not application identity. Graceful SSH promises only new-flow denial.
+Report confirmations were independently correlated to actual Agent status stream.
+
+Downloaded consoleZIP12184658921 SHA256
+8ee490fa7db42d8a71bbd1ec10cdcf68288b01699f5e8f545d39fe6974bdda89;
+kernelZIP12184459114 SHA256
+9a7e3d62da4688343d976ccc5542a09b73f6853052048d6e8bb4b6ee7baee13d
+match metadata. Actual screenshots inspected, no secrets/private state in archives.
+PicketX mobile375 fits; upstream Gitea's375 full-page image has1118px canvas/extra
+blank area, so no upstream mobile-layout perfection claim. Deferred visual issue.
+
+One independent whole-branch review,2 Important fixed and native verified; optional
+not_before field hardening Minor deferred. All rulings/costs, observed RED→GREEN and
+failed native harness runs: validation/GITEA_APPLICATION_REVIEW.md. This documentation
+head still needs full exact-tree CI, expected-head merge and main verification;
+immutable final IDs and immediate lease release are authoritative in PR21 metadata.
+Then deployment/static release/first-use acceptance, not repeated Gitea scaffolding.
+Overall goal remains active. Core unchanged298863f4e0cb1a72ef18e8abe77f8b8fb28464de.
+中文：真实Gitea双入口完整原生验收已通过；仍须最终文档提交CI、准确head合并及
+主线复核。保留字段加固与上游移动截图留白小项；下一段部署发布，不宣称整体完成。
+
 ## Gitea application acquisition — 2026-10-19T11:45Z
 
 Owner codex/gitea-application; heartbeat12:00Z; lease until12:45Z or explicit release/

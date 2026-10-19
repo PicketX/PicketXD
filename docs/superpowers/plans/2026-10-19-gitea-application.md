@@ -28,22 +28,24 @@ console-evidence.test.mjs, .github/workflows/validation.yml.
 **Interfaces:** consumes existing start(name,binary,args,options), publish(policy,reason),
 confirmed() and api(path); produces runGiteaApplication(options) and
 validateGiteaEvidence(proof, confirmations), stored at report.gitea.
-- [ ] Write literal acceptance and corruption tests; run Node and observe missing gate RED.
-- [ ] Implement real fixture, independent cases and evidence validation; full Node GREEN.
-- [ ] Pin/download/hash actual Gitea and run unchanged complete native CI. Fix observed
+- [x] Write literal acceptance and corruption tests; run Node and observe missing gate RED.
+- [x] Implement real fixture, independent cases and evidence validation; full Node GREEN.
+- [x] Pin/download/hash actual Gitea and run unchanged complete native CI. Fix observed
   failures with characterization tests; never weaken application/authority checks.
-- [ ] Run complete available Go normal/race/vet/build and locked Web checks (native CI
+- [x] Run complete available Go normal/race/vet/build and locked Web checks (native CI
   mandatory when local capability missing); record limitations by name.
-- [ ] Commit logical tested changes.
+- [x] Commit logical tested changes.
 
 ### Task 2: Independent review and integration evidence
 **Files:** docs/validation/GITEA_APPLICATION_REVIEW.md, docs/AUTONOMOUS_DELIVERY.md.
 **Interfaces:** consumes final code, actual CI/source/archive receipts from Task1;
 produces durable acceptance and explicit lease release in final PR metadata.
-- [ ] Fresh most-capable whole-branch review; one Critical/Important TDD fix pass,
+- [x] Fresh most-capable whole-branch review; one Critical/Important TDD fix pass,
   defer Minors. No re-review.
 - [ ] Recheck final tree/head/full CI/raw evidence and downloaded SHA256 artifacts.
 - [ ] Merge exact expected head; recheck merge parents/tree/main full native CI and archives.
 - [ ] Release lease and record remaining deployment/release work. Do not pause automation.
 
 中文：自主按计划内联执行；先失败后通过，再独立全分支评审及准确head合并。
+Final immutable IDs, completed integration gates and immediate lease release are
+authoritative in PR21 metadata; avoid a self-referential acceptance commit.

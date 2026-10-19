@@ -3,9 +3,10 @@
 ## Scope and current gate
 One fresh read-only whole-branch reviewer `gitea_application_review`, gpt-6-astra/high,
 reviewed937b34c..71d20ab including spec/plan/Core contracts. Reviewer independently
-ran Node124/124. No second review or fabricated GitHub approval. Native Gitea
-acceptance is still PENDING; this document does not turn local unit data into packet,
-browser or service-UID proof. Final exact head/tree/CI/archive/main acceptance and
+ran Node124/124. No second review or fabricated GitHub approval. Native Gitea code
+acceptance passed39249604347 at treeba4ec296dab18f47bd6763b3cec6a971333043e8;
+local unit data does not establish packet/browser/service-UID proof. Final
+documentation-head/tree/CI/archive/main acceptance and
 immediate lease release will be recorded in PR21 metadata.
 
 ## Findings and single root fix pass
@@ -25,6 +26,10 @@ immediate lease release will be recorded in PR21 metadata.
 - Minor deferred: optional Grant `not_before` is allowed but its value is not checked.
   Current pinned API emits a timestamp, so no actual secret leak was observed. Future
   timestamp/type/nested-value hardening is deferred; not part of the single fix pass.
+- Visual minor deferred (root inspection): Gitea's375px viewport full-page PNG has an
+  1118px canvas with excess blank area; visible repository content fits the375px
+  region. Do not claim upstream mobile-layout perfection. No Gitea/UI runtime patch
+  is included. PicketX Accounts mobile image is actually375px wide.
 
 ## Rulings made (including declined review boundaries)
 1. Routine design/plan/push/merge approval waits are waived by the explicit autonomous
@@ -84,9 +89,19 @@ actual pinned app bootstrap stops at chown65534 EINVAL in the local UID namespac
 No bypass or native-local success claim. Native unrestricted CI remains mandatory.
 
 ## Remaining
-Complete this exact-head Gitea gate, expected-head merge/main verification, then
+Code acceptance39249604347: all3 jobs/required steps SUCCESS, raw190top/482total
+zero fail/skip/race; Node129; original31 +7 Gitea cases,22 actual confirmations,
+112native/9systemd. Code local42a35c9/remote293ca7f/actualcheckout235e61484de7d96cc1ab28774faf94939a8cc346
+share treeba4ec296dab18f47bd6763b3cec6a971333043e8. Downloaded console12184658921
+SHA2568ee490fa7db42d8a71bbd1ec10cdcf68288b01699f5e8f545d39fe6974bdda89 and
+kernel12184459114 SHA2569a7e3d62da4688343d976ccc5542a09b73f6853052048d6e8bb4b6ee7baee13d
+match metadata; report/status/source/schema/private-state checks pass. Actual
+desktop/mobile screenshots inspected. This proves R2 bootstrap GREEN and complete
+application workflow, not deployment acceptance.
+
+Complete final documentation-head gates, expected-head merge/main verification, then
 deployment/static release and first-use acceptance. Overall goal not yet complete.
 
 中文：一次独立全分支评审发现2项Important：SSH错误分类已4项RED→GREEN修复；
-非root启动路径按真实CI失败修复，仍待完整原生确认。1项not_before字段加固Minor
-延后。部署发布与整体完成不由本段推定，最终准确提交、CI、归档与租约释放见PR21。
+非root启动路径按真实CI失败修复，完整原生CI已确认。not_before字段加固与Gitea移动
+截图留白延后。部署发布与整体完成不由本段推定，最终准确提交、CI、归档与租约释放见PR21。
