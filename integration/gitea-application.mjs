@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Native fixture only. No application/password/SSH proxy in product code.
 import assert from 'node:assert/strict'
-import { readFile, writeFile, mkdir, chmod, chown } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, chmod, chown, copyFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { execFileSync, execFile } from 'node:child_process'
@@ -75,11 +75,15 @@ export function validateGiteaEvidence(p, confirmations) {
 }
 
 export async function runGiteaApplication({ root, core, temp, evidence, chromium, page, publish, confirmed, api, start, children, ingressToken, secrets }) {
-  const dir = join(temp, 'gitea'), binary = join(root, 'artifacts/gitea')
-  const proof = { version: '28.2.0', binarySHA256: createHash('sha256').update(await readFile(binary)).digest('hex'), grants: [], cases: [], applicationAuth: [] }
+  const dir = join(temp, 'gitea'), sourceBinary = join(root, 'artifacts/gitea'), binary = join(dir, 'gitea')
+  const proof = { version: '28.2.0', binarySHA256: createHash('sha256').update(await readFile(sourceBinary)).digest('hex'), grants: [], cases: [], applicationAuth: [] }
   assert.equal(proof.binarySHA256, giteaSHA256)
-  assert.match(execFileSync(binary, ['--version'], { encoding: 'utf8' }), /^gitea version 28\.2\.0(?: |\n)/)
+  assert.match(execFileSync(sourceBinary, ['--version'], { encoding: 'utf8' }), /^gitea version 28\.2\.0(?: |\n)/)
   await mkdir(dir, { mode: 0o750 }); await chmod(temp, 0o711)
+  // The runner workspace may have private parent directories. Deploy only this
+  // verified public binary into the disposable service directory, not chmod HOME.
+  await copyFile(sourceBinary, binary); await chmod(binary, 0o755)
+  assert.equal(createHash('sha256').update(await readFile(binary)).digest('hex'), proof.binarySHA256)
   const pass = randomBytes(32).toString('hex'); secrets.push(pass)
   const run = (bin, args, opts = {}) => execFileSync(bin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts })
   const file = async (name, content, mode = 0o600) => { const path = join(dir, name); await writeFile(path, content, { mode }); return path }
