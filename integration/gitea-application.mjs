@@ -33,6 +33,12 @@ export function classifyGitFailure(message, endpoint = 'ssh') {
   return null
 }
 
+export function classifyConnectionProbe(metrics, exitCode) {
+  // curl num_connects counts successful TCP connections. A TLS or application
+  // timeout after connection is never kernel-admission-denial evidence.
+  return [7, 28].includes(exitCode) && metrics.trim() === '000 0' ? 'transport-deny' : null
+}
+
 export function validateGiteaEvidence(p, confirmations) {
   const only = (value, allowed) => { assert(value && typeof value === 'object'); for (const key of Object.keys(value)) assert(allowed.includes(key), `unexpected evidence field ${key}`) }
   only(p, ['version', 'binarySHA256', 'oid', 'grants', 'cases', 'browser', 'applicationAuth', 'establishedHTTPS4', 'tls', 'ssh', 'healthyControls'])
@@ -166,7 +172,7 @@ export async function runGiteaApplication({ root, core, temp, evidence, chromium
   const git = async (family, endpoint, { user = 'owner', anonymous = false, knownHosts = known, clone = false } = {}) => {
     const ip = family === 4 ? '127.0.0.1' : '[::1]'
     const url = endpoint === 'https' ? `https://${ip}:19445/owner/private.git` : `ssh://nobody@${ip}:19222/owner/private.git`
-    const args = ['-c', 'credential.helper=', '-c', 'http.sslVerify=true', '-c', `http.sslCAInfo=${dir}/ca.pem`, '-c', `http.extraHeader=Host: ${authority}`, '-c', 'http.connectTimeout=2', '-c', 'http.lowSpeedLimit=1', '-c', 'http.lowSpeedTime=3', ...(clone ? ['clone', '--quiet', url, join(dir, `clone-${endpoint}-${family}`)] : ['ls-remote', url, 'refs/heads/main'])]
+    const args = ['-c', 'credential.helper=', '-c', 'http.sslVerify=true', '-c', `http.sslCAInfo=${dir}/ca.pem`, '-c', `http.extraHeader=Host: ${authority}`, '-c', 'http.lowSpeedLimit=1', '-c', 'http.lowSpeedTime=3', ...(clone ? ['clone', '--quiet', url, join(dir, `clone-${endpoint}-${family}`)] : ['ls-remote', url, 'refs/heads/main'])]
     const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: askpass, GITEA_GIT_USER: anonymous ? '' : user, GITEA_GIT_TOKEN: anonymous ? '' : user === 'owner' ? token : pass,
       GIT_SSH_COMMAND: `ssh -F /dev/null -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHosts} -o ConnectTimeout=2 -i ${keys[user]}` }
     try {
@@ -182,10 +188,24 @@ export async function runGiteaApplication({ root, core, temp, evidence, chromium
     }
   }
   const dead = new Set(['4-https', '4-ssh', '6-https', '6-ssh'])
+  async function deniedHTTPS(family) {
+    const ip = family === 4 ? '127.0.0.1' : '[::1]'
+    try {
+      await command('curl', ['--silent', '--show-error', '--noproxy', '*', '--connect-timeout', '2', '--max-time', '3', '--cacert', join(dir, 'ca.pem'), '--header', `Host: ${authority}`, '--output', '/dev/null', '--write-out', '%{http_code} %{num_connects}', `https://${ip}:19445/api/v1/version`], { timeout: 4500 })
+      throw Error('protected HTTPS unexpectedly connected')
+    } catch (error) {
+      const outcome = classifyConnectionProbe(String(error.stdout ?? ''), error.code)
+      if (!outcome) throw error
+      return { outcome }
+    }
+  }
   async function scenario(name) {
     await health(); const observations = []
     for (const family of [4, 6]) for (const endpoint of ['https', 'ssh']) {
-      const { outcome } = await git(family, endpoint)
+      // Git exposes no connect-timeout setting. Use curl's actual successful-
+      // connection count for bounded HTTPS transport-negative probes; all admitted
+      // repo reads, clones and application-auth denials still use actual native Git.
+      const { outcome } = endpoint === 'https' && dead.has(`${family}-${endpoint}`) ? await deniedHTTPS(family) : await git(family, endpoint)
       assert.equal(outcome, dead.has(`${family}-${endpoint}`) ? 'transport-deny' : 'allow', `${name} ${family}/${endpoint}`)
       observations.push({ family, endpoint, outcome })
     }

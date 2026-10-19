@@ -41,6 +41,14 @@ test('specific pinned Gitea read-permission rejection identifies application iso
   assert.equal(module.classifyGitFailure('error: Cannot find repository owner/private\nfatal: Could not read from remote repository.', 'ssh'), 'app-deny')
   assert.equal(module.classifyGitFailure('Authentication failed.\nfatal: Could not read from remote repository.', 'ssh'), null)
 })
+test('only a failed connection, not stalled TLS or an HTTP denial, proves transport denial', () => {
+  assert.equal(typeof module.classifyConnectionProbe, 'function')
+  assert.equal(module.classifyConnectionProbe('000 0', 28), 'transport-deny')
+  assert.equal(module.classifyConnectionProbe('000 0', 7), 'transport-deny')
+  assert.equal(module.classifyConnectionProbe('000 1', 28), null)
+  assert.equal(module.classifyConnectionProbe('403 1', 0), null)
+  assert.equal(module.classifyConnectionProbe('000 0', 60), null)
+})
 test('required complete Gitea proof is accepted', () => validate(giteaFixture(), confirmations))
 for (const [name, change] of [
   ['missing workflow', p => delete p.cases], ['missing family', p => p.applicationAuth.pop()],
