@@ -9,7 +9,7 @@ existing worktree; expected-head remote writes; no production or license changes
 - AGENTS.md, docs/AUTONOMOUS_DELIVERY.md: boundaries and handoff.
 - internal/hostagent/remote_process_integration_test.go: actual Core/Agent precedent.
 - internal/hostagent/process_integration_test.go: local scope and probe precedent.
-- internal/hostagent/service.go: desired/applied generation/hash status contract.
+- internal/hostagent/run_linux.go: desired/applied generation/hash status contract.
 - scripts/test-kernel.sh, .github/workflows/validation.yml: mandatory native gates.
 - Core apps/web/e2e/console.mjs, ingress.mjs: real session/Grant UI and ingress trust.
 - Core examples/http/nginx.conf.template: trusted auth_request header construction.

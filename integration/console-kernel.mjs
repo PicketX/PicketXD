@@ -90,7 +90,7 @@ async function scenario(name, options = {}) {
     assert.equal(o.status, outcome === 'allow' ? 200 : outcome === 'http-deny' ? 403 : null, name)
     assert.equal(o.appDelta, outcome === 'allow' ? 1 : 0, name)
   }
-  report.cases.push({ name, status: 'pass', observations }); console.log(`PASS ${name}`)
+  report.cases.push({ name, revision: report.confirmations.at(-1).revision, status: 'pass', observations }); console.log(`PASS ${name}`)
 }
 const basePolicy = `apiVersion: picketx.io/v1alpha1
 kind: Resource
@@ -174,6 +174,9 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   agent.stdout.on('data', chunk => { buffer += chunk; let i; while ((i = buffer.indexOf('\n')) >= 0) { const line = buffer.slice(0, i); buffer = buffer.slice(i + 1); if (line) status.push(JSON.parse(line)) } })
   await confirmed(); await scenario('baseline')
   await page.getByRole('button', { name: 'Grants', exact: true }).click()
+  // Grants remains mounted across tabs and deliberately does not silently rebase
+  // its draft after another editor publishes a different Resource catalog.
+  await page.getByRole('button', { name: 'Use latest Grant revision', exact: true }).click()
   async function issue(name, source) {
     await page.getByLabel('Grant name', { exact: true }).fill(name)
     await page.getByLabel('Source IP or CIDR', { exact: true }).fill(source)
@@ -202,10 +205,13 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   await scenario('forged', { path: '/denied', headers: { 'X-PicketX-URI': '/allowed', 'X-PicketX-Host': host, 'X-PicketX-Source': '127.0.0.1', 'X-Forwarded-For': '127.0.0.1' }, persistent: true })
   // Actual browser navigation reaches the application through both enforcement layers.
   const appPage = await browser.newPage()
+  const beforeBrowser = appHits
   const reached = await appPage.goto('http://protected.example:18445/allowed', { timeout: 3000 })
   assert.equal(reached.status(), 200)
   assert.equal(await appPage.locator('body').textContent(), 'protected real HTTP application')
   await appPage.screenshot({ path: join(evidence, 'application.png'), fullPage: true })
+  assert.equal(appHits - beforeBrowser, 1)
+  report.cases.push({ name: 'browser', revision: report.confirmations.at(-1).revision, status: 'pass', observations: [{ family: 4, outcome: 'allow', status: reached.status(), appDelta: appHits - beforeBrowser }] })
   await appPage.close()
   const overlap = await issue('browser-overlap', '127.0.0.1')
   await revoke(four); await scenario('overlap')
@@ -214,11 +220,13 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   await page.screenshot({ path: join(evidence, 'grants-desktop.png'), fullPage: true })
   const expiry = Date.now() + 12000
   let bounded = basePolicy
-  for (const [family, source] of [[4, '127.0.0.1/32'], [6, '::1/128']]) bounded += `---\napiVersion: picketx.io/v1alpha1\nkind: Grant\nmetadata: {name: deadline-${family}, uid: deadline-${family}-v1}\nspec:\n  subject: {type: source, cidr: '${source}'}\n  scopes: [{resourceRef: {name: demo, uid: resource-demo-v1}, endpointNames: [web]}]\n  validity: {mode: bounded, expiresAt: '${new Date(expiry).toISOString()}'}\n`
+  for (const [family, source] of [[4, '127.0.0.1/32'], [6, '::1/128']]) bounded += `---\napiVersion: picketx.io/v1alpha1\nkind: Grant\nmetadata: {name: deadline-${family}, uid: deadline-${family}-v1}\nspec:\n  subject: {type: source, cidr: '${source}'}\n  scopes: [{resourceRef: {name: demo, uid: resource-demo-v1}, endpointNames: [web]}]\n  validity: {mode: bounded, expiresAt: '${new Date(expiry + (family === 6 ? 8000 : 0)).toISOString()}'}\n`
   await publish(bounded, 'Combined absolute deadline'); await confirmed()
   for (const entry of keep.values()) { entry.agent.destroy(); entry.agent = new http.Agent({ keepAlive: true, maxSockets: 1 }); entry.socket = null }
   await scenario('expiring', { persistent: true })
   await pause(Math.max(0, expiry + 250 - Date.now()))
+  await scenario('expired4')
+  await pause(Math.max(0, expiry + 8250 - Date.now()))
   await scenario('expired'); await scenario('establishedExpired', { persistent: true })
   await scenario('unmanaged', { port: 18448 })
   await page.getByRole('button', { name: 'Nodes', exact: true }).click()

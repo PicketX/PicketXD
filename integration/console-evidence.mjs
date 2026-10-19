@@ -10,10 +10,11 @@ export const requiredCases = {
   sibling: both('transport-deny'),
   path: both('http-deny'), method: both('http-deny'), host: both('http-deny'),
   forged: both('http-deny'), overlap: both('allow'),
+  browser: [[4, 'allow']],
   revoke4: [[4, 'transport-deny'], [6, 'allow']],
   establishedRevoke4: [[4, 'http-deny']],
   revoke6: both('transport-deny'),
-  expiring: both('allow'), expired: both('transport-deny'),
+  expiring: both('allow'), expired4: [[4, 'transport-deny'], [6, 'allow']], expired: both('transport-deny'),
   establishedExpired: both('http-deny'), unmanaged: both('allow'),
 }
 export function validateEvidence(report) {
@@ -35,6 +36,7 @@ export function validateEvidence(report) {
     assert(!names.has(c.name), 'duplicate case'); names.add(c.name)
     const expected = requiredCases[c.name]; assert(expected, 'unknown case')
     assert.equal(c.status, 'pass', c.name)
+    assert(report.confirmations.some(x => x.revision === c.revision), 'case requires matching actual enforcement confirmation')
     assert.equal(c.observations.length, expected.length, c.name)
     c.observations.forEach((o, i) => {
       const [family, outcome] = expected[i]
