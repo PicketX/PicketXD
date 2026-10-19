@@ -2,7 +2,7 @@
 
 ## Gitea application acquisition — 2026-10-19T11:45Z
 
-Owner codex/gitea-application; heartbeat11:45Z; lease until12:45Z or explicit release/
+Owner codex/gitea-application; heartbeat11:52Z; lease until12:45Z or explicit release/
 merged+verified-green-main. Latest Core298863f/tree437041c/mainCI39240788047 and
 Agent937b34c/treec5a3d5e/mainCI39234459599 green; no open PRs. PR34/20 final metadata
 explicitly released old leases. Local clean old branches retained; existing linked
@@ -14,6 +14,16 @@ runtime currently has no Go/nginx; CI supplies required full build/kernel execut
 not a fabricated local pass. No product completion or release claim. Deployment
 acceptance remains next. Final immutable IDs, full evidence and release go in this PR.
 中文：接续真实Gitea浏览器与Git双入口验收；既有人员审批和内核验收已交付，不重做。
+
+PR21 first native39247177382 unit118041819704 passes full Go/race/vet/build/static.
+Console118041819307 preserves the existing human workflow then RED on actual lowercase
+`gitea version28.2.0` output versus fixture uppercase assumption. Corrected the exact
+version assertion; no hash/version/authority bypass. Node124/124 after additional
+observed SSH host-key classification RED→GREEN and secret-field/failure-redaction
+RED→GREEN. Full new Gitea/native acceptance and independent review remain pending.
+Local Go1.27.0 was subsequently downloaded and published SHA256 verified; local full
+normal/race have known5 Unixgram EPERM failures, vet/build pass. Locked npm ci/
+typecheck/lint/build passed. Native unrestricted tests remain mandatory.
 
 ## Managed DB human conjunction acquisition — 2026-10-19T09:43Z
 

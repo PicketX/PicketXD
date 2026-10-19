@@ -78,7 +78,7 @@ export async function runGiteaApplication({ root, core, temp, evidence, chromium
   const dir = join(temp, 'gitea'), binary = join(root, 'artifacts/gitea')
   const proof = { version: '28.2.0', binarySHA256: createHash('sha256').update(await readFile(binary)).digest('hex'), grants: [], cases: [], applicationAuth: [] }
   assert.equal(proof.binarySHA256, giteaSHA256)
-  assert.match(execFileSync(binary, ['--version'], { encoding: 'utf8' }), /Gitea version 28\.2\.0/)
+  assert.match(execFileSync(binary, ['--version'], { encoding: 'utf8' }), /^gitea version 28\.2\.0(?: |\n)/)
   await mkdir(dir, { mode: 0o750 }); await chmod(temp, 0o711)
   const pass = randomBytes(32).toString('hex'); secrets.push(pass)
   const run = (bin, args, opts = {}) => execFileSync(bin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts })
