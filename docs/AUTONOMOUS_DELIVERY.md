@@ -1,5 +1,21 @@
 # Autonomous delivery checkpoint
 
+## Agent distribution acquisition — 2026-10-19T16:40Z
+
+PR22 mainc02ab96/tree73d8b4b accepted: main39277801731 all3jobs/every step SUCCESS,
+fresh raw Go190/482 nofail/skip/race, Node175/lockedWeb,31+7/23actual/112kernel/91required/
+9systemd;3actualZIP hashes/source/staticELF/raw restart receipt reverified. Final
+immutable full receipt and immediate RELEASE in PR22; old status timeout resolved.
+Core93024b2/tree64ed0dc/main39265034648 green; no open PR or active lease in either.
+Owner codex/agent-distribution heartbeat16:40Z, short lease17:35Z or explicit release/
+merged+verified-green-main. New branch from fetched exact main in clean host-owned
+linked worktree, old branches preserved. Spec/plan superpowers/{specs,plans}/
+2026-10-20-agent-distribution.md: source-backed static Agent bundle, official vendor,
+upstream notices, actual offline rebuild and shipped binary in existing native gate.
+No kernel/API/UI/runtime policy change. Node baseline175; full local Go only inherited
+5 TestNotifyEmitter* Unixgram EPERM failures; full native mandatory. No legal-clearance,
+bit-identical rebuild/host-boot/backup-restore claim. Overall goal still active.
+
 ## Installed Controller code acceptance — 2026-10-19T15:16Z
 
 PR22 owner codex/installed-controller-conjunction; heartbeat15:16Z, lease15:45Z

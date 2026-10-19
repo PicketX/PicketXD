@@ -2,6 +2,18 @@
 
 完整历史原始证据见[英文检查点](AUTONOMOUS_DELIVERY.md)及相应PR最终元数据。
 
+## Agent安装包获取 — 2026-10-19T16:40Z
+
+PR22 mainc02ab96/tree73d8b4b完整验收通过，CI39277801731三任务/全部步骤成功；
+新取原始日志190/482 Go、Node175/Web、31+7/23确认/112内核/91必需/9systemd、
+实际ZIP摘要/源码/静态ELF/重启回执均已复核；最终回执及立即释放见PR22，超时已恢复。
+Core93024b2/main39265034648成功，两仓库无开放PR/活跃租约。新负责人
+codex/agent-distribution心跳16:40Z，短租约17:35Z或明确释放/合并且main完整成功。
+从准确main在既有干净隔离工作区创建新分支，保留旧分支。设计/计划
+superpowers/{specs,plans}/2026-10-20-agent-distribution.md：携带源码/依赖/许可的
+静态Agent包、真实离线重建、安装包二进制参与既有原生验收。不改内核/API/UI/策略。
+Node基线175；完整本地Go仅5项既有Unixgram EPERM，仍须全量原生CI。不冒充法律
+合规认证、逐字节可重现、宿主开机或备份恢复；整体目标尚未完成。
 ## 安装版 Controller 代码验收 — 2026-10-19T15:16Z
 
 PR22负责人codex/installed-controller-conjunction，心跳15:16Z，租约15:45Z或明确
