@@ -70,6 +70,17 @@ jobs:
             artifacts/installed-controller.tar.gz
             artifacts/installed-controller.tar.gz.sha256
           if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: installed-agent-bundle
+          path: |
+            artifacts/agent-distribution/installed-agent.tar.gz
+            artifacts/agent-distribution/installed-agent.tar.gz.sha256
+            artifacts/agent-distribution/proof.json
+            artifacts/agent-distribution/agent-build.txt
+            artifacts/agent-distribution/rebuilt-build.txt
+            artifacts/agent-distribution/offline-go.log
+          if-no-files-found: error
   unit:
     runs-on: ubuntu-24.04
     steps:

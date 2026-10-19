@@ -145,6 +145,7 @@ try {
   const agentBinary = join(temp, 'installed-picketxd')
   await copyFile(join(root, 'artifacts/picketxd-console'), agentBinary); await chmod(agentBinary, 0o755)
   report.agentBinarySHA256 = hash(await readFile(agentBinary))
+  report.agentDistribution = JSON.parse(await readFile(join(root, 'artifacts/agent-distribution/proof.json'), 'utf8'))
   validateAgentDistributionEvidence(report.agentDistribution, report)
   assert.equal(report.agentBinarySHA256, hash(await readFile(join(root, 'artifacts/picketxd-console'))))
   report.controllerBinarySHA256 = installed.proof.controllerSHA256
