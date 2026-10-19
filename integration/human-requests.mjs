@@ -3,6 +3,12 @@
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 
+export function assertDeadline(actual, expected) {
+  const observed = Date.parse(actual), wanted = Date.parse(expected)
+  assert(Number.isFinite(observed) && Number.isFinite(wanted), 'valid absolute deadlines required')
+  assert.equal(observed, wanted, 'the absolute instant must not change')
+}
+
 export async function runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, appHits }) {
   const contexts = await Promise.all([browser.newContext(), browser.newContext()])
   const [requester, approver] = await Promise.all(contexts.map(c => c.newPage()))
@@ -59,20 +65,20 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
       await row(approver, input.reason).getByText('Approved', { exact: true }).waitFor()
       const accepted = await read(input.reason)
       assert.equal(accepted.expires_at, input.original.expires_at, 'original deadline immutable')
-      assert.equal(accepted.approved_expires_at, expiry)
+      assertDeadline(accepted.approved_expires_at, expiry)
       assert.equal(accepted.approver, 'principal:approver')
       assert.deepEqual(accepted.approved_endpoints, ['web'])
       assert.equal(await confirmed(), accepted.revision, 'exact approved revision applied')
       const grant = (await api('grants?limit=100')).grants.find(g => g.uid === accepted.grant_uid)
       assert(grant, 'approved Grant persisted')
       assert.equal(grant.source, accepted.source)
-      assert.equal(grant.expires_at, expiry)
+      assertDeadline(grant.expires_at, expiry)
       assert.deepEqual(grant.scopes[0].endpoint_names, ['web'])
       const audit = (await api('audit?limit=100')).events.find(e => e.actor === accepted.approver && e.reason.includes(accepted.uid))
       assert(audit, 'independent human audit persisted')
       report.humanRequests.push({ family: input.family, uid: accepted.uid, requester: accepted.requester, approver: accepted.approver,
         source: accepted.source, requestedEndpoints: accepted.endpoint_names, approvedEndpoints: accepted.approved_endpoints,
-        requestedExpiry: accepted.expires_at, approvedExpiry: expiry, grantUID: grant.uid, grantSource: grant.source,
+        requestedExpiry: accepted.expires_at, approvedExpiry: accepted.approved_expires_at, grantUID: grant.uid, grantSource: grant.source,
         grantEndpoints: grant.scopes[0].endpoint_names, grantExpiry: grant.expires_at, revision: accepted.revision,
         auditActor: audit.actor, auditReason: audit.reason })
       return accepted
