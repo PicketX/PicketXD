@@ -4,6 +4,13 @@ import assert from 'node:assert/strict'
 import { validateEvidence, requiredCases, coreCommit } from './console-evidence.mjs'
 
 // Unit data only; never emitted as native acceptance evidence.
+const nativeFixture = () => {
+ const statuses = Array.from({ length: 12 }, (_, i) => ({ at: `2026-10-19T14:00:${String(i).padStart(2, '0')}Z`,
+   enforcementConfirmed: true, desired: { generation: 2, policyHash: 'e'.repeat(64) },
+   appliedGeneration: 2, appliedPolicyHash: 'e'.repeat(64) }))
+ return { statuses, restartedStatuses: structuredClone(statuses.slice(10)) }
+}
+const validate = (r, evidence = nativeFixture()) => validateEvidence(r, evidence)
 const fixture = () => {
  const report = {
   coreCommit, agentCommit: 'a'.repeat(40), agentTree: 'b'.repeat(40),
@@ -64,11 +71,30 @@ const fixture = () => {
      freshStatus: true, statusOffset: 10, freshStatusIndex: 10, freshGeneration: 2, freshPolicyHash: 'e'.repeat(64),
      views: Object.fromEntries(['publication', 'accounts', 'grants', 'audit'].map(k => [k, { before: 'b'.repeat(64), after: 'b'.repeat(64) }])),
      observations: [4, 6].map(family => ({ family, outcome: 'allow', status: 200, appDelta: 1 })),
+     controllerReceipt: { authority: 'controller:' + '1'.repeat(32), agentRef: 'node', desiredRevision: 2,
+       desiredSHA256: '9'.repeat(64), connection: 'connected', freshness: 'fresh', matchesDesired: true,
+       reportRevision: 2, reportSHA256: '9'.repeat(64), phase: 'APPLIED' },
    },
  }
  return report
 }
-test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validateEvidence(fixture())))
+test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validate(fixture())))
+for (const [name, mutate] of [
+ ['missing raw evidence', (r, e) => { delete e.statuses }],
+ ['truncated raw history', (r, e) => { e.statuses.length = 10 }],
+ ['nonexistent fresh index', r => { r.deployment.restart.statusOffset = r.deployment.restart.freshStatusIndex = Number.MAX_SAFE_INTEGER }],
+ ['missing restarted raw log', (r, e) => { delete e.restartedStatuses }],
+ ['different restarted process boundary', (r, e) => { e.restartedStatuses.shift() }],
+ ['stale selected raw row', (r, e) => { e.statuses[10].enforcementConfirmed = e.restartedStatuses[0].enforcementConfirmed = false }],
+ ['wrong selected raw hash', (r, e) => { e.statuses[10].appliedPolicyHash = e.restartedStatuses[0].appliedPolicyHash = '0'.repeat(64) }],
+ ['missing Controller receipt', r => { delete r.deployment.restart.controllerReceipt }],
+ ['disconnected Controller stream', r => { r.deployment.restart.controllerReceipt.connection = 'disconnected' }],
+ ['stale Controller report', r => { r.deployment.restart.controllerReceipt.freshness = 'stale' }],
+ ['wrong Controller snapshot hash', r => { r.deployment.restart.controllerReceipt.reportSHA256 = '0'.repeat(64) }],
+ ['Controller old revision', r => { r.deployment.restart.controllerReceipt.reportRevision = 1 }],
+ ['Controller report not applied', r => { r.deployment.restart.controllerReceipt.phase = 'RECEIVED' }],
+ ['Controller private extra field', r => { r.deployment.restart.controllerReceipt.token = 'not-public' }],
+]) test(`raw restart gate rejects ${name}`, () => { const r = fixture(), evidence = nativeFixture(); mutate(r, evidence); assert.throws(() => validate(r, evidence)) })
 for (const [name, mutate] of [
  ['missing deployment', r => { delete r.deployment }],
  ['source runtime instead of installed', r => { r.deployment.relocated = false }],
@@ -93,7 +119,7 @@ for (const [name, mutate] of [
  ['private key in deployment', r => { r.deployment.agentToken = 'not-public' }],
  ['private key in source', r => { r.deployment.source.secret = 'not-public' }],
  ['private key in restart', r => { r.deployment.restart.secret = 'not-public' }],
-]) test(`installed gate rejects ${name}`, () => { const r = fixture(); mutate(r); assert.throws(() => validateEvidence(r)) })
+]) test(`installed gate rejects ${name}`, () => { const r = fixture(); mutate(r); assert.throws(() => validate(r)) })
 for (const [name, mutate] of [
   ['missing case', r => r.cases.pop()],
   ['duplicate case', r => r.cases.push(r.cases[0])],
@@ -181,6 +207,6 @@ for (const [name, mutate] of [
   ['wrong raw Grant UID', r => { r.humanRequests[0].grant.uid = 'another-grant' }],
   ['wrong audit revision', r => { r.humanRequests[0].auditRevision = 4 }],
   ['unrelated audit operation containing UID', r => { r.humanRequests[0].auditReason = 'reject unrelated note request-4' }],
-]) test(`reject ${name}`, () => { const r = fixture(); mutate(r); assert.throws(() => validateEvidence(r)) })
+]) test(`reject ${name}`, () => { const r = fixture(); mutate(r); assert.throws(() => validate(r)) })
 test('require independently expiring IPv4 while IPv6 remains allowed', () => assert.deepEqual(requiredCases.expired4, [[4, 'transport-deny'], [6, 'allow']]))
 test('require actual browser application acceptance', () => assert.deepEqual(requiredCases.browser, [[4, 'allow']]))

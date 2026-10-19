@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import * as installed from './controller-install.mjs'
 import * as gate from './console-evidence.mjs'
 
 // Filesystem unit data only, never executed or emitted as native artifact proof.
@@ -41,4 +42,33 @@ for (const [name, change] of [
 ]) test(`installed artifact refuses ${name}`, async () => {
   assert.equal(typeof gate.verifyControllerBundle, 'function')
   await fixture(async (dir, m) => { await change(dir, m); await assert.rejects(() => gate.verifyControllerBundle(dir)) })
+})
+
+test('restart comparison ignores only fresh read timestamps, preserving full business state', () => {
+  assert.equal(typeof installed.businessViewDigest, 'function', 'business-view comparison required')
+  const grants = { authority: 'controller:unit', revision: 4, observed_at: '2026-10-19T14:00:00Z',
+    grants: [{ uid: 'grant4', expires_at: '2026-10-19T15:00:00Z', revoked: false, scopes: [{ endpoint_names: ['web'] }] }],
+    resources: [{ uid: 'resource1', endpoints: [{ name: 'web', port: 18445 }] }], has_more: false, next_after: 'grant4' }
+  const accounts = { mode: 'database', revision: 2, observedAt: '2026-10-19T14:00:00Z',
+    accounts: [{ id: 'person', roles: ['role:admin'], version: 1, disabled: false }],
+    events: [{ at: '2026-10-19T13:00:00Z', actor: 'principal:bootstrap', operation: 'create' }] }
+  for (const [name, view, field] of [['grants', grants, 'observed_at'], ['accounts', accounts, 'observedAt']]) {
+    const original = structuredClone(view), later = { ...view, [field]: '2026-10-19T14:01:00Z' }
+    assert.equal(installed.businessViewDigest(name, later), installed.businessViewDigest(name, view))
+    assert.deepEqual(view, original, 'comparison must not mutate actual API evidence')
+  }
+  for (const change of [g => { g.grants[0].expires_at = '2026-10-19T15:01:00Z' },
+    g => { g.grants[0].revoked = true }, g => { g.grants[0].scopes[0].endpoint_names.push('ssh') },
+    g => { g.resources[0].endpoints[0].port = 22 }, g => { g.revision++ }]) {
+    const changed = structuredClone(grants); change(changed)
+    assert.notEqual(installed.businessViewDigest('grants', changed), installed.businessViewDigest('grants', grants))
+  }
+  for (const change of [a => { a.accounts[0].disabled = true }, a => { a.accounts[0].roles = [] },
+    a => { a.events[0].at = '2026-10-19T13:01:00Z' }, a => { a.revision++ }]) {
+    const changed = structuredClone(accounts); change(changed)
+    assert.notEqual(installed.businessViewDigest('accounts', changed), installed.businessViewDigest('accounts', accounts))
+  }
+  for (const name of ['publication', 'audit']) {
+    assert.notEqual(installed.businessViewDigest(name, { observed_at: 'before' }), installed.businessViewDigest(name, { observed_at: 'after' }))
+  }
 })

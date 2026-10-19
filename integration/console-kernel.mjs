@@ -14,7 +14,7 @@ import { runHumanRequests } from './human-requests.mjs'
 import { provisionManagedHumans } from './managed-humans.mjs'
 import { assertServicesAlive } from './process-health.mjs'
 import { runGiteaApplication, validateGiteaEvidence, redactFixtureFailure } from './gitea-application.mjs'
-import { initializeInstalledController, digest } from './controller-install.mjs'
+import { initializeInstalledController, businessViewDigest, parseEnforceStatusLog } from './controller-install.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -29,7 +29,7 @@ const applicationSecrets = []
 const runtimeEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('PICKETX_')))
 const report = { coreCommit, agentCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), agentTree: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim(), kernel: release(), confirmations: [], cases: [] }
 const children = [], servers = [], keep = new Map(), status = [], logs = new Map()
-let browser, appHits = 0, healthy = false
+let browser, appHits = 0, healthy = false, latestControllerReceipt
 const origin = 'http://127.0.0.1:18080', host = 'protected.example:18445'
 const pause = ms => new Promise(r => setTimeout(r, ms))
 const privateFile = (name, body) => writeFile(join(temp, name), body, { mode: 0o600 })
@@ -59,7 +59,12 @@ async function confirmed(statusOffset = 0) {
   await until(async () => {
     const observations = await api('agent-observations')
     const node = observations.nodes.find(n => n.agent_ref === 'node')
-    return node?.report?.phase === 'APPLIED' && Number(node.report.revision) === revision && node.report.sha256 === node.desired_sha256
+    if (node?.report?.phase !== 'APPLIED' || Number(node.report.revision) !== revision || node.report.sha256 !== node.desired_sha256 || node.connection !== 'connected' || node.freshness !== 'fresh' || !node.matches_desired) return false
+    latestControllerReceipt = { authority: observations.authority, agentRef: node.agent_ref,
+      desiredRevision: Number(node.desired_revision), desiredSHA256: node.desired_sha256,
+      connection: node.connection, freshness: node.freshness, matchesDesired: node.matches_desired,
+      reportRevision: Number(node.report.revision), reportSHA256: node.report.sha256, phase: node.report.phase }
+    return true
   }, `Controller receiving actual Agent report ${revision}`)
   return revision
 }
@@ -226,11 +231,11 @@ try {
   const six = await issue('browser-six', '::1'); await scenario('grant6', { persistent: true })
   // Restart both real deployed processes with active grants, never reinitialize.
   const paths = { publication: 'publication', accounts: 'accounts', grants: 'grants?limit=100', audit: 'audit?limit=100' }
-  const views = async () => Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([k, path]) => [k, digest(JSON.stringify(await api(path)))])))
+  const views = async () => Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([k, path]) => [k, businessViewDigest(k, await api(path))])))
   const beforeViews = await views(), revision = (await api('publication')).revision
   const cookie = (await page.context().cookies()).map(c => `${c.name}=${c.value}`).join('; ')
   async function stopDeployed(child) {
-    const exited = once(child, 'exit'); child.kill('SIGTERM')
+    const exited = once(child, 'close'); child.kill('SIGTERM')
     const timer = setTimeout(() => child.kill('SIGKILL'), 5000)
     const [code, signal] = await exited; clearTimeout(timer)
     assert.equal(code, 0, 'clean deployed process exit'); assert.equal(signal, null)
@@ -258,7 +263,8 @@ try {
   report.deployment.configPreserved = true
   report.deployment.restart = { revision, controllerExit, agentExit, oldSessionStatus,
     freshStatus: Boolean(fresh), statusOffset, freshStatusIndex, freshGeneration: fresh.appliedGeneration, freshPolicyHash: fresh.appliedPolicyHash,
-    views: Object.fromEntries(Object.keys(paths).map(k => [k, { before: beforeViews[k], after: afterViews[k] }])), observations }
+    views: Object.fromEntries(Object.keys(paths).map(k => [k, { before: beforeViews[k], after: afterViews[k] }])),
+    observations, controllerReceipt: latestControllerReceipt }
   await page.context().clearCookies(); await page.goto(origin + '/console/')
   await page.getByLabel('Access key', { exact: true }).fill(adminToken)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
@@ -312,7 +318,7 @@ try {
   const audit = await api('audit?limit=100')
   for (const reason of ['Combined native baseline', 'Combined native browser-four', 'Combined native browser-six', 'Combined absolute deadline']) assert(audit.events.some(e => e.reason === reason && e.actor === 'principal:bootstrap'))
   assert.deepEqual(pageErrors, [])
-  validateEvidence(report)
+  validateEvidence(report, { statuses: status, restartedStatuses: parseEnforceStatusLog(logs.get('agent-restarted')) })
   report.result = 'pass'
   console.log(`PASS combined native evidence: ${report.cases.length} cases, ${report.confirmations.length} actual Agent confirmations`)
 } catch (error) {
@@ -322,7 +328,7 @@ try {
   for (const entry of keep.values()) entry.agent.destroy()
   for (const child of children.reverse()) {
     if (child.exitCode === null && child.signalCode === null) {
-      const exited = once(child, 'exit'); child.kill('SIGTERM')
+      const exited = once(child, 'close'); child.kill('SIGTERM')
       const timer = setTimeout(() => child.kill('SIGKILL'), 3000)
       await exited; clearTimeout(timer)
     }

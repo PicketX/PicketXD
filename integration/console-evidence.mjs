@@ -51,8 +51,8 @@ export function validateHumanApproval(r, identities) {
   assert.equal(r.auditRevision, r.revision)
   assert.equal(r.auditReason, `approve ${r.uid}: ${r.decisionReason}`)
 }
-export function validateEvidence(report) {
-  validateInstalledEvidence(report.deployment, report)
+export function validateEvidence(report, nativeEvidence) {
+  validateInstalledEvidence(report.deployment, report, nativeEvidence)
   assert.equal(report.coreCommit, coreCommit, 'pinned Core source')
   const identities = validateManagedHumans(report)
   for (const name of ['agentCommit', 'agentTree']) assert.match(report[name] ?? '', /^[a-f0-9]{40}$/, name)

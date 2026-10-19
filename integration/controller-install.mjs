@@ -9,6 +9,23 @@ import { execFileSync } from 'node:child_process'
 export const coreCommit = '93024b229c072ce1db8512323c3d7fa35e3df74e'
 export const coreTree = '64ed0dcc4b6a3232e093150d7fc100cc9a852e43'
 export const digest = value => createHash('sha256').update(value).digest('hex')
+// Read-observation clocks are not persisted business state. All other fields,
+// including audit event timestamps and independent absolute Grant deadlines, stay.
+export function businessViewDigest(name, view) {
+  assert(['publication', 'accounts', 'grants', 'audit'].includes(name))
+  const document = structuredClone(view)
+  const clock = { accounts: 'observedAt', grants: 'observed_at' }[name]
+  if (clock) {
+    assert(typeof document[clock] === 'string' && Number.isFinite(Date.parse(document[clock])), 'actual read observation clock')
+    delete document[clock]
+  }
+  return digest(JSON.stringify(document))
+}
+
+export function parseEnforceStatusLog(log) {
+  return log.split('\n').filter(line => line.trim()).map(line => JSON.parse(line))
+    .filter(event => event && typeof event === 'object' && Object.hasOwn(event, 'desired'))
+}
 const hashPattern = /^[a-f0-9]{64}$/
 function keys(value, expected) {
   assert(value && typeof value === 'object' && !Array.isArray(value), 'required public object')
@@ -91,7 +108,7 @@ export async function initializeInstalledController(bundle, temp) {
     controllerBinary: join(deployed, 'bin/picketx-controller') }
 }
 
-export function validateInstalledEvidence(d, report) {
+export function validateInstalledEvidence(d, report, evidence) {
   keys(d, ['source', 'manifestSHA256', 'cliSHA256', 'controllerSHA256', 'agentSHA256', 'runtimePATH', 'relocated',
     'initialized', 'configPreserved', 'credentialsPrivate', 'authority', 'sourceMode', 'usersMode', 'ingressRoutes', 'restart'])
   assert.deepEqual(d.source, { commit: coreCommit, tree: coreTree, platform: 'linux-amd64' })
@@ -103,13 +120,29 @@ export function validateInstalledEvidence(d, report) {
   assert.equal(d.sourceMode, 'database'); assert.equal(d.usersMode, 'database')
   assert.deepEqual(d.ingressRoutes, ['route-v1', 'route-gitea-v1'])
   const r = d.restart
-  keys(r, ['revision', 'controllerExit', 'agentExit', 'oldSessionStatus', 'freshStatus', 'statusOffset', 'freshStatusIndex', 'freshGeneration', 'freshPolicyHash', 'views', 'observations'])
+  keys(r, ['revision', 'controllerExit', 'agentExit', 'oldSessionStatus', 'freshStatus', 'statusOffset', 'freshStatusIndex', 'freshGeneration', 'freshPolicyHash', 'views', 'observations', 'controllerReceipt'])
   assert.equal(r.controllerExit, 0); assert.equal(r.agentExit, 0); assert.equal(r.oldSessionStatus, 401)
   assert.equal(r.freshStatus, true); assert.equal(r.freshGeneration, r.revision)
-  assert(Number.isSafeInteger(r.statusOffset) && r.statusOffset >= 0)
+  assert(Number.isSafeInteger(r.statusOffset) && r.statusOffset > 0)
   assert(Number.isSafeInteger(r.freshStatusIndex) && r.freshStatusIndex >= r.statusOffset, 'fresh post-restart status required')
+  keys(evidence, ['statuses', 'restartedStatuses'])
+  assert(Array.isArray(evidence.statuses) && Array.isArray(evidence.restartedStatuses) && evidence.restartedStatuses.length > 0, 'actual raw status history and restarted log required')
+  assert(r.freshStatusIndex < evidence.statuses.length && r.statusOffset < evidence.statuses.length, 'raw status index in bounds')
+  assert.deepEqual(evidence.statuses.slice(r.statusOffset), evidence.restartedStatuses, 'raw restarted process boundary')
+  const selected = evidence.statuses[r.freshStatusIndex]
+  assert.equal(selected.enforcementConfirmed, true)
+  assert.equal(selected.desired?.generation, r.revision); assert.equal(selected.appliedGeneration, r.revision)
+  assert.equal(selected.desired?.policyHash, r.freshPolicyHash); assert.equal(selected.appliedPolicyHash, r.freshPolicyHash)
   assert.equal(r.revision, report.cases.find(c => c.name === 'grant6')?.revision)
   assert(report.confirmations.some(c => c.revision === r.revision && c.enforcementConfirmed && c.appliedGeneration === r.revision && c.appliedPolicyHash === r.freshPolicyHash))
+  const receipt = r.controllerReceipt
+  keys(receipt, ['authority', 'agentRef', 'desiredRevision', 'desiredSHA256', 'connection', 'freshness', 'matchesDesired', 'reportRevision', 'reportSHA256', 'phase'])
+  assert.equal(receipt.authority, d.authority); assert.equal(receipt.agentRef, 'node')
+  assert.equal(receipt.desiredRevision, r.revision); assert.equal(receipt.reportRevision, r.revision)
+  assert.equal(receipt.connection, 'connected'); assert.equal(receipt.freshness, 'fresh'); assert.equal(receipt.matchesDesired, true)
+  assert.equal(receipt.phase, 'APPLIED'); assert.match(receipt.desiredSHA256, hashPattern)
+  // Typed snapshot SHA and projected Agent policy hash are different domains.
+  assert.equal(receipt.reportSHA256, receipt.desiredSHA256)
   keys(r.views, ['publication', 'accounts', 'grants', 'audit'])
   for (const value of Object.values(r.views)) { keys(value, ['before', 'after']); assert.match(value.before, hashPattern); assert.equal(value.after, value.before) }
   assert.deepEqual(r.observations, [4, 6].map(family => ({ family, outcome: 'allow', status: 200, appDelta: 1 })))
