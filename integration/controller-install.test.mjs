@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { execFileSync, spawnSync } from 'node:child_process'
 import * as installed from './controller-install.mjs'
 import * as gate from './console-evidence.mjs'
 
@@ -71,4 +72,16 @@ test('restart comparison ignores only fresh read timestamps, preserving full bus
   for (const name of ['publication', 'audit']) {
     assert.notEqual(installed.businessViewDigest(name, { observed_at: 'before' }), installed.businessViewDigest(name, { observed_at: 'after' }))
   }
+})
+
+test('pinned secondary CI checkout is excluded without hiding unreviewed Agent source', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'px-ci-source-unit-'))
+  try {
+    execFileSync('git', ['init', '--quiet', dir])
+    await writeFile(join(dir, '.gitignore'), await readFile(new URL('../.gitignore', import.meta.url)))
+    await mkdir(join(dir, '.ci-core')); await writeFile(join(dir, '.ci-core/go.mod'), 'unit pinned secondary checkout')
+    await writeFile(join(dir, 'unreviewed-agent.go'), 'package unit')
+    assert.equal(spawnSync('git', ['-C', dir, 'check-ignore', '--', '.ci-core/go.mod']).status, 0)
+    assert.equal(spawnSync('git', ['-C', dir, 'check-ignore', '--', 'unreviewed-agent.go']).status, 1)
+  } finally { await rm(dir, { recursive: true, force: true }) }
 })
