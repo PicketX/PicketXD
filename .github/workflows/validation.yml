@@ -39,7 +39,7 @@ jobs:
       - name: Install existing ingress test dependency
         run: |
           sudo apt-get update
-          sudo apt-get install -y nginx libnss3-tools
+          sudo apt-get install -y nginx libnss3-tools musl-tools
       - name: Download and verify pinned real Gitea
         run: |
           mkdir -p artifacts
@@ -62,6 +62,13 @@ jobs:
         with:
           name: console-kernel-evidence
           path: artifacts/console-kernel/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: installed-controller-bundle
+          path: |
+            artifacts/installed-controller.tar.gz
+            artifacts/installed-controller.tar.gz.sha256
           if-no-files-found: error
   unit:
     runs-on: ubuntu-24.04

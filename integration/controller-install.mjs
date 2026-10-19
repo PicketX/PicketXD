@@ -103,9 +103,11 @@ export function validateInstalledEvidence(d, report) {
   assert.equal(d.sourceMode, 'database'); assert.equal(d.usersMode, 'database')
   assert.deepEqual(d.ingressRoutes, ['route-v1', 'route-gitea-v1'])
   const r = d.restart
-  keys(r, ['revision', 'controllerExit', 'agentExit', 'oldSessionStatus', 'freshStatus', 'freshGeneration', 'freshPolicyHash', 'views', 'observations'])
+  keys(r, ['revision', 'controllerExit', 'agentExit', 'oldSessionStatus', 'freshStatus', 'statusOffset', 'freshStatusIndex', 'freshGeneration', 'freshPolicyHash', 'views', 'observations'])
   assert.equal(r.controllerExit, 0); assert.equal(r.agentExit, 0); assert.equal(r.oldSessionStatus, 401)
   assert.equal(r.freshStatus, true); assert.equal(r.freshGeneration, r.revision)
+  assert(Number.isSafeInteger(r.statusOffset) && r.statusOffset >= 0)
+  assert(Number.isSafeInteger(r.freshStatusIndex) && r.freshStatusIndex >= r.statusOffset, 'fresh post-restart status required')
   assert.equal(r.revision, report.cases.find(c => c.name === 'grant6')?.revision)
   assert(report.confirmations.some(c => c.revision === r.revision && c.enforcementConfirmed && c.appliedGeneration === r.revision && c.appliedPolicyHash === r.freshPolicyHash))
   keys(r.views, ['publication', 'accounts', 'grants', 'audit'])

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Must run inside the disposable namespace created by test-console-kernel.sh.
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, readlink, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, readlink, writeFile, rm, copyFile, chmod } from 'node:fs/promises'
 import { tmpdir, release } from 'node:os'
 import { resolve, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -14,7 +14,7 @@ import { runHumanRequests } from './human-requests.mjs'
 import { provisionManagedHumans } from './managed-humans.mjs'
 import { assertServicesAlive } from './process-health.mjs'
 import { runGiteaApplication, validateGiteaEvidence, redactFixtureFailure } from './gitea-application.mjs'
-import { validateInstalledEvidence } from './controller-install.mjs'
+import { initializeInstalledController, digest } from './controller-install.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -23,7 +23,7 @@ const evidence = join(root, 'artifacts/console-kernel')
 await mkdir(evidence, { recursive: true })
 const temp = await mkdtemp(join(tmpdir(), 'picketx-console-kernel-'))
 const hash = x => createHash('sha256').update(x).digest('hex')
-const adminToken = randomBytes(32).toString('hex'), agentToken = randomBytes(32).toString('hex'), ingressToken = randomBytes(32).toString('hex')
+let adminToken = '', agentToken = '', ingressToken = ''
 const password = randomBytes(32).toString('hex')
 const applicationSecrets = []
 const runtimeEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('PICKETX_')))
@@ -50,10 +50,10 @@ async function api(path) {
   const r = await fetch(origin + '/api/v1/' + path, { headers: { Authorization: `Bearer ${adminToken}` }, signal: AbortSignal.timeout(3000) })
   assert.equal(r.status, 200, path); return r.json()
 }
-async function confirmed() {
+async function confirmed(statusOffset = 0) {
   const revision = (await api('publication')).revision
-  await until(() => status.some(s => s.enforcementConfirmed && s.desired.generation === revision && s.appliedGeneration === revision && s.appliedPolicyHash === s.desired.policyHash), `Agent applying revision ${revision}`)
-  const s = status.findLast(s => s.enforcementConfirmed && s.appliedGeneration === revision)
+  await until(() => status.slice(statusOffset).some(s => s.enforcementConfirmed && s.desired.generation === revision && s.appliedGeneration === revision && s.appliedPolicyHash === s.desired.policyHash), `Agent applying revision ${revision}`)
+  const s = status.slice(statusOffset).findLast(s => s.enforcementConfirmed && s.appliedGeneration === revision)
   report.confirmations.push({ revision, generation: s.desired.generation, appliedGeneration: s.appliedGeneration, policyHash: s.desired.policyHash, appliedPolicyHash: s.appliedPolicyHash, enforcementConfirmed: s.enforcementConfirmed })
   // Also check the actual gRPC report received by the management API.
   await until(async () => {
@@ -132,28 +132,23 @@ spec: {resourceRef: {name: demo, uid: resource-demo-v1}, endpointName: web, host
 `
 const facts = { authorityID: 'static-test', agents: [{ Name: 'node', Labels: {}, Capabilities: { Classes: ['host-local'], Protocols: ['tcp', 'udp'], Families: [4, 6], Handling: ['graceful'], OriginalDestination: true } }], contexts: [{ AgentRef: 'node', ProfileRef: 'host', ID: 'controller-context', NetworkSpaceID: 'declarative-not-local', Class: 'host-local', Stage: 'original-destination', Handling: 'graceful', Destinations: ['127.0.0.1/32', '::1/128'] }] }
 try {
-  // Tests-first gate: a source-runtime fixture cannot stand for installed proof.
-  validateInstalledEvidence(report.deployment, report)
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: core, encoding: 'utf8' }).trim(), coreCommit)
-  for (const [field, file] of [['agentBinarySHA256', 'picketxd-console'], ['controllerBinarySHA256', 'controller-console']]) report[field] = hash(await readFile(join(root, 'artifacts', file)))
+  const installed = await initializeInstalledController(join(root, 'artifacts/controller-bundle'), temp)
+  ;({ adminToken, agentToken, ingressToken } = installed)
+  facts.authorityID = installed.authority
+  const agentBinary = join(temp, 'installed-picketxd')
+  await copyFile(join(root, 'artifacts/picketxd-console'), agentBinary); await chmod(agentBinary, 0o755)
+  report.agentBinarySHA256 = hash(await readFile(agentBinary))
+  assert.equal(report.agentBinarySHA256, hash(await readFile(join(root, 'artifacts/picketxd-console'))))
+  report.controllerBinarySHA256 = installed.proof.controllerSHA256
+  report.deployment = { ...installed.proof, agentSHA256: report.agentBinarySHA256,
+    runtimePATH: installed.runtimeOptions.env.PATH, relocated: true, initialized: true,
+    configPreserved: false, credentialsPrivate: true, authority: installed.authority,
+    sourceMode: 'database', usersMode: 'database', ingressRoutes: ['route-v1', 'route-gitea-v1'] }
   execFileSync('ip', ['link', 'set', 'lo', 'up'])
-  await privateFile('principals.json', JSON.stringify({
-    principals: [{ id: 'principal:admin', sha256: hash(adminToken), roles: ['role:admin'] }],
-  }))
-  await privateFile('agent.json', JSON.stringify({ credentials: [{ id: 'node-token', agent_ref: 'node', sha256: hash(agentToken) }] }))
-  await privateFile('agent-token', agentToken)
-  await privateFile('callers.json', JSON.stringify({ callers: [{ id: 'nginx', sha256: hash(ingressToken), routes: ['route-v1', 'route-gitea-v1'] }] }))
-  await privateFile('runtime.yaml', `http: {listen: "127.0.0.1:18080"}
-database: ${JSON.stringify(join(temp, 'state/db.sqlite'))}
-credentials: ${JSON.stringify(join(temp, 'agent.json'))}
-source: {mode: database}
-management: {credentials: ${JSON.stringify(join(temp, 'principals.json'))}, users_mode: database}
-agent: {enabled: true, listen: "127.0.0.1:19090", authority: static-test}
-browser: {enabled: true, origin: ${origin}, assets: ${JSON.stringify(join(core, 'apps/web/dist'))}}
-authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${JSON.stringify(join(temp, 'callers.json'))}}
-`)
-  start('controller', join(root, 'artifacts/controller-console'), ['-config', join(temp, 'runtime.yaml')])
-  await until(async () => { try { return (await fetch(origin + '/readyz', { signal: AbortSignal.timeout(500) })).ok } catch { return false } }, 'Controller startup')
+  let controller = start('controller', installed.controllerBinary, ['-config', installed.configPath], installed.runtimeOptions)
+  const ready = () => until(async () => { try { return (await fetch(origin + '/readyz', { signal: AbortSignal.timeout(500) })).ok } catch { return false } }, 'installed Controller startup')
+  await ready()
   for (const port of [18443, 18446, 18448]) {
     const server = http.createServer((req, res) => { appHits++; res.end('protected real HTTP application') })
     server.listen({ host: '::', port, ipv6Only: false }); await once(server, 'listening'); servers.push(server)
@@ -195,9 +190,14 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
     await page.getByText('Desired configuration saved. Node application is not confirmed.', { exact: true }).waitFor()
   }
   await publish(basePolicy, 'Combined native baseline')
-  const agent = start('agent', join(root, 'artifacts/picketxd-console'), ['enforce', '--controller', '127.0.0.1:19090', '--agent-token-file', join(temp, 'agent-token'), '--controller-plaintext', '--state-dir', join(temp, 'agent-state'), '--provider', 'static-test', '--agent', 'node', '--destination', '127.0.0.1', '--destination', '::1', '--mark-first', '0x504a0000', '--mark-last', '0x504a003f', '--poll', '30ms'])
-  let buffer = ''
-  agent.stdout.on('data', chunk => { buffer += chunk; let i; while ((i = buffer.indexOf('\n')) >= 0) { const line = buffer.slice(0, i); buffer = buffer.slice(i + 1); if (line) status.push(JSON.parse(line)) } })
+  const agentArgs = ['enforce', '--controller', '127.0.0.1:19090', '--agent-token-file', installed.agentTokenFile, '--controller-plaintext', '--state-dir', join(temp, 'agent-state'), '--provider', installed.authority, '--agent', 'node', '--destination', '127.0.0.1', '--destination', '::1', '--mark-first', '0x504a0000', '--mark-last', '0x504a003f', '--poll', '30ms']
+  function startAgent(name) {
+    const child = start(name, agentBinary, agentArgs, installed.runtimeOptions)
+    let buffer = ''
+    child.stdout.on('data', chunk => { buffer += chunk; let i; while ((i = buffer.indexOf('\n')) >= 0) { const line = buffer.slice(0, i); buffer = buffer.slice(i + 1); if (line) status.push(JSON.parse(line)) } })
+    return child
+  }
+  let agent = startAgent('agent')
   await confirmed(); await scenario('baseline')
   await page.getByRole('button', { name: 'Grants', exact: true }).click()
   // Grants remains mounted across tabs and deliberately does not silently rebase
@@ -224,6 +224,47 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   }
   const four = await issue('browser-four', '127.0.0.1'); await scenario('grant4')
   const six = await issue('browser-six', '::1'); await scenario('grant6', { persistent: true })
+  // Restart both real deployed processes with active grants, never reinitialize.
+  const paths = { publication: 'publication', accounts: 'accounts', grants: 'grants?limit=100', audit: 'audit?limit=100' }
+  const views = async () => Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([k, path]) => [k, digest(JSON.stringify(await api(path)))])))
+  const beforeViews = await views(), revision = (await api('publication')).revision
+  const cookie = (await page.context().cookies()).map(c => `${c.name}=${c.value}`).join('; ')
+  async function stopDeployed(child) {
+    const exited = once(child, 'exit'); child.kill('SIGTERM')
+    const timer = setTimeout(() => child.kill('SIGKILL'), 5000)
+    const [code, signal] = await exited; clearTimeout(timer)
+    assert.equal(code, 0, 'clean deployed process exit'); assert.equal(signal, null)
+    children.splice(children.indexOf(child), 1)
+    return code
+  }
+  const agentExit = await stopDeployed(agent), controllerExit = await stopDeployed(controller)
+  // Retain complete raw history for independent correlation; fence old receipts.
+  const statusOffset = status.length
+  controller = start('controller-restarted', installed.controllerBinary, ['-config', installed.configPath], installed.runtimeOptions)
+  await ready()
+  const oldSessionStatus = (await fetch(origin + '/console/api/v1/publication', { headers: { Cookie: cookie } })).status
+  assert.equal(oldSessionStatus, 401)
+  const afterViews = await views(); assert.deepEqual(afterViews, beforeViews)
+  agent = startAgent('agent-restarted')
+  assert.equal(await confirmed(statusOffset), revision)
+  const freshStatusIndex = status.findLastIndex((s, i) => i >= statusOffset && s.enforcementConfirmed && s.appliedGeneration === revision)
+  const fresh = status[freshStatusIndex]
+  const observations = []
+  for (const family of [4, 6]) {
+    const result = await request(family); observations.push(result)
+    assert.deepEqual(result, { family, outcome: 'allow', status: 200, appDelta: 1 })
+  }
+  assert.deepEqual(await readFile(installed.configPath), installed.configBytes)
+  report.deployment.configPreserved = true
+  report.deployment.restart = { revision, controllerExit, agentExit, oldSessionStatus,
+    freshStatus: Boolean(fresh), statusOffset, freshStatusIndex, freshGeneration: fresh.appliedGeneration, freshPolicyHash: fresh.appliedPolicyHash,
+    views: Object.fromEntries(Object.keys(paths).map(k => [k, { before: beforeViews[k], after: afterViews[k] }])), observations }
+  await page.context().clearCookies(); await page.goto(origin + '/console/')
+  await page.getByLabel('Access key', { exact: true }).fill(adminToken)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.getByLabel('Policy YAML').waitFor()
+  await page.getByRole('button', { name: 'Grants', exact: true }).click()
+  console.log('PASS installed empty-PATH Controller/Agent: clean restart, identical DB views, fresh kernel/report confirmation and dual-stack traffic')
   await scenario('sibling', { port: 18446 })
   await scenario('path', { path: '/denied', persistent: true })
   await scenario('method', { method: 'POST', persistent: true })
@@ -269,7 +310,7 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
   await page.screenshot({ path: join(evidence, 'nodes-mobile.png'), fullPage: true })
   const audit = await api('audit?limit=100')
-  for (const reason of ['Combined native baseline', 'Combined native browser-four', 'Combined native browser-six', 'Combined absolute deadline']) assert(audit.events.some(e => e.reason === reason && e.actor === 'principal:admin'))
+  for (const reason of ['Combined native baseline', 'Combined native browser-four', 'Combined native browser-six', 'Combined absolute deadline']) assert(audit.events.some(e => e.reason === reason && e.actor === 'principal:bootstrap'))
   assert.deepEqual(pageErrors, [])
   validateEvidence(report)
   report.result = 'pass'
