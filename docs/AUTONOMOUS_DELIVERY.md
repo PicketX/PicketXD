@@ -1,5 +1,20 @@
 # Autonomous delivery checkpoint
 
+## Gitea application acquisition — 2026-10-19T11:45Z
+
+Owner codex/gitea-application; heartbeat11:45Z; lease until12:45Z or explicit release/
+merged+verified-green-main. Latest Core298863f/tree437041c/mainCI39240788047 and
+Agent937b34c/treec5a3d5e/mainCI39234459599 green; no open PRs. PR34/20 final metadata
+explicitly released old leases. Local clean old branches retained; existing linked
+worktrees now use new task branches from fetched exact main, not overwritten files.
+Spec/plan: superpowers/{specs,plans}/2026-10-19-gitea-application.md. Real Gitea
+HTTPS/SSH, normal TLS/strict known_hosts and independent source/entry application
+checks; preserve all existing native cases. Baseline Node103/103. This fresh local
+runtime currently has no Go/nginx; CI supplies required full build/kernel execution,
+not a fabricated local pass. No product completion or release claim. Deployment
+acceptance remains next. Final immutable IDs, full evidence and release go in this PR.
+中文：接续真实Gitea浏览器与Git双入口验收；既有人员审批和内核验收已交付，不重做。
+
 ## Managed DB human conjunction acquisition — 2026-10-19T09:43Z
 
 Owner codex/managed-human-kernel; heartbeat09:56Z; short lease until10:30Z or

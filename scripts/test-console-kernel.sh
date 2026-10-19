@@ -26,4 +26,4 @@ go version -m artifacts/controller-console > artifacts/console-kernel/controller
 nginx -V 2> artifacts/console-kernel/nginx.txt
 sudo --non-interactive env PATH="$PATH" PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:?set installed browser directory}" PICKETX_CONSOLE_KERNEL_TESTS=1 \
   unshare --net -- node "$root/integration/console-kernel.mjs" "$core"
-node --input-type=module -e 'import fs from "node:fs"; import {validateEvidence} from "./integration/console-evidence.mjs"; const r=JSON.parse(fs.readFileSync("artifacts/console-kernel/report.json")); validateEvidence(r); if(r.result!=="pass") throw Error("native run incomplete"); console.log(JSON.stringify(r,null,2))'
+node --input-type=module -e 'import fs from "node:fs"; import {validateEvidence} from "./integration/console-evidence.mjs"; import {validateGiteaEvidence} from "./integration/gitea-application.mjs"; const r=JSON.parse(fs.readFileSync("artifacts/console-kernel/report.json")); validateEvidence(r); validateGiteaEvidence(r.gitea,r.confirmations); if(r.result!=="pass") throw Error("native run incomplete"); console.log(JSON.stringify(r,null,2))'

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { validateManagedHumans } from './managed-humans.mjs'
 
-export const coreCommit = '31c7ac762ca0ea7d2d06ee2b30cb511c161cdad1'
+export const coreCommit = '298863f4e0cb1a72ef18e8abe77f8b8fb28464de'
 const both = outcome => [[4, outcome], [6, outcome]]
 export const requiredCases = {
   baseline: both('transport-deny'),
