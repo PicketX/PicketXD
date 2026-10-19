@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import { validateManagedHumans } from './managed-humans.mjs'
 import { coreCommit, validateInstalledEvidence } from './controller-install.mjs'
+import { validateAgentDistributionEvidence } from '../scripts/agent-bundle.mjs'
 export { coreCommit, verifyControllerBundle } from './controller-install.mjs'
 
 const both = outcome => [[4, outcome], [6, outcome]]
@@ -52,6 +53,7 @@ export function validateHumanApproval(r, identities) {
   assert.equal(r.auditReason, `approve ${r.uid}: ${r.decisionReason}`)
 }
 export function validateEvidence(report, nativeEvidence) {
+  validateAgentDistributionEvidence(report.agentDistribution, report)
   validateInstalledEvidence(report.deployment, report, nativeEvidence)
   assert.equal(report.coreCommit, coreCommit, 'pinned Core source')
   const identities = validateManagedHumans(report)
