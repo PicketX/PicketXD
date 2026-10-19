@@ -267,7 +267,7 @@ export async function runGiteaApplication({ root, core, temp, evidence, chromium
     const appPage = await appBrowser.newPage({ viewport: { width: 1440, height: 1000 } })
     assert.equal((await appPage.goto(`https://${authority}/user/login`)).status(), 200)
     await appPage.locator('#user_name').fill('owner'); await appPage.locator('#password').fill(pass)
-    await Promise.all([appPage.waitForURL(url => url.pathname !== '/user/login'), appPage.locator('form button[type=submit]').click()])
+    await Promise.all([appPage.waitForURL(url => url.pathname !== '/user/login'), appPage.getByRole('button', { name: 'Sign In', exact: true }).click()])
     assert.equal((await appPage.goto(`https://${authority}/owner/private`)).status(), 200)
     await appPage.getByRole('link', { name: 'private', exact: true }).first().waitFor()
     for (const width of [375, 1440]) { await appPage.setViewportSize({ width, height: 1000 }); await appPage.screenshot({ path: join(evidence, `gitea-repository-${width}.png`), fullPage: true }) }

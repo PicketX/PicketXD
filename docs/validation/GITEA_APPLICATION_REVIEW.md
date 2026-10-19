@@ -51,6 +51,12 @@ immediate lease release will be recorded in PR21 metadata.
     reviewed head. Root must verify exact final source/raw all-step evidence, download
     artifact bytes/hash, expected-head merge parents and full main CI before acceptance.
     Cost: native/main failure blocks merge/release; no mock or skip substitutes.
+11. Git has no supported connectTimeout setting; native39248299904 showed its blackhole
+    command killed without a protocol error. HTTPS transport-negative cases now use
+    bounded curl with HTTP000, num_connects0 and exit7/28; connected TLS stalls and HTTP
+    denial cannot count as transport denial. Admitted reads/clones and application
+    credential denials remain native Git. Cost: this proves L4 admission denial, not
+    Git's own timeout UX. Characterization RED→GREEN, full Node129/129.
 
 ## Verification chronology / limits
 Baseline Node103/103. Missing Gitea validator asserted RED then16/16 GREEN; full
@@ -59,6 +65,15 @@ review R1 four regressions RED→GREEN128. Native39247177382 passes original ful
 unit/kernel jobs and human conjunction, then RED at a case-sensitive version-output
 assumption (actual `gitea version 28.2.0`); exact lowercase assertion corrected, same
 published binary hash required. Failed/superseded runs are not acceptance evidence.
+Native39247791747 reproduced service-UID EACCES;39248299904 then passed actual
+Gitea migrate/startup, database/account/token/key and verified TLS setup, reaching
+the new protected HTTPS connection probe. That phase evidence confirms the scoped
+bootstrap fix, not the still-pending complete Gitea/merged-main acceptance.
+Native39249045794 subsequently passed baseline/HTTPS-only/both entries, actual
+dual-stack native Git application-auth checks/clones and strict wrong-host-key
+rejection. Chromium accepted the real CA and reached Gitea sign-in, then RED on a
+generic submit selector resolving to three forms. Use the actual accessible Sign In
+button reported by Playwright; do not weaken strict selection or browser TLS.
 
 Local official Go1.27.0 archive digest675c26c449cbb18fc24b74650de1eabbae6e16f64326fd85a283fb3b58280685
 was verified. Full normal/race each fail only the known five notify Unixgram EPERM
