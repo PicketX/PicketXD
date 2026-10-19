@@ -8,7 +8,7 @@ permissions:
 jobs:
   console-kernel:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/artifacts/playwright
     steps:
@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: PicketX/PicketX
-          ref: 31c7ac762ca0ea7d2d06ee2b30cb511c161cdad1
+          ref: 298863f4e0cb1a72ef18e8abe77f8b8fb28464de
           path: .ci-core
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
@@ -39,7 +39,14 @@ jobs:
       - name: Install existing ingress test dependency
         run: |
           sudo apt-get update
-          sudo apt-get install -y nginx
+          sudo apt-get install -y nginx libnss3-tools
+      - name: Download and verify pinned real Gitea
+        run: |
+          mkdir -p artifacts
+          curl --fail --location --retry 3 --output artifacts/gitea https://github.com/go-gitea/gitea/releases/download/v28.2.0/gitea-28.2.0-linux-amd64
+          echo '15681fc615d56611c274f52803fef4d6d5316b620f93b677dd4b831a74e50b9f  artifacts/gitea' | sha256sum --check --strict
+          chmod 755 artifacts/gitea
+          artifacts/gitea --version
       - name: Real browser API gRPC kernel ingress application conjunction
         env:
           PICKETX_CONSOLE_KERNEL_TESTS: '1'

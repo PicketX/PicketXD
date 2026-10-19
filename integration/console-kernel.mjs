@@ -13,6 +13,7 @@ import { coreCommit, requiredCases, validateEvidence } from './console-evidence.
 import { runHumanRequests } from './human-requests.mjs'
 import { provisionManagedHumans } from './managed-humans.mjs'
 import { assertServicesAlive } from './process-health.mjs'
+import { runGiteaApplication, validateGiteaEvidence, redactFixtureFailure } from './gitea-application.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -23,6 +24,7 @@ const temp = await mkdtemp(join(tmpdir(), 'picketx-console-kernel-'))
 const hash = x => createHash('sha256').update(x).digest('hex')
 const adminToken = randomBytes(32).toString('hex'), agentToken = randomBytes(32).toString('hex'), ingressToken = randomBytes(32).toString('hex')
 const password = randomBytes(32).toString('hex')
+const applicationSecrets = []
 const runtimeEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('PICKETX_')))
 const report = { coreCommit, agentCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), agentTree: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim(), kernel: release(), confirmations: [], cases: [] }
 const children = [], servers = [], keep = new Map(), status = [], logs = new Map()
@@ -137,7 +139,7 @@ try {
   }))
   await privateFile('agent.json', JSON.stringify({ credentials: [{ id: 'node-token', agent_ref: 'node', sha256: hash(agentToken) }] }))
   await privateFile('agent-token', agentToken)
-  await privateFile('callers.json', JSON.stringify({ callers: [{ id: 'nginx', sha256: hash(ingressToken), routes: ['route-v1'] }] }))
+  await privateFile('callers.json', JSON.stringify({ callers: [{ id: 'nginx', sha256: hash(ingressToken), routes: ['route-v1', 'route-gitea-v1'] }] }))
   await privateFile('runtime.yaml', `http: {listen: "127.0.0.1:18080"}
 database: ${JSON.stringify(join(temp, 'state/db.sqlite'))}
 credentials: ${JSON.stringify(join(temp, 'agent.json'))}
@@ -254,6 +256,8 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   // The human sequence must establish its own sockets after pending denial.
   for (const entry of keep.values()) { entry.agent.destroy(); entry.agent = new http.Agent({ keepAlive: true, maxSockets: 1 }); entry.socket = null }
   await runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, adminPage: page, appHits: () => appHits })
+  report.gitea = await runGiteaApplication({ root, core, temp, evidence, chromium, page, publish, confirmed, api, start, children, ingressToken, secrets: applicationSecrets })
+  validateGiteaEvidence(report.gitea, report.confirmations)
   await page.getByRole('button', { name: 'Nodes', exact: true }).click()
   await page.getByRole('button', { name: 'Refresh nodes', exact: true }).click()
   await page.getByRole('heading', { name: 'node', exact: true }).waitFor()
@@ -267,6 +271,8 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
   validateEvidence(report)
   report.result = 'pass'
   console.log(`PASS combined native evidence: ${report.cases.length} cases, ${report.confirmations.length} actual Agent confirmations`)
+} catch (error) {
+  throw redactFixtureFailure(error, [adminToken, agentToken, ingressToken, password, ...applicationSecrets])
 } finally {
   await browser?.close()
   for (const entry of keep.values()) entry.agent.destroy()
@@ -278,7 +284,7 @@ authz: {enabled: true, network: tcp, address: "127.0.0.1:19091", credentials: ${
     }
   }
   for (const server of servers) { server.closeAllConnections(); await new Promise(r => server.close(r)) }
-  const redact = x => [adminToken, agentToken, ingressToken, password].filter(Boolean).reduce((s, secret) => s.replaceAll(secret, '[REDACTED]'), x)
+  const redact = x => [adminToken, agentToken, ingressToken, password, ...applicationSecrets].filter(Boolean).reduce((s, secret) => s.replaceAll(secret, '[REDACTED]'), x)
   for (const [name, log] of logs) await writeFile(join(evidence, name + '.log'), redact(log))
   await writeFile(join(evidence, 'report.json'), JSON.stringify(report, null, 2))
   await writeFile(join(evidence, 'agent-status.json'), JSON.stringify(status, null, 2))
