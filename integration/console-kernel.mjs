@@ -275,6 +275,18 @@ try {
   await page.getByLabel('Policy YAML').waitFor()
   await page.getByRole('button', { name: 'Grants', exact: true }).click()
   console.log('PASS installed empty-PATH Controller/Agent: clean restart, identical DB views, fresh kernel/report confirmation and dual-stack traffic')
+  for (const family of [4, 6]) {
+    assertServicesAlive(children)
+    const admittedStatus = (await request(family)).status
+    assert.equal(admittedStatus, 200, 'private test requires admitted kernel and primary route')
+    const denied = await request(family, { path: '/private' })
+    assert.equal(denied.status, 403); assert.equal(denied.appDelta, 0)
+    const healthStatus = (await request(family, { port: 18447, path: '/health' })).status
+    assert.equal(healthStatus, 200); assertServicesAlive(children)
+    ingress.proof.privateDenials.push({ server: 'demo', family, revision, status: denied.status,
+      appDelta: denied.appDelta, admittedStatus, healthStatus })
+  }
+  console.log('PASS generated demo private route: dual-stack unauthorized caller, zero application forwarding')
   await scenario('sibling', { port: 18446 })
   await scenario('path', { path: '/denied', persistent: true })
   await scenario('method', { method: 'POST', persistent: true })

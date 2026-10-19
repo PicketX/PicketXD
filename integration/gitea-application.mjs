@@ -141,10 +141,10 @@ export async function runGiteaApplication({ root, ingress, temp, evidence, chrom
   ingress.proof.servers.gitea = createHash('sha256').update(await readFile(conf)).digest('hex')
   start('gitea-nginx', 'nginx', ['-p', dir + '/', '-c', conf, '-g', 'daemon off;'])
   const upstreamHits = async () => { try { return (await readFile(join(dir, 'upstreams.log'), 'utf8')).split('\n').filter(x => x.includes('127.0.0.1:19443')).length } catch { return 0 } }
-  async function tlsRequest(family, { agent = false, trusted = true } = {}) {
+  async function tlsRequest(family, { agent = false, trusted = true, path = '/api/v1/version' } = {}) {
     return new Promise((resolve, reject) => {
       let socket
-      const req = https.get({ host: address(family), port: 19445, path: '/api/v1/version', servername: 'gitea.example', headers: { Host: authority }, ca: trusted ? ca : undefined, agent, timeout: 2500 }, res => {
+      const req = https.get({ host: address(family), port: 19445, path, servername: 'gitea.example', headers: { Host: authority }, ca: trusted ? ca : undefined, agent, timeout: 2500 }, res => {
         res.resume(); res.on('end', () => resolve({ status: res.statusCode, socket }))
       })
       req.on('socket', s => { socket = s }); req.on('error', reject); req.on('timeout', () => req.destroy(Error('HTTPS timeout')))
@@ -242,6 +242,18 @@ export async function runGiteaApplication({ root, ingress, temp, evidence, chrom
     // Public evidence canonical order is family, endpoint, not execution order.
     proof.grants.sort((a, b) => a.family - b.family || (a.endpoint === 'https' ? -1 : 1))
     await scenario('both')
+    for (const family of [4, 6]) {
+      await health()
+      const admittedStatus = (await tlsRequest(family)).status
+      assert.equal(admittedStatus, 200)
+      const before = await upstreamHits(), denied = await tlsRequest(family, { path: '/private' })
+      const appDelta = await upstreamHits() - before
+      assert.equal(denied.status, 403); assert.equal(appDelta, 0)
+      await health()
+      ingress.proof.privateDenials.push({ server: 'gitea', family, revision: (await api('publication')).revision,
+        status: denied.status, appDelta, admittedStatus, healthStatus: 200 })
+    }
+    console.log('PASS generated Gitea private route: dual-stack unauthorized caller, zero application forwarding')
     for (const family of [4, 6]) {
       await health()
       for (const options of [{ anonymous: true }, { user: 'outsider' }]) {

@@ -37,7 +37,7 @@ export async function prepareInstalledIngress(installed) {
     paths.push({ location, server }); routes.push(receipt)
   }
   return { primary: paths[0], privateRoute: paths[1], gitea: paths[2],
-    proof: { cliSHA256: installed.proof.cliSHA256, runtimePATH: '', routes, servers: {} } }
+    proof: { cliSHA256: installed.proof.cliSHA256, runtimePATH: '', routes, servers: {}, privateDenials: [] } }
 }
 
 // Fixed disposable topology: never a general product ingress installer.
@@ -80,8 +80,8 @@ http {
 `
 }
 
-export function validateInstalledIngress(i, cliSHA256) {
-  keys(i, ['cliSHA256', 'runtimePATH', 'routes', 'servers'])
+export function validateInstalledIngress(i, cliSHA256, confirmations) {
+  keys(i, ['cliSHA256', 'runtimePATH', 'routes', 'servers', 'privateDenials'])
   assert.equal(i.cliSHA256, cliSHA256); assert.match(i.cliSHA256, hashPattern)
   assert.equal(i.runtimePATH, '')
   assert(Array.isArray(i.routes)); assert.equal(i.routes.length, 3)
@@ -93,4 +93,13 @@ export function validateInstalledIngress(i, cliSHA256) {
   assert.equal(new Set(i.routes.map(r => r.serverSHA256)).size, 3, 'independent fixed callback configurations')
   keys(i.servers, ['demo', 'gitea'])
   for (const value of Object.values(i.servers)) assert.match(value, hashPattern)
+  assert(Array.isArray(i.privateDenials)); assert.equal(i.privateDenials.length, 4)
+  i.privateDenials.forEach((o, index) => {
+    keys(o, ['server', 'family', 'revision', 'status', 'appDelta', 'admittedStatus', 'healthStatus'])
+    assert.equal(o.server, index < 2 ? 'demo' : 'gitea'); assert.equal(o.family, index % 2 === 0 ? 4 : 6)
+    assert(Number.isSafeInteger(o.revision) && o.revision > 0)
+    assert(confirmations.some(c => c.revision === o.revision && c.enforcementConfirmed), 'private denial at confirmed admitted revision')
+    assert.equal(o.status, 403, 'authenticated caller forbidden from un-enrolled route')
+    assert.equal(o.appDelta, 0); assert.equal(o.admittedStatus, 200); assert.equal(o.healthStatus, 200)
+  })
 }

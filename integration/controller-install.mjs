@@ -121,7 +121,7 @@ export function validateInstalledEvidence(d, report, evidence) {
   assert.match(d.authority, /^controller:[a-f0-9]{32}$/)
   assert.equal(d.sourceMode, 'database'); assert.equal(d.usersMode, 'database')
   assert.deepEqual(d.ingressRoutes, ['route-v1', 'route-gitea-v1'])
-  validateInstalledIngress(d.ingress, d.cliSHA256)
+  validateInstalledIngress(d.ingress, d.cliSHA256, report.confirmations)
   const r = d.restart
   keys(r, ['revision', 'controllerExit', 'agentExit', 'oldSessionStatus', 'freshStatus', 'statusOffset', 'freshStatusIndex', 'freshGeneration', 'freshPolicyHash', 'views', 'observations', 'controllerReceipt'])
   assert.equal(r.controllerExit, 0); assert.equal(r.agentExit, 0); assert.equal(r.oldSessionStatus, 401)

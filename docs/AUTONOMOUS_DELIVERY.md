@@ -1,5 +1,16 @@
 # Autonomous delivery checkpoint
 
+## Installed ingress review correction — 2026-10-19T23:49Z
+Same owner codex/installed-ingress; lease00:30Z or explicit release/verified main.
+PR26 initial5bcf252/tree6b3eeb6, native39343624737 underway, not accepted final.
+ONE independent full-branch review0Critical/1Important/1Minor, verdict With fixes.
+Root ONE regression-first pass requires four actual exact-private denial probes
+with admitted/healthy controls, zero app forwarding and confirmed revisions; old
+schema RED. Minor transient token-file PATH in failed CLI stack deferred (no value
+leak). All declined-scope rulings/costs: validation/INSTALLED_INGRESS_REVIEW.md.
+Corrected exact-head full native/archive/main evidence still mandatory, no merge
+claim. Final accurate receipt/release in PR metadata; overall goal remains active.
+
 ## Installed ingress acquisition — 2026-10-19T23:44Z
 Owner codex/installed-ingress; short lease00:30Z or explicit release/merged+verified
 main. Fresh Coreadfa1b1/tree7a5cbb6/main39339061250 and Agentc0eb1b8/tree555e00e/

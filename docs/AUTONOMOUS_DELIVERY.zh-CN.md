@@ -1,5 +1,13 @@
 # 自动交付检查点
 
+## 安装入口评审修复 — 2026-10-19T23:49Z
+同owner codex/installed-ingress，租约00:30Z或明确释放/已验证main。PR26初始
+5bcf252/tree6b3eeb6，原生39343624737仍进行中，不作为最终证明。一次独立全分支评审
+1阻塞/1小项；根代理单轮RED→GREEN补四次双栈exact-private真实拒绝、允许/健康控制、
+零应用转发与确认修订关联。延后小项：CLI失败栈可能含临时令牌文件路径，不含令牌值。
+全部范围裁决/错误代价见validation/INSTALLED_INGRESS_REVIEW.md。修正head完整原生/
+四归档/main证据仍必需，未宣告合并；最终回执/释放见PR元数据。整体目标继续。
+
 ## 安装版入口接续 — 2026-10-19T23:44Z
 Owner codex/installed-ingress，短租约00:30Z，或明确释放/合并且main完整验证即释放。
 核对Coreadfa1b1/tree7a5cbb6/main39339061250和Agentc0eb1b8/tree555e00e/
