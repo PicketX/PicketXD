@@ -1,5 +1,61 @@
 # Autonomous delivery checkpoint
 
+## M2D2 integration — 2026-10-19T02:25:00Z
+
+Agent PR17 remains the sole work item. Heartbeat 02:25Z, lease until 03:30Z or
+merged + green main CI. User explicitly requested continued development.
+Code acceptance CI39187270042 (remote9bdf3c4e22674b252d51c4c88b46d22cce329341,
+local363abd7, CI merge68c51e8e8ee7f986c82fad628f79eb4a0fc397be) shares tree
+bccf9b0a6897f1cc261d89bc9c9c0c1df2fe62fb. Unit117852221001,
+console-kernel117852221171 and kernel117852221284 all passed. Raw logs verify
+190 top-level/482 total Go tests, full race/vet/build, no fail/skip/race; locked
+Web typecheck/lint/build and actual Chromium/API/SQLite/gRPC/Agent/Nginx/application.
+Combined native report: 18 cases, 8 actual application confirmations; baseline,
+IPv4/IPv6 independent allow/revoke/absolute expiry, sibling isolation, overlap,
+reused-connection path/method/Host/header checks and unmanaged control all pass.
+Actual kernel6.17.0-1022-azure, Go1.27.0. Original 91 required native gates,
+112 native cases and 9 systemd cases remain green. Archive12158423246 SHA256
+a682391ce0159ea732acff690979fc6ba4aa2a5d41836c86c7bf395d8ef25ac2 and native
+archive12158906779 SHA256 f077550f640a876e00022ca0149bb007499d41a8575aa1ad8488a442cd04d700
+were independently downloaded and verified. Actual 375/1440 screenshots inspected.
+
+Independent whole-branch review2a735af..363abd7 found one Important gate defect:
+Object.prototype names could replace a required case. Reproduced on actual report;
+three new tests RED, fixed with Object.hasOwn, all24 evidence tests GREEN. Actual
+native report remains accepted. No Critical/Minor findings. Complete review boundary
+rulings/costs are recorded in docs/validation/M2D2_REVIEW.md. Final patched-head CI,
+expected-head merge and main CI remain mandatory; final immutable evidence and lease
+release go in PR17. Local full Go/race still has only five Unixgram EPERM failures;
+all those tests passed on native CI; no local kernel success claim.
+
+First failed native39187003463 established baseline execution but exposed a harness
+catalog error: Grants intentionally retained its initial empty revision. Explicit
+Use latest Grant revision fixed the browser test without weakening draft/CAS safety.
+The failed run is not acceptance evidence.
+
+Next: finish PR17 integration, then human login/session identity and the basic
+request/approval workflow using the existing management/Grant publication boundary.
+No production TLS, human OIDC, strict TCP reset or complete product claim follows
+from this graceful loopback acceptance. Keep autonomous development enabled.
+中文：完整 Linux 联合链路已通过；独立评审门禁缺陷已 RED→GREEN 修复，仍需最终
+提交的 CI、合并及主线复核。用户身份、申请审批未完成，不暂停整个开发任务。
+
+## M2D2 acquisition (historical) — 2026-10-19T01:42:00Z
+
+Owner: console/kernel conjunction. Remote branch: `codex/console-kernel-acceptance`.
+Short lease until 2026-10-19T03:15:00Z; released by merged PR + green main CI.
+Agent main verified 95a5f7f62dceb1c369d08b8e23ffda2f7b978ce4, tree
+a53a743e22254c0511b430e5b9e2ed0664180629; main CI39118687475 green.
+Core main a99d9fc479bdf1490f78e669291ec67ca84876e3, tree
+52746b5ffae3ef4e0ac6a4fc5d556f17e2a8648c; main CI39183852826 green.
+No open PRs at entry. Core PR29 and Agent PR16 are already merged; old lease below
+is historical. Core now has real management/API/React/HTTP authorization. Do not redo.
+Next: execute docs/superpowers/plans/2026-10-19-console-kernel.md to prove their
+conjunction with actual Agent kernel execution. Local Go baseline has five Unixgram
+permission failures; native Linux CI must run those tests, not suppress them.
+Whole product is not complete: human identity/request/approval and deployment limits
+remain. This increment makes no production code or dependency changes.
+
 Updated: 2026-10-18T10:11:00Z. The user authorized autonomous implementation, review,
 push/PR and expected-head merge until usable management and basic L7 exist. Do not repeat
 routine approvals. No competing implementation while the current lease is active.

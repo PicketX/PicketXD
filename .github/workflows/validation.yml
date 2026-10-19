@@ -6,6 +6,56 @@ on:
 permissions:
   contents: read
 jobs:
+  console-kernel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/artifacts/playwright
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: PicketX/PicketX
+          ref: a99d9fc479bdf1490f78e669291ec67ca84876e3
+          path: .ci-core
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .ci-core/.node-version
+          cache: npm
+          cache-dependency-path: .ci-core/apps/web/package-lock.json
+      - name: Locked real management Web build
+        working-directory: .ci-core/apps/web
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Install existing ingress test dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nginx
+      - name: Real browser API gRPC kernel ingress application conjunction
+        env:
+          PICKETX_CONSOLE_KERNEL_TESTS: '1'
+        run: scripts/test-console-kernel.sh "$PWD/.ci-core"
+      - name: Print native conjunction report and sanitized process logs
+        if: always()
+        run: |
+          for file in artifacts/console-kernel/report.json artifacts/console-kernel/*.log; do
+            if test -f "$file"; then cat "$file"; fi
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: console-kernel-evidence
+          path: artifacts/console-kernel/
+          if-no-files-found: error
   unit:
     runs-on: ubuntu-24.04
     steps:
