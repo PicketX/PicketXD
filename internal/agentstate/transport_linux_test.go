@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -105,6 +106,100 @@ func TestRemoteTCPApplyReportsAndOutage(t *testing.T) {
 	st, _, e := s.Snapshot(time.Date(2026, 10, 15, 14, 0, 0, 0, time.UTC))
 	if e != nil || len(st.Projection.Allow) != 0 || len(st.Projection.Protected) != 2 || calls < 2 {
 		t.Fatal(st, e, calls)
+	}
+}
+
+func TestRemoteOutageAndReconnectKeepConnectionSeparateFromPublication(t *testing.T) {
+	c, snap := remoteFixture(t)
+	var clock atomic.Int64
+	clock.Store(c.Now().UnixNano())
+	c.Now = func() time.Time { return time.Unix(0, clock.Load()).UTC() }
+	token := filepath.Join(t.TempDir(), "token")
+	if e := os.WriteFile(token, []byte("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	l, e := net.Listen("tcp", "127.0.0.1:0")
+	if e != nil {
+		t.Fatal(e)
+	}
+	address := l.Addr().String()
+	start := func(listener net.Listener) *grpc.Server {
+		server := grpc.NewServer()
+		agentv1.RegisterAgentSyncServer(server, &wireServer{snapshot: snap, reports: make(chan *agentv1.Report, 32)})
+		go server.Serve(listener)
+		t.Cleanup(server.Stop)
+		return server
+	}
+	server := start(l)
+	c.Remote = &RemoteConfig{Address: address, TokenFile: token, Plaintext: true}
+	s := open(t, c)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	done := make(chan error, 1)
+	observed := make(chan Status, 128)
+	go func() {
+		done <- s.Run(ctx, "", 10*time.Millisecond, func(st Status) error {
+			select {
+			case observed <- st:
+			case <-ctx.Done():
+			}
+			return nil
+		})
+	}()
+	t.Cleanup(func() { cancel(); <-done })
+	wait := func(state string) Status {
+		for {
+			select {
+			case st := <-observed:
+				if st.RemoteState == state {
+					if st.LastError != "" {
+						t.Fatal("connection error became publication error", st)
+					}
+					return st
+				}
+			case <-ctx.Done():
+				t.Fatal("no remote state", state)
+				return Status{}
+			}
+		}
+	}
+	first := wait("current")
+	before, e := os.ReadFile(c.Path)
+	if e != nil {
+		t.Fatal(e)
+	}
+	server.Stop()
+	offline := wait("disconnected")
+	if offline.Generation != first.Generation || offline.PolicyHash != first.PolicyHash || len(offline.Projection.Allow) != 2 {
+		t.Fatal(offline)
+	}
+	l, e = net.Listen("tcp", address)
+	if e != nil {
+		t.Fatal(e)
+	}
+	server = start(l)
+	reconnected := wait("current")
+	if reconnected.Generation != first.Generation || reconnected.AcceptedAt != first.AcceptedAt {
+		t.Fatal(reconnected)
+	}
+	server.Stop()
+	wait("disconnected")
+	clock.Add(int64(5 * time.Hour))
+	expired, _, e := s.Snapshot(c.Now())
+	if e != nil || len(expired.Projection.Allow) != 0 {
+		t.Fatal(expired, e)
+	}
+	l, e = net.Listen("tcp", address)
+	if e != nil {
+		t.Fatal(e)
+	}
+	start(l)
+	reconnected = wait("current")
+	if reconnected.Generation != first.Generation || reconnected.AcceptedAt != first.AcceptedAt || len(reconnected.Projection.Allow) != 0 {
+		t.Fatal("expired access resurrected", reconnected)
+	}
+	after, e := os.ReadFile(c.Path)
+	if e != nil || string(before) != string(after) {
+		t.Fatal("reconnect changed cache", e)
 	}
 }
 func TestRemoteExecutionFailureReportsFailed(t *testing.T) {

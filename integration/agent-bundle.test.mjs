@@ -23,6 +23,7 @@ async function fixture(t) {
     'source/PicketXD/vendor/modules.txt': '# fixture v1\n',
     'source/PicketXD/LICENSE': 'GPL-3.0-or-later fixture',
     'deploy/README.md': 'English', 'deploy/README.zh-CN.md': '中文',
+    'deploy/systemd/picketxd-controller.service': 'literal service fixture; never executed',
   }
   for (const [path, bytes] of Object.entries(files)) {
     await mkdir(join(dir, path, '..'), { recursive: true })
@@ -38,7 +39,14 @@ test('bundle verifier returns verified source and actual binary digest', async t
   const proof = await verifyAgentBundle(dir)
   assert.deepEqual(proof.source, source)
   assert.equal(proof.binarySHA256, hash('unit fixture; never executed'))
-  assert.equal(proof.files, 13)
+  assert.equal(proof.files, 14)
+})
+test('bundle refuses a manifest-complete export without its Controller service', async t => {
+  const dir = await fixture(t), { verifyAgentBundle } = await import('../scripts/agent-bundle.mjs')
+  await rm(join(dir, 'deploy/systemd/picketxd-controller.service'), { force: true })
+  const manifest = await readFile(join(dir, 'SHA256SUMS'), 'utf8')
+  await writeFile(join(dir, 'SHA256SUMS'), manifest.split('\n').filter(line => !line.endsWith('  deploy/systemd/picketxd-controller.service')).join('\n'))
+  await assert.rejects(verifyAgentBundle(dir), /required bundle content/)
 })
 for (const [name, change] of [
   ['changed binary', d => writeFile(join(d, 'bin/picketxd'), 'tampered')],
@@ -105,7 +113,7 @@ for (const mutation of ['ignored source', 'external overlay', 'ambient ISA']) {
     t.after(() => rm(dir, { recursive: true, force: true }))
     const cwd = join(dir, 'repo'), output = join(dir, 'bundle')
     for (const file of ['scripts/build-agent-bundle.sh', 'scripts/agent-bundle.mjs', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'go.sum',
-      'deploy/agent/README.md', 'deploy/agent/README.zh-CN.md', 'deploy/systemd/picketxd.service', 'deploy/systemd/README.md', 'deploy/systemd/README.zh-CN.md']) {
+      'deploy/agent/README.md', 'deploy/agent/README.zh-CN.md', 'deploy/systemd/picketxd.service', 'deploy/systemd/picketxd-controller.service', 'deploy/systemd/README.md', 'deploy/systemd/README.zh-CN.md']) {
       await mkdir(join(cwd, file, '..'), { recursive: true }); await copyFile(join(root, file), join(cwd, file))
     }
     await mkdir(join(cwd, 'cmd/picketxd'), { recursive: true })

@@ -68,7 +68,7 @@ const fixture = () => {
    disabledGrants: report.humanRequests.map(r => structuredClone(r.grant)),
    enabledGrants: report.humanRequests.map(r => structuredClone(r.grant)) }
  report.deployment = {
-   source: { commit: coreCommit, tree: '64ed0dcc4b6a3232e093150d7fc100cc9a852e43', platform: 'linux-amd64' },
+   source: { commit: coreCommit, tree: 'a86a8905e76887c24dc25a12e8e945a55f8bedc6', platform: 'linux-amd64' },
    manifestSHA256: 'f'.repeat(64), cliSHA256: 'a'.repeat(64),
    controllerSHA256: report.controllerBinarySHA256, agentSHA256: report.agentBinarySHA256,
    runtimePATH: '', relocated: true, initialized: true, configPreserved: true, credentialsPrivate: true,

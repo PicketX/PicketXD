@@ -1,10 +1,55 @@
-# Static host service
+# Host policy services
 
 > English (default) | [简体中文](README.zh-CN.md)
 
-Operator-reviewed system service for existing `picketxd enforce`. The demonstration protects loopback TCP 18443 / UDP 18444, both IP families, graceful mode, in the host network namespace. See [enforcement](../../examples/enforce/README.md), [strict limits](../../examples/strict/README.md) and [acceptance](../../docs/validation/M2C10.md). Controller, L7 and a boot-time firewall remain incomplete.
+Operator-reviewed system services for existing `picketxd enforce`. The demonstrations protect loopback TCP 18443 / UDP 18444, both IP families, graceful mode, in the host network namespace. See [enforcement](../../examples/enforce/README.md), [strict limits](../../examples/strict/README.md) and [Controller pairing](../controller/README.md). These units do not establish a boot-time firewall or complete deployment acceptance.
 
-## First installation
+## Select exactly one source
+
+`picketxd.service` reads the static policy file. `picketxd-controller.service`
+uses authenticated official gRPC with a private Agent Token file and no policy
+file. Both share `/var/lib/picketx` and `/run/picketx`; **never enable both**.
+They are operator-reviewed examples, not automatic enrollment or a source-mode
+migration. Do not delete retained state or change its provider to force a switch.
+
+For a fresh Controller deployment, first follow the pairing guide. Install the
+verified Agent binary as below, but use the separate unit instead of the static
+policy/unit commands:
+
+```sh
+sudo install -d -m 0700 /etc/picketx
+# Copy only the generated Agent credential, never the bootstrap/ingress key.
+sudo install -m 0600 /private/controller/agent-token /etc/picketx/agent-token
+sudo install -m 0644 deploy/systemd/picketxd-controller.service /etc/systemd/system/picketxd-controller.service
+sudoedit /etc/systemd/system/picketxd-controller.service
+```
+
+Replace `controller:REPLACE_WITH_GENERATED_AUTHORITY` with the exact public
+`agent.authority` from the initialized Controller; review Agent ref, state path,
+destinations, exclusive mark range and handling against actual managed facts and
+Binding. The shipped plaintext transport is for trusted same-host loopback only.
+For a normally verified TLS listener, remove `--controller-plaintext`, set the
+actual address and mandatory `--controller-server-name`; optionally use
+`--controller-ca /etc/picketx/controller-ca.pem` for custom roots. Never disable certificate checks.
+No mTLS is required. Check token/CA parent traversal and read permissions under
+the sandbox; do not place required files beneath protected home directories.
+
+Verify, daemon-reload and explicitly enable/start `picketxd-controller.service`
+only after this review. Use that same unit name in status/journal/application
+dependency commands below. Publication belongs to the authenticated management
+API, not local YAML polling or `systemctl reload`.
+
+On Controller outage the provider-bound accepted LKG can retain permission only
+until its original absolute deadline. A restarted process may confirm that cache
+but remains activating until a clean current remote publication is confirmed;
+LKG alone is not READY. Reconnect does not renew a Grant or resurrect expired
+permission. Inspect both fresh local JSON and current Controller APPLIED revision/
+hash; approval, delivery, an active service or an old receipt is not application.
+`desired.remoteState` independently distinguishes `awaiting`, `current` and
+`disconnected`; it is process-local, never restored as current from disk.
+`desired.lastError` remains publication rejection, not transport health.
+
+## First static installation
 
 Build with the pinned Go toolchain; runtime needs no Go, C library or nft/conntrack executable. Use the Linux/systemd environment recorded in acceptance. These commands install the loopback demonstration; protection starts only when explicitly started.
 
@@ -86,6 +131,15 @@ sudo env PICKETX_SYSTEMD_TESTS=1 python3 scripts/test-systemd.py \
 ```
 
 Offline verification substitutes the executable path temporarily and checks syntax only. Native acceptance copies the shipped unit to a unique runtime unit, substitutes test paths/state/poll and adds a fresh disposable NetworkNamespacePath. It retains sandbox/restart settings and verifies actual capabilities/namespace, dual-stack TCP/UDP, automatic crash recovery, invalid reload retention, deny reload, stop retention and byte-identical journal recovery. Additional scenarios hold invalid-current/cached startup in activating, release an ordered dependent only after clean readiness, and verify timeout retains filtering/state. The timeout-only phase shortens TimeoutStartSec from 60s to 2s; notification access, sandbox and restart policy stay unchanged. It installs no production unit and never alters the runner host firewall. Opted-in setup failures fail, never skip. CI archives service report/journal alongside existing native evidence.
+
+The separate required Controller-service gate runs `scripts/test-controller-service.py`
+with explicit `PICKETX_CONTROLLER_SERVICE_TESTS=1`, actual installed Core/Agent
+binaries and a real system manager. It requires current authenticated APPLIED,
+three distinct real Agent processes, unchanged desired cache, dual-stack TCP/UDP
+through startup/crash/outage/absolute expiry/offline restart/reconnect, independent
+unprotected peer health and correct notify state. Public evidence contains only
+allowlisted hashes/process/packet/receipt fields, never token/state/journal bodies.
+Same-boot namespace recovery is not a host reboot, backup/restore or boot-order proof.
 
 References: upstream [systemd.service](https://www.freedesktop.org/software/systemd/man/systemd.service.html) and [systemd.exec](https://www.freedesktop.org/software/systemd/man/systemd.exec.html).
 

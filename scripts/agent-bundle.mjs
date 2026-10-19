@@ -51,7 +51,8 @@ export async function verifyAgentBundle(directory) {
   for (const file of ['bin/picketxd', 'SOURCE.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'licenses/index.json',
     'source/PicketXD/go.mod', 'source/PicketXD/go.sum', 'source/PicketXD/LICENSE',
     'source/PicketXD/cmd/picketxd/main.go', 'source/PicketXD/vendor/modules.txt',
-    'deploy/README.md', 'deploy/README.zh-CN.md']) assert(covered.has(file), 'required bundle content: ' + file)
+    'deploy/README.md', 'deploy/README.zh-CN.md',
+    'deploy/systemd/picketxd-controller.service']) assert(covered.has(file), 'required bundle content: ' + file)
   assert((await lstat(join(directory, 'bin/picketxd'))).mode & 0o111, 'binary executable mode')
   const source = JSON.parse(await readFile(join(directory, 'SOURCE.json'), 'utf8'))
   assert.deepEqual(Object.keys(source).sort(), ['commit', 'go', 'platform', 'tree'])

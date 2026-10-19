@@ -1,5 +1,45 @@
 # 自动交付检查点
 
+## 原生清理修复 — 2026-10-19T20:25Z
+仍是PR24负责人codex/agent-service，心跳20:25Z，租约延至20:55Z或明确释放/合并且
+main完整复核全绿，取代20:45Z。39317313553首轮在联合验收前因Go代理HTTP/2瞬断
+失败；同源码复跑完成实际业务和全部新服务/24包观测，但正常卸载后的临时服务
+reset-failed返回失败，父进程未发布通过报告，不作成功/合并。依据真实RED仅移除
+不必要reset；停服、组回收、unit文件/管理器/命名空间/私有目录清理及失败门禁不变。
+仍需新准确head全三任务/四实际归档/合并/main证据；原始失败日志及取舍保留于评审
+记录和PR24，不宣称整体目标完成。
+
+## Controller服务评审修复 — 2026-10-19T20:10Z
+PR24负责人codex/agent-service心跳20:10Z，短租约延至20:45Z或明确释放/合并且main
+完整复核全绿，取代20:25Z。一次独立全分支评审0Critical/3Important/2Minor，原结论
+不可合并；首轮新单元原生39315655520也在断连状态等待处RED，不作成功。根执行器
+一次先回归后修复：独立remoteState/就绪、真实gRPC/缓存恢复/期限、私有进程组/
+subreaper超时回收、全部echo线程健康/RST存活；TLS/旧报告两项Minor一并修复，无延后。
+收窄运行时修复是必要语义纠错，不放宽门禁；不改缓存/协议/内核策略。完整取舍/代价/
+拒绝评估项及失败时间线见validation/AGENT_CONTROLLER_SERVICE_REVIEW.md。修复后全量
+测试、最终原生/head/四归档/main证据仍需完成，不宣称合并或总目标完成；最终见PR24。
+
+## Controller服务实现 — 2026-10-19T19:59Z
+PR24负责人codex/agent-service，心跳19:59Z，租约20:25Z或明确释放/合并且main完整
+复核全绿。真实旧静态服务RED39314552719/job118272524446：服务启动成功，但当前
+Controller APPLIED回执超时。此前三次39312474772/39312789768/39313499231只属夹具
+诊断，不作目标RED；修正初始revision/null报告、固定运行锁目录及ProtectHome外同字节
+二进制复制，未放宽沙箱。真实子进程启动失败/忽略SIGTERM回归RED→GREEN。现增加
+独立Controller单元并纳入/强制校验GPL安装包，两种unit语法通过、Node202全通过。
+本地Go普通/race仍仅5项既有Unixgram EPERM，vet/build通过；全量原生、新24包观测、
+一次独立全分支评审、准确源码/四归档/head/main证据仍必需，不宣称新服务原生成功。
+仅同启动周期，宿主重启/完整备份恢复另行验收，整体仍在推进；最终回执见PR24。
+
+## Agent Controller服务 — 2026-10-19T19:35Z
+负责人codex/agent-service，租约20:25Z或明确释放/合并且main完整验证全绿。
+Agent5373595与Corecdee150最新main全部必需步骤通过，PR23/37明确释放，无竞争PR。
+新建外部隔离worktree，原检出未改。设计/计划见superpowers/{specs,plans}/
+2026-10-20-agent-controller-service.md。先用旧静态单元+有效拒绝哨兵观察真实远程
+授权缺失RED，再交付独立Controller单元及真实systemd/断连/LKG/绝对期限验收。
+不改运行时/API/内核；graceful只保证新连接。必须真实Linux，保留全部旧门禁。
+一次独立全分支评审及准确head合并/main复核后立即释放，证据写入PR最终记录。
+宿主重启、Agent完整备份迁移另行验收，整体仍未完成。
+
 完整历史原始证据见[英文检查点](AUTONOMOUS_DELIVERY.md)及相应PR最终元数据。
 
 ## Agent安装包评审修复 — 2026-10-19T16:58Z

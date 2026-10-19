@@ -1,5 +1,61 @@
 # Autonomous delivery checkpoint
 
+## Native cleanup correction — 2026-10-19T20:25Z
+Same PR24 owner codex/agent-service heartbeat20:25Z, short lease20:55Z or explicit
+release/merged+fully-verified-green-main (supersedes20:45Z). Corrected native
+39317313553 first attempt has transient Go proxy HTTP/2 failure before conjunction;
+same-source retry2 passes actual business and all new service/24packet validations,
+but parent cleanup fails reset-failed on normally unloaded temporary unit. No public
+pass report produced, no accepted CI/merge claim. Actual native RED identifies
+unnecessary reset; remove only that action. Checked stop/group reaping/unit-file /
+manager/namespace/private-dir cleanup unchanged, all errors still fail. Full new
+exact-head three-job CI/four actual archives/expected-head/main proof still required.
+Original failed logs and complete rulings retained in review record and PR24.
+
+## Controller service review correction — 2026-10-19T20:10Z
+PR24 owner codex/agent-service heartbeat20:10Z; short lease20:45Z or explicit
+release/merged+fully-verified-green-main (supersedes20:25Z). ONE independent entire
+5373595..4b2f3e4 review:0Critical/3Important/2Minor, original verdict No. Native
+39315655520 also RED at outage status, not success. Root ONE regression-first pass:
+process-local remoteState/readiness independent from publication errors; actual
+gRPC/restore/expiry tests; owned session/subreaper timeout cleanup and all-worker
+echo health/RST survival; both TLS/stale-report Minors fixed. No deferred items.
+Ruling: narrow runtime diagnostic/readiness repair required by discovered bug,
+not weakening gate; immutable caches/protocol/kernel semantics unchanged. Complete
+findings/rulings/costs/declined boundaries/chronology: validation/AGENT_CONTROLLER_
+SERVICE_REVIEW.md. Corrected full local tests and final native/head/four archives /
+main proof still pending; no merge/overall-completion claim. Final receipt in PR24.
+
+## Agent Controller service implementation — 2026-10-19T19:59Z
+PR24 owner codex/agent-service, heartbeat19:59Z, short lease20:25Z or explicit
+release/merged+fully-verified-green-main. Actual old-static target RED39314552719 /
+job118272524446 at19:57:33Z (remoteb0295a6/tree14fcb27): manager start succeeds,
+then expected current connected Controller APPLIED receipt times out. Prior3runs
+39312474772/39312789768/39313499231 are fixture diagnostics only, NOT target RED.
+Real initial revision/null-report wiring, preserved fixed runtime lock directory,
+and byte-identical artifact staging outside ProtectHome corrected without reducing
+sandbox. Child readiness/stop actual subprocess regressions RED→GREEN. Separate
+Controller unit now included and required in verified GPL distribution; both unit
+syntax checks pass; fullNode202/202 nofail/skip. Full local Go normal/race still
+only5 inherited Unixgram EPERM; vet/build pass. All native jobs/new24packet cases,
+one independent whole-branch review, exact-source/four-archive/head/main proof still
+required; no new service native-success claim yet. Same-boot scope, not host reboot
+or complete backup/restore; overall goal remains active. Final receipt in PR24.
+
+## Agent Controller service acquisition — 2026-10-19T19:35Z
+Owner codex/agent-service; lease20:25Z or explicit release/merged+verified-green-main.
+Agent5373595/tree7e23d65/main39291377336 and Corecdee150/treea86a8905/main39308466228
+all3jobs/every step success, PR23/37 explicitly released; no competing open PRs.
+Fresh exact-main external isolated worktree (project-local .worktrees not ignored),
+original checkout untouched. Spec/plan superpowers/{specs,plans}/2026-10-20-agent-
+controller-service.md. Separate Controller-mode unit, actual systemd/remote cache/
+absolute deadline acceptance. Tests-first old static deny sentinel cannot stand in
+for actual remote APPLIED. No production runtime/API/kernel change; graceful new
+flows only. Full native mandatory; local no privileged systemd. Inline execution
+and ONE independent review, routine pauses waived by explicit mandate. Final exact
+PR/CI/source/archive/main evidence/release in PR metadata. Host reboot and complete
+Agent backup/relocation remain separate; overall goal active.
+
 ## Agent distribution review fix — 2026-10-19T16:58Z
 
 PR23 owner codex/agent-distribution heartbeat16:58Z, lease17:35Z or explicit release/

@@ -86,9 +86,10 @@ func (r RemoteConfig) token() (string, error) {
 }
 
 type remoteEvent struct {
-	snapshot *agentv1.Snapshot
-	reply    chan error
-	sent     chan struct{}
+	disconnected bool
+	snapshot     *agentv1.Snapshot
+	reply        chan error
+	sent         chan struct{}
 }
 
 func (r RemoteConfig) stream(ctx context.Context, events chan<- remoteEvent) error {
@@ -188,8 +189,9 @@ func (s *Store) runRemote(ctx context.Context, path string, poll time.Duration, 
 		return fmt.Errorf("provider loop already running")
 	}
 	s.running = true
+	s.remoteState = "awaiting"
 	s.mu.Unlock()
-	defer func() { s.mu.Lock(); s.running = false; s.mu.Unlock() }()
+	defer func() { s.mu.Lock(); s.running = false; s.remoteState = "disconnected"; s.mu.Unlock() }()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	events := make(chan remoteEvent)
@@ -199,6 +201,13 @@ func (s *Store) runRemote(ctx context.Context, path string, poll time.Duration, 
 		defer close(finished)
 		for {
 			_ = r.stream(ctx, events)
+			// Serialize source loss with acceptance in the consumer loop. Never
+			// interpolate transport/token errors into public publication status.
+			select {
+			case events <- remoteEvent{disconnected: true}:
+			case <-ctx.Done():
+				return
+			}
 			timer := time.NewTimer(time.Second)
 			select {
 			case <-ctx.Done():
@@ -237,6 +246,12 @@ func (s *Store) runRemote(ctx context.Context, path string, poll time.Duration, 
 			return ctx.Err()
 		case event := <-events:
 			timer.Stop()
+			if event.disconnected {
+				s.mu.Lock()
+				s.remoteState = "disconnected"
+				s.mu.Unlock()
+				continue
+			}
 			acceptErr := s.AcceptSnapshot(ctx, event.snapshot)
 			var applyErr error
 			if acceptErr == nil {

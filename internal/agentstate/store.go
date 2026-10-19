@@ -30,9 +30,11 @@ type Store struct {
 	restored, sameBoot, closed, faulted, running bool
 	lastAttempt                                  time.Time
 	lastError                                    string
+	remoteState                                  string
 	wake                                         chan struct{}
 }
 type Status struct {
+	RemoteState          string                 `json:"remoteState,omitempty"`
 	State                string                 `json:"state"`
 	Prepared             bool                   `json:"prepared"`
 	EnforcementConfirmed bool                   `json:"enforcementConfirmed"`
@@ -80,6 +82,10 @@ func New(c Config) (*Store, error) {
 		return nil, e
 	}
 	s := &Store{cfg: c, lock: lock, wake: make(chan struct{}, 1), sameBoot: true}
+	if c.Remote != nil {
+		// A durable LKG proves accepted intent, not this process's live source.
+		s.remoteState = "awaiting"
+	}
 	record, exists, e := readJournal(c.Path)
 	if e == nil && exists {
 		if record.Version != s.cacheVersion() || record.ProviderType != s.providerType() || record.ProviderKey != s.providerKey() || record.ProviderID != c.ProviderID || record.AgentRef != c.AgentRef || record.RuntimeKey != c.RuntimeKey || record.BootID == "" || record.Generation == 0 || record.AcceptedAt.IsZero() {
@@ -214,6 +220,7 @@ func (s *Store) Snapshot(at time.Time) (Status, *configuration.Candidate, error)
 }
 func (s *Store) statusLocked(at time.Time) (Status, error) {
 	st := Status{State: "unprepared", ProviderID: s.cfg.ProviderID, AgentRef: s.cfg.AgentRef, At: at.Round(0).UTC(), Generation: s.record.Generation, PolicyHash: s.record.PolicyHash, AcceptedAt: s.record.AcceptedAt, LastAttemptAt: s.lastAttempt, LastError: s.lastError, Restored: s.restored, SameBoot: s.sameBoot, CacheFault: s.faulted}
+	st.RemoteState = s.remoteState
 	if at.IsZero() {
 		return st, fmt.Errorf("status requires explicit time")
 	}

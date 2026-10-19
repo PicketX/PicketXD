@@ -2,6 +2,7 @@
 package agentstate
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"github.com/PicketX/PicketX/pkg/agentsnapshot"
@@ -13,6 +14,39 @@ import (
 	"testing"
 	"time"
 )
+
+func TestRemoteRestoredCacheRequiresCurrentProcessAcceptance(t *testing.T) {
+	c, snap := remoteFixture(t)
+	s := open(t, c)
+	if e := s.AcceptSnapshot(context.Background(), snap); e != nil {
+		t.Fatal(e)
+	}
+	before, e := os.ReadFile(c.Path)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_ = s.Close()
+	s = open(t, c)
+	st, _, e := s.Snapshot(c.Now())
+	if e != nil || !st.Prepared || !st.Restored || st.RemoteState != "awaiting" || st.LastError != "" {
+		t.Fatal(st, e)
+	}
+	expired, _, e := s.Snapshot(c.Now().Add(5 * time.Hour))
+	if e != nil || len(expired.Projection.Allow) != 0 || expired.RemoteState != "awaiting" {
+		t.Fatal(expired, e)
+	}
+	if e = s.AcceptSnapshot(context.Background(), snap); e != nil {
+		t.Fatal(e)
+	}
+	st, _, e = s.Snapshot(c.Now().Add(5 * time.Hour))
+	if e != nil || st.RemoteState != "current" || st.LastError != "" || len(st.Projection.Allow) != 0 {
+		t.Fatal(st, e)
+	}
+	after, e := os.ReadFile(c.Path)
+	if e != nil || !bytes.Equal(before, after) {
+		t.Fatal("reconnect rewrote deadline/cache", e)
+	}
+}
 
 func remoteFixture(t *testing.T) (Config, *agentv1.Snapshot) {
 	t.Helper()

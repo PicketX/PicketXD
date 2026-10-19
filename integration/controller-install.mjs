@@ -6,8 +6,8 @@ import { join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 
-export const coreCommit = '93024b229c072ce1db8512323c3d7fa35e3df74e'
-export const coreTree = '64ed0dcc4b6a3232e093150d7fc100cc9a852e43'
+export const coreCommit = 'cdee150201a5e33036cd3d73e3be5a8201000698'
+export const coreTree = 'a86a8905e76887c24dc25a12e8e945a55f8bedc6'
 export const digest = value => createHash('sha256').update(value).digest('hex')
 // Read-observation clocks are not persisted business state. All other fields,
 // including audit event timestamps and independent absolute Grant deadlines, stay.

@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: PicketX/PicketX
-          ref: 93024b229c072ce1db8512323c3d7fa35e3df74e
+          ref: cdee150201a5e33036cd3d73e3be5a8201000698
           path: .ci-core
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
@@ -51,6 +51,8 @@ jobs:
         env:
           PICKETX_CONSOLE_KERNEL_TESTS: '1'
         run: scripts/test-console-kernel.sh "$PWD/.ci-core"
+      - name: Actual Controller-mode Agent systemd outage and LKG recovery
+        run: sudo --non-interactive env PICKETX_CONTROLLER_SERVICE_TESTS=1 python3 scripts/test-controller-service.py --binary "$PWD/artifacts/picketxd-console" --controller-bundle "$PWD/artifacts/controller-bundle" --artifacts "$PWD/artifacts/console-kernel" --unit "$PWD/deploy/systemd/picketxd-controller.service"
       - name: Print native conjunction report and sanitized process logs
         if: always()
         run: |
