@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { validateManagedHumans } from './managed-humans.mjs'
 import { coreCommit, validateInstalledEvidence } from './controller-install.mjs'
 import { validateAgentDistributionEvidence } from '../scripts/agent-bundle.mjs'
+import { validateHTTPAuditEvidence } from './http-audit.mjs'
 export { coreCommit, verifyControllerBundle } from './controller-install.mjs'
 
 const both = outcome => [[4, outcome], [6, outcome]]
@@ -55,6 +56,7 @@ export function validateHumanApproval(r, identities) {
 export function validateEvidence(report, nativeEvidence) {
   validateAgentDistributionEvidence(report.agentDistribution, report)
   validateInstalledEvidence(report.deployment, report, nativeEvidence)
+  validateHTTPAuditEvidence(report.httpAudit, report)
   assert.equal(report.coreCommit, coreCommit, 'pinned Core source')
   const identities = validateManagedHumans(report)
   for (const name of ['agentCommit', 'agentTree']) assert.match(report[name] ?? '', /^[a-f0-9]{40}$/, name)

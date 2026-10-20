@@ -19,6 +19,7 @@ import { initializeInstalledController, businessViewDigest, parseEnforceStatusLo
 import { validateAgentDistributionEvidence } from '../scripts/agent-bundle.mjs'
 import { configureOidcIdentity } from './oidc-identity.mjs'
 import { inspectInstalledCLI } from './cli-diagnostics.mjs'
+import { runInstalledHTTPAudit } from './http-audit.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -261,6 +262,11 @@ try {
   }
   const four = await issue('browser-four', '127.0.0.1'); await scenario('grant4')
   const six = await issue('browser-six', '::1'); await scenario('grant6', { persistent: true })
+  // Independent original API creation receipts, not copied from audit events.
+  report.grantIssuances = [
+    { family: 4, source: '127.0.0.1', uid: four.uid, revision: four.revision },
+    { family: 6, source: '::1', uid: six.uid, revision: six.revision },
+  ]
   await diagnostics('grants-applied')
   phase = 'restart'
   // Restart both real deployed processes with active grants, never reinitialize.
@@ -310,6 +316,12 @@ try {
   await page.getByLabel('Policy YAML').waitFor()
   await page.getByRole('button', { name: 'Grants', exact: true }).click()
   console.log('PASS installed empty-PATH Controller/Agent: clean restart, identical DB views, fresh kernel/report confirmation and dual-stack traffic')
+  phase = 'http-audit'
+  assertServicesAlive(children)
+  report.httpAudit = await runInstalledHTTPAudit({ browser, origin, password, report, api, request, evidence,
+    grants: [four.uid, six.uid], ...(oidc ? { externalSignIn: oidc.signIn } : {}) })
+  assertServicesAlive(children)
+  console.log('PASS installed HTTP audit: actual dual-stack allow/deny probes, managed approver session, exact API/DOM rows and responsive screenshots')
   for (const family of [4, 6]) {
     assertServicesAlive(children)
     const admittedStatus = (await request(family)).status

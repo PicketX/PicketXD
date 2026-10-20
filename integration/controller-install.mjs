@@ -8,8 +8,8 @@ import { execFileSync } from 'node:child_process'
 import { validateInstalledIngress } from './installed-ingress.mjs'
 import { validateCLIDiagnostics } from './cli-diagnostics.mjs'
 
-export const coreCommit = '81ec5bc8a483010f99672f7ff5d982ad4ee6698f'
-export const coreTree = '1b04ceb9d86f4d72c30e12c540097aafd915b2d2'
+export const coreCommit = 'c67da10767d5cb92012366b6328baa31be8afa61'
+export const coreTree = 'b2d6855d8406d70f98cc0d4c17fae9e31803a249'
 export const digest = value => createHash('sha256').update(value).digest('hex')
 // Read-observation clocks are not persisted business state. All other fields,
 // including audit event timestamps and independent absolute Grant deadlines, stay.

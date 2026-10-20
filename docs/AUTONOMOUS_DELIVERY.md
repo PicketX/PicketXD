@@ -1,5 +1,30 @@
 # Autonomous delivery checkpoint
 
+## Installed HTTP audit reviewed correction — 2026-10-20T12:58Z
+Same owner codex/installed-http-audit/PR30/lease13:40Z or explicit verified-main
+release. One whole-branch independent review0Critical/1Important/0Minor. Root ONE
+TDD correction: seven coherent-substitution/independent-issuance regressions RED→
+GREEN; receipt now ties exact family/source/UID/creation revision to original real
+Grant responses and grant4/grant6/restored revisions.199targeted/346fullNode pass,
+no fail/skip. Six declined-scope rulings/costs in validation/INSTALLED_HTTP_AUDIT_REVIEW*.md.
+Candidate39425492259 realGo193top/485total nofail/skip/race and112kernel/9systemd
+jobs green; installed password/audit reached actual service recovery. Candidate is
+not corrected-head acceptance. Exact corrected CI/raw/fouractualarchives/static/
+source/notices/24images/expectedhead/freshmain remain mandatory. No merge claim.
+
+## Installed HTTP audit acquisition — 2026-10-20T12:42Z
+Owner codex/installed-http-audit; short lease13:40Z or earlier verified-main release.
+Fresh Corec67da107/treeb2d6855/CI39421146281 and Agent665c9a4/tree5907b051/
+CI39412700638 green, no openPR. Core44 release6290761489 and Agent29 release6289674170
+readback; do not wait old12:40/11:45 leases. Existing clean linked workspace/new
+exact-main branch; old branches/originals preserved. Spec/context/plan superpowers/
+{specs,plans}/2026-10-20-installed-http-audit.md self-reviewed. Native real ingress
+dual-stack probes→durable decisionIDs→actual human audit-page rows in password and
+realHTTPSOIDC modes; no product/UI/kernel/API/dependency changes. ConfiguredGo PATH
+baseline304Node pass; five inherited UnixgramEPERM Go failures, not nativegreen.
+User routine handoffs waived, not TDD/one review/fullnative/raw/fouractualarchives/
+expectedhead/main. Final immutable PR receipt/release supersedes pending source.
+
 ## Installed CLI reviewed — 2026-10-20T10:53Z
 Same owner/branch/lease11:45Z or earlier verified-main release; PR29. Local code
 353c178/treee450be6 published as5a590a3 with identical tree (fetch/diff verified).

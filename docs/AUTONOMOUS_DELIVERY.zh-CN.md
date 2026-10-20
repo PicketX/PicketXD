@@ -1,5 +1,25 @@
 # 自动交付检查点
 
+## 已安装HTTP审计评审修复 — 2026-10-20T12:58Z
+同owner codex/installed-http-audit、PR30、租约13:40Z或更早验证main后明确释放。
+一次独立全分支评审0Critical/1Important/0Minor；root唯一修复轮七项协调替换/
+独立创建凭据回归RED→GREEN，严格关联原始真实Grant响应的族/source/UID/
+创建revision及grant4/grant6/重启revision。199针对性与346全量Node通过无跳过。
+六项搁置范围决策/成本见validation/INSTALLED_HTTP_AUDIT_REVIEW*.md。候选
+39425492259真实Go193顶层/485总项无fail/skip/race，112内核/9systemd任务通过；
+密码/审计联合已进入真实服务恢复。候选不代表修复head验收；仍须精确CI原始
+日志/四实际归档/静态源码通知/24截图/expectedhead合并及main复核，不宣称合并。
+
+## 已安装HTTP审计接续 — 2026-10-20T12:42Z
+负责人codex/installed-http-audit，短租约13:40Z或验证main后提前释放。Corec67da107/
+treeb2d6855/CI39421146281与Agent665c9a4/tree5907b051/CI39412700638通过，无开放PR。
+Core44释放6290761489、Agent29释放6289674170已读回，不等旧租约。复用干净隔离
+工作区，从准确main新建分支，原工作保留；设计/上下文/计划superpowers/{specs,plans}/
+2026-10-20-installed-http-audit.md已自审。两套密码/真实HTTPSOIDC：原生双栈入口
+请求→持久决策ID→人员审计页面行，不改产品/UI/内核/API/依赖。配置Go路径后304Node
+基线通过；Go五项既有UnixgramEPERM，不算原生通过。TDD、唯一评审、完整原生/
+日志/四实际包/精确head/main仍必需；最终PR不可变回执/释放覆盖源码待验收文字。
+
 ## 安装版CLI联合验收接续 — 2026-10-20T10:44Z
 负责人codex/installed-cli-conjunction；租约11:45Z或验证main后提前释放。
 Core81ec5bc/tree1b04ceb9/CI39405913826与Agentb14b54d/tree5b243935/CI39388341832

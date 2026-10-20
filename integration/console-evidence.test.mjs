@@ -2,6 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { validateEvidence, requiredCases, coreCommit } from './console-evidence.mjs'
+import { auditFixture, issuanceFixture } from './fixtures/http-audit.mjs'
 
 // Unit data only; never emitted as native acceptance evidence.
 const nativeFixture = () => {
@@ -28,7 +29,7 @@ const fixture = () => {
       { id: 'principal:account-' + '2'.repeat(32), roles: ['role:admin'] },
     ],
   },
-  confirmations: [2, 3, 4, 5].map(revision => ({ revision, generation: revision, appliedGeneration: revision, policyHash: 'e'.repeat(64), appliedPolicyHash: 'e'.repeat(64), enforcementConfirmed: true })),
+  confirmations: [2, 3, 4, 5, 1].map(revision => ({ revision, generation: revision, appliedGeneration: revision, policyHash: 'e'.repeat(64), appliedPolicyHash: 'e'.repeat(64), enforcementConfirmed: true })),
   humanTimeline: { baseline: 2, approved4: 3, approved6: 4, revoked4: 5, expired: 5, rejected: 5 },
   humanRequests: [4, 6].map(family => ({
     family, uid: `request-${family}`, requester: 'principal:account-' + '1'.repeat(32), approver: 'principal:account-' + '2'.repeat(32),
@@ -44,7 +45,7 @@ const fixture = () => {
     finalGrantState: family === 4 ? 'revoked' : 'expired',
   })),
   cases: Object.entries(requiredCases).map(([name, specs]) => ({ name,
-    revision: ({ humanPending4: 2, humanApproved4: 3, humanPending6: 3, humanApproved6: 4, humanSibling: 4, humanBrowser: 4,
+    revision: ({ grant4: 1, humanPending4: 2, humanApproved4: 3, humanPending6: 3, humanApproved6: 4, humanSibling: 4, humanBrowser: 4,
       humanAccountDisabled: 4, humanAccountReenabled: 4, humanRevoke4: 5, humanEstablishedRevoke4: 5, humanExpired: 5, humanEstablishedExpired6: 5, humanRejected: 5 })[name] ?? 2,
     status: 'pass', observations: specs.map(([family, outcome]) => ({ family, outcome, status: outcome === 'allow' ? 200 : outcome === 'http-deny' ? 403 : null, appDelta: outcome === 'allow' ? 1 : 0 })) })),
  }
@@ -68,7 +69,7 @@ const fixture = () => {
    disabledGrants: report.humanRequests.map(r => structuredClone(r.grant)),
    enabledGrants: report.humanRequests.map(r => structuredClone(r.grant)) }
  report.deployment = {
-   source: { commit: coreCommit, tree: '1b04ceb9d86f4d72c30e12c540097aafd915b2d2', platform: 'linux-amd64' },
+   source: { commit: coreCommit, tree: 'b2d6855d8406d70f98cc0d4c17fae9e31803a249', platform: 'linux-amd64' },
    manifestSHA256: 'f'.repeat(64), cliSHA256: 'a'.repeat(64),
    controllerSHA256: report.controllerBinarySHA256, agentSHA256: report.agentBinarySHA256,
    runtimePATH: '', relocated: true, initialized: true, configPreserved: true, credentialsPrivate: true,
@@ -101,9 +102,15 @@ const fixture = () => {
      return { phase, revision: 2, status: observation(false), doctor: observation(true), statusExit: 0, doctorExit: healthy ? 0 : 1,
        ...(healthy ? { rawStatusIndex: i === 5 ? 10 : 0, controllerReceipt: structuredClone(report.deployment.restart.controllerReceipt) } : {}) }
    }) }
+ report.httpAudit = auditFixture(logins[1].id, 2)
+ report.grantIssuances = issuanceFixture(2)
  return report
 }
 test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validate(fixture())))
+test('installed gate rejects an old report without actual HTTP audit-page correlation', () => {
+ const r = fixture(); delete r.httpAudit
+ assert.throws(() => validate(r))
+})
 test('installed gate rejects an old report without CLI lifecycle diagnostics', () => {
  const r = fixture(); delete r.deployment.diagnostics
  assert.throws(() => validate(r))
