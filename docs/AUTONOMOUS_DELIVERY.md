@@ -1,5 +1,17 @@
 # Autonomous delivery checkpoint
 
+## Installed CLI conjunction acquisition — 2026-10-20T10:44Z
+Owner codex/installed-cli-conjunction; short lease11:45Z or earlier verified-main
+release. Fresh Core81ec5bc/tree1b04ceb9/CI39405913826 and Agentb14b54d/tree5b243935/
+CI39388341832 alljobs/steps green, no openPR. PR43 released10:17:59Z, PR28 released
+07:53Z readback. Existing clean isolated worktree/new exact-main branch; old branches
+and host work preserved. Baseline261Node pass. Spec/context/plan superpowers/{specs,
+plans}/2026-10-20-installed-cli-conjunction.md. Extend existing dual native workflows
+with shipped status/doctor six-phase proof and actual rawAgent/Controller correlation;
+no product/UI/kernel/API/schema/dependency change or false execution claim. User
+autonomy waives routine handoffs, not TDD/ONEreview/fullnative/raw/fouractualarchives/
+expectedhead/main. Final PR immutable receipt/release supersedes pending text.
+
 ## Installed OIDC conjunction acquisition — 2026-10-20T06:43Z
 Owner codex/oidc-installed-conjunction; short lease07:45Z or explicit verified-main
 release. Fresh Agent0255d4d/treeced537d/CI39347548020 and Core64c8cb8/tree4637c029/
