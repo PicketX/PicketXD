@@ -1,5 +1,16 @@
 # 自动交付检查点
 
+## 安装版OIDC联合接续 — 2026-10-20T06:43Z
+Owner codex/oidc-installed-conjunction，短租约07:45Z或明确main完整验证后释放。
+最新Agent0255d4d/treeced537d/CI39347548020和Core64c8cb8/tree4637c029/CI39379765387
+全部job/step绿、无开放PR；PR41已06:30:15Z、PR27已00:34:27Z释放并回读。复用干净隔离
+工作树，从准确main新建分支，保留其他工作。设计/文件图/计划见superpowers/{specs,plans}/
+2026-10-20-oidc-installed-conjunction.md。保留原密码联合验收，新增真实Keycloak26.8.1/
+正常HTTPS/现有人类独立审批→安装Agent/Nginx/应用/Gitea双栈闭环；独立私有Provider
+目录、受控信任和清理，无密码回退、不改产品栈/内核/UI。本地5项UnixgramEPERM基线不算绿。
+必须一次独立评审/完整native/原始日志/四实际归档/expected-head/main；最终准确证据及即时
+释放写本PR并优先于源码pending，整体目标继续。
+
 ## 入口失败隐私接续 — 2026-10-20T00:14Z
 Owner codex/ingress-error-privacy，短租约00:55Z或明确释放/合并且main完整复核。
 Agent524a62c/treef9b6f00/main39344752833及Coreadfa1b1/tree7a5cbb6/main39339061250

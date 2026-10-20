@@ -1,5 +1,18 @@
 # Autonomous delivery checkpoint
 
+## Installed OIDC conjunction acquisition — 2026-10-20T06:43Z
+Owner codex/oidc-installed-conjunction; short lease07:45Z or explicit verified-main
+release. Fresh Agent0255d4d/treeced537d/CI39347548020 and Core64c8cb8/tree4637c029/
+CI39379765387 alljobs/steps green, no openPR; PR41 released06:30:15Z and PR27
+released00:34:27Z readback. Existing clean linked worktree, new exact-main branch;
+other work preserved. Spec/context/plan superpowers/{specs,plans}/2026-10-20-oidc-installed-conjunction.md.
+Retain old password conjunction; add actual Keycloak26.8.1+normalHTTPS+existing
+human/independent approval → installed Agent/Nginx/application/Gitea dual-stack.
+Separate private provider tree/owned trust/cleanup; no password fallback or product
+stack/kernel/UI change. Local five UnixgramEPERM baseline, native mandatory.
+One fresh review/full raw/four actual archives/expected-head/main required. Accurate
+final receipt/immediate release in this PR supersedes source pending text; goal active.
+
 ## Ingress failure privacy acquisition — 2026-10-20T00:14Z
 Owner codex/ingress-error-privacy; short lease00:55Z or explicit release/merged+
 verified main. Fresh Agent524a62c/treef9b6f00/main39344752833, Coreadfa1b1/tree7a5cbb6/
