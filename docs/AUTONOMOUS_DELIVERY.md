@@ -1,5 +1,22 @@
 # Autonomous delivery checkpoint
 
+## Ingress failure privacy acquisition — 2026-10-20T00:14Z
+Owner codex/ingress-error-privacy; short lease00:55Z or explicit release/merged+
+verified main. Fresh Agent524a62c/treef9b6f00/main39344752833, Coreadfa1b1/tree7a5cbb6/
+main39339061250 green; no open PR and PR26 explicit00:05:45Z release checked.
+Existing clean linked worktree new branch from fetched exact Agent main; originals
+untouched. Bounded design/context/plan validation/INGRESS_ERROR_PRIVACY.md, four
+real process/filesystem failure regressions RED→GREEN; full233Node pass. Local Go
+baseline only five inherited TestNotifyEmitter* Unixgram EPERM, not native proof.
+No runtime/kernel/API/UI change. Whole-branch review/final native/raw/four actual
+archives/expected-head/main still required; final accurate receipt/release in PR.
+Basic-goal audit found explicit still-missing OIDC session workflow in Core M1
+architecture/roadmap; local human login docs explicitly say not OIDC and source
+has no issuer/callback implementation. Account lifecycle already implemented;
+PR12 stale revision1 UPDATE CAS covered in store_test/requests_test, do not redo.
+Next meaningful feature: OIDC session login on existing SCS/Casbin + real browser
+protocol validation, not repeated provider/packaging work. Goal remains active.
+
 ## Installed ingress review correction — 2026-10-19T23:49Z
 Same owner codex/installed-ingress; lease00:30Z or explicit release/verified main.
 PR26 initial5bcf252/tree6b3eeb6, native39343624737 underway, not accepted final.

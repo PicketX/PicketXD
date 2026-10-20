@@ -16,28 +16,38 @@ const keys = (value, expected) => {
 }
 
 export async function prepareInstalledIngress(installed) {
-  assert.equal(installed.runtimeOptions.env.PATH, '')
-  assert.equal(hash(await readFile(installed.cliBinary)), installed.proof.cliSHA256)
-  const paths = [], routes = []
-  for (const uid of routeIDs) {
-    const directory = join(installed.instance, `nginx-${uid}`)
-    execFileSync(installed.cliBinary, ['nginx-init', '--directory', directory,
-      '--token-file', installed.ingressTokenFile, '--route-id', uid, '--authz-address', '127.0.0.1:19091'],
-    { ...installed.runtimeOptions, encoding: 'utf8', timeout: 10000 })
-    const info = await lstat(directory)
-    assert(info.isDirectory() && !info.isSymbolicLink() && (info.mode & 0o777) === 0o700)
-    const location = join(directory, 'location.conf'), server = join(directory, 'server.conf')
-    const receipt = { uid, directoryMode: 0o700 }
-    for (const [name, path] of [['location', location], ['server', server]]) {
-      const stat = await lstat(path)
-      assert(stat.isFile() && !stat.isSymbolicLink() && (stat.mode & 0o777) === 0o600)
-      receipt[`${name}Mode`] = stat.mode & 0o777
-      receipt[`${name}SHA256`] = hash(await readFile(path))
+  let phase = 'identity'
+  try {
+    assert.equal(installed.runtimeOptions.env.PATH, '')
+    assert.equal(hash(await readFile(installed.cliBinary)), installed.proof.cliSHA256)
+    const paths = [], routes = []
+    for (const uid of routeIDs) {
+      phase = `render ${uid}`
+      const directory = join(installed.instance, `nginx-${uid}`)
+      execFileSync(installed.cliBinary, ['nginx-init', '--directory', directory,
+        '--token-file', installed.ingressTokenFile, '--route-id', uid, '--authz-address', '127.0.0.1:19091'],
+      { ...installed.runtimeOptions, encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] })
+      phase = `output ${uid}`
+      const info = await lstat(directory)
+      assert(info.isDirectory() && !info.isSymbolicLink() && (info.mode & 0o777) === 0o700)
+      const location = join(directory, 'location.conf'), server = join(directory, 'server.conf')
+      const receipt = { uid, directoryMode: 0o700 }
+      for (const [name, path] of [['location', location], ['server', server]]) {
+        const stat = await lstat(path)
+        assert(stat.isFile() && !stat.isSymbolicLink() && (stat.mode & 0o777) === 0o600)
+        receipt[`${name}Mode`] = stat.mode & 0o777
+        receipt[`${name}SHA256`] = hash(await readFile(path))
+      }
+      paths.push({ location, server }); routes.push(receipt)
     }
-    paths.push({ location, server }); routes.push(receipt)
+    return { primary: paths[0], privateRoute: paths[1], gitea: paths[2],
+      proof: { cliSHA256: installed.proof.cliSHA256, runtimePATH: '', routes, servers: {}, privateDenials: [] } }
+  } catch (error) {
+    // A fresh Error also excludes hidden cause/stdio/spawnargs and private paths.
+    // Do not forward the original error or its message even after value redaction.
+    const exit = Number.isInteger(error?.status) && error.status >= 0 && error.status <= 255 ? ` (exit ${error.status})` : ''
+    throw new Error(`Installed ingress preparation failed at ${phase}${exit}`)
   }
-  return { primary: paths[0], privateRoute: paths[1], gitea: paths[2],
-    proof: { cliSHA256: installed.proof.cliSHA256, runtimePATH: '', routes, servers: {}, privateDenials: [] } }
 }
 
 // Fixed disposable topology: never a general product ingress installer.
