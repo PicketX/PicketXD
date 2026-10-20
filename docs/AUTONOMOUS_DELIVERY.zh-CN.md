@@ -160,3 +160,11 @@ superpowers/{specs,plans}/2026-10-19-installed-controller.md已自审；按自�
 Agent及双服务重启进入既有完整Linux/Gitea流程，不改生产内核/UI/API。本地CLI基线
 仅5项既有Unixgram EPERM，Node129/129通过；完整原生验证仍必需。正式Agent分发包、
 宿主systemd开机另做，不宣称整体完成；最终准确证据/租约释放以本轮PR元数据为准。
+## 已安装 CLI 评审完成 — 2026-10-20T10:53Z
+同一负责人/分支，租约11:45Z或更早main验收释放；PR29。本地353c178/treee450be6
+发布为5a590a3，同树经fetch/diff核对。完整304Node、Python12、vet/build与锁文件
+CoreWeb通过；本地普通/race仅五项既有UnixgramEPERM，不算原生成功。唯一全分支
+独立评审0Critical/0Important/1Minor，236项独立通过。相同版本/摘要单元夹具
+Minor延后并保留覆盖成本；全部四项未判断范围裁定见validation/INSTALLED_CLI_REVIEW*。
+评审后无代码修改。原生39410601717进行中，原始Go193顶层/485总项无fail/skip/race
+已核对；最终精确head原生/原始日志/四份实际归档/main门禁仍必需，尚未宣称合并。

@@ -1,5 +1,16 @@
 # Autonomous delivery checkpoint
 
+## Installed CLI reviewed — 2026-10-20T10:53Z
+Same owner/branch/lease11:45Z or earlier verified-main release; PR29. Local code
+353c178/treee450be6 published as5a590a3 with identical tree (fetch/diff verified).
+Full304Node/Python12/vet/build/locked CoreWeb passed; local normal/race only five
+inherited UnixgramEPERM, not native green. ONE full-branch independent review
+0Critical/0Important/1Minor;236 targeted pass. Minor same-revision/hash unit fixture
+deferred with explicit coverage cost; all four declined-scope rulings retained in
+validation/INSTALLED_CLI_REVIEW*.md. No code changed after review. Native39410601717
+underway; raw Go193top/485total nofail/skip/race already inspected. Complete final
+exact-head native/raw/fouractualarchives/main proof mandatory; no merge claim.
+
 ## Installed CLI conjunction acquisition — 2026-10-20T10:44Z
 Owner codex/installed-cli-conjunction; short lease11:45Z or earlier verified-main
 release. Fresh Core81ec5bc/tree1b04ceb9/CI39405913826 and Agentb14b54d/tree5b243935/
