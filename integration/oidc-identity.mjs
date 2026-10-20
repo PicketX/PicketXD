@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { randomBytes } from 'node:crypto'
 
-export const oidcCoreCommit = '64c8cb8e6c92669873031ca45cff47dbb38d0224'
-export const oidcCoreTree = '4637c029a34c71ec04b66fcc205c288f1280dfb9'
+export const oidcCoreCommit = '81ec5bc8a483010f99672f7ff5d982ad4ee6698f'
+export const oidcCoreTree = '1b04ceb9d86f4d72c30e12c540097aafd915b2d2'
 export const keycloakSHA256 = '4e2740b181faa2ea623a1c2ecf00855935311e546046e2f857615a47ed24cbe8'
 const only = (v, names) => { assert(v && typeof v === 'object' && !Array.isArray(v)); assert.deepEqual(Object.keys(v).sort(), [...names].sort(), 'public OIDC fields only') }
 const role = user => user === 'requester' ? 'role:requester' : 'role:admin'

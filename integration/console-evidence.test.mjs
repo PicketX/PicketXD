@@ -68,7 +68,7 @@ const fixture = () => {
    disabledGrants: report.humanRequests.map(r => structuredClone(r.grant)),
    enabledGrants: report.humanRequests.map(r => structuredClone(r.grant)) }
  report.deployment = {
-   source: { commit: coreCommit, tree: '4637c029a34c71ec04b66fcc205c288f1280dfb9', platform: 'linux-amd64' },
+   source: { commit: coreCommit, tree: '1b04ceb9d86f4d72c30e12c540097aafd915b2d2', platform: 'linux-amd64' },
    manifestSHA256: 'f'.repeat(64), cliSHA256: 'a'.repeat(64),
    controllerSHA256: report.controllerBinarySHA256, agentSHA256: report.agentBinarySHA256,
    runtimePATH: '', relocated: true, initialized: true, configPreserved: true, credentialsPrivate: true,
@@ -90,9 +90,24 @@ const fixture = () => {
        reportRevision: 2, reportSHA256: '9'.repeat(64), phase: 'APPLIED' },
    },
  }
+ // Complete unit-only CLI observations; native runner executes installed binaries.
+ report.deployment.diagnostics = { source: structuredClone(report.deployment.source), cliSHA256: report.deployment.cliSHA256, runtimePATH: '',
+   cases: ['before-agent', 'applied', 'grants-applied', 'agent-stopped', 'controller-restored', 'agent-restarted'].map((phase, i) => {
+     const healthy = [1, 2, 5].includes(i)
+     const observation = doctor => ({ scope: 'controller-observations', authority: report.deployment.authority, revision: '2',
+       observed_at: '2026-10-20T10:00:00Z', ...(doctor ? { ready: true } : {}), enforcement_confirmed: false,
+       nodes: [{ agent_ref: 'node', desired_revision: '2', ...(healthy ? { reported_revision: '2' } : {}),
+         state: healthy ? 'reported-applied' : 'disconnected', fresh_for_millis: healthy ? 59000 : 0 }] })
+     return { phase, revision: 2, status: observation(false), doctor: observation(true), statusExit: 0, doctorExit: healthy ? 0 : 1,
+       ...(healthy ? { rawStatusIndex: i === 5 ? 10 : 0, controllerReceipt: structuredClone(report.deployment.restart.controllerReceipt) } : {}) }
+   }) }
  return report
 }
 test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validate(fixture())))
+test('installed gate rejects an old report without CLI lifecycle diagnostics', () => {
+ const r = fixture(); delete r.deployment.diagnostics
+ assert.throws(() => validate(r))
+})
 test('installed gate rejects an old report without generated ingress', () => {
  const r = fixture(); delete r.deployment.ingress
  assert.throws(() => validate(r))
