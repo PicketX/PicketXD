@@ -1,5 +1,15 @@
 # 自动交付检查点
 
+## 已安装HTTP审计接续 — 2026-10-20T12:42Z
+负责人codex/installed-http-audit，短租约13:40Z或验证main后提前释放。Corec67da107/
+treeb2d6855/CI39421146281与Agent665c9a4/tree5907b051/CI39412700638通过，无开放PR。
+Core44释放6290761489、Agent29释放6289674170已读回，不等旧租约。复用干净隔离
+工作区，从准确main新建分支，原工作保留；设计/上下文/计划superpowers/{specs,plans}/
+2026-10-20-installed-http-audit.md已自审。两套密码/真实HTTPSOIDC：原生双栈入口
+请求→持久决策ID→人员审计页面行，不改产品/UI/内核/API/依赖。配置Go路径后304Node
+基线通过；Go五项既有UnixgramEPERM，不算原生通过。TDD、唯一评审、完整原生/
+日志/四实际包/精确head/main仍必需；最终PR不可变回执/释放覆盖源码待验收文字。
+
 ## 安装版CLI联合验收接续 — 2026-10-20T10:44Z
 负责人codex/installed-cli-conjunction；租约11:45Z或验证main后提前释放。
 Core81ec5bc/tree1b04ceb9/CI39405913826与Agentb14b54d/tree5b243935/CI39388341832

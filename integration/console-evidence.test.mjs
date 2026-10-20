@@ -104,6 +104,10 @@ const fixture = () => {
  return report
 }
 test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validate(fixture())))
+test('installed gate rejects an old report without actual HTTP audit-page correlation', () => {
+ const r = fixture(); delete r.httpAudit
+ assert.throws(() => validate(r))
+})
 test('installed gate rejects an old report without CLI lifecycle diagnostics', () => {
  const r = fixture(); delete r.deployment.diagnostics
  assert.throws(() => validate(r))
