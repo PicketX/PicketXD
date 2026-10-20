@@ -18,6 +18,7 @@ import { prepareInstalledIngress, installedNginxConfiguration } from './installe
 import { initializeInstalledController, businessViewDigest, parseEnforceStatusLog } from './controller-install.mjs'
 import { validateAgentDistributionEvidence } from '../scripts/agent-bundle.mjs'
 import { configureOidcIdentity } from './oidc-identity.mjs'
+import { inspectInstalledCLI } from './cli-diagnostics.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
@@ -157,6 +158,19 @@ try {
     runtimePATH: installed.runtimeOptions.env.PATH, relocated: true, initialized: true,
     configPreserved: false, credentialsPrivate: true, authority: installed.authority,
     sourceMode: 'database', usersMode: 'database', ingressRoutes: ['route-v1', 'route-gitea-v1'] }
+  report.deployment.diagnostics = { source: structuredClone(installed.proof.source), cliSHA256: installed.proof.cliSHA256, runtimePATH: installed.runtimeOptions.env.PATH, cases: [] }
+  async function diagnostics(phase, statusOffset = 0) {
+    const revision = (await api('publication')).revision
+    const healthy = ['applied', 'grants-applied', 'agent-restarted'].includes(phase)
+    const row = await inspectInstalledCLI(installed, origin, { phase, revision, state: healthy ? 'reported-applied' : 'disconnected' })
+    if (healthy) {
+      row.rawStatusIndex = status.findLastIndex((s, i) => i >= statusOffset && s.enforcementConfirmed && s.desired?.generation === revision && s.appliedGeneration === revision && s.appliedPolicyHash === s.desired.policyHash)
+      assert(row.rawStatusIndex >= statusOffset)
+      row.controllerReceipt = structuredClone(latestControllerReceipt)
+    }
+    report.deployment.diagnostics.cases.push(row)
+    console.log(`PASS installed CLI ${phase}: status=${row.statusExit} doctor=${row.doctorExit}; Controller observations only`)
+  }
   execFileSync('ip', ['link', 'set', 'lo', 'up'])
   phase = 'installed-start'
   if (oidc) {
@@ -211,6 +225,7 @@ try {
     await page.getByText('Desired configuration saved. Node application is not confirmed.', { exact: true }).waitFor()
   }
   await publish(basePolicy, 'Combined native baseline')
+  await diagnostics('before-agent')
   const agentArgs = ['enforce', '--controller', '127.0.0.1:19090', '--agent-token-file', installed.agentTokenFile, '--controller-plaintext', '--state-dir', join(temp, 'agent-state'), '--provider', installed.authority, '--agent', 'node', '--destination', '127.0.0.1', '--destination', '::1', '--mark-first', '0x504a0000', '--mark-last', '0x504a003f', '--poll', '30ms']
   function startAgent(name) {
     const child = start(name, agentBinary, agentArgs, installed.runtimeOptions)
@@ -220,6 +235,7 @@ try {
   }
   let agent = startAgent('agent')
   await confirmed(); await scenario('baseline')
+  await diagnostics('applied')
   await page.getByRole('button', { name: 'Grants', exact: true }).click()
   // Grants remains mounted across tabs and deliberately does not silently rebase
   // its draft after another editor publishes a different Resource catalog.
@@ -245,6 +261,7 @@ try {
   }
   const four = await issue('browser-four', '127.0.0.1'); await scenario('grant4')
   const six = await issue('browser-six', '::1'); await scenario('grant6', { persistent: true })
+  await diagnostics('grants-applied')
   phase = 'restart'
   // Restart both real deployed processes with active grants, never reinitialize.
   const paths = { publication: 'publication', accounts: 'accounts', grants: 'grants?limit=100', audit: 'audit?limit=100' }
@@ -259,7 +276,10 @@ try {
     children.splice(children.indexOf(child), 1)
     return code
   }
-  const agentExit = await stopDeployed(agent), controllerExit = await stopDeployed(controller)
+  const agentExit = await stopDeployed(agent)
+  await until(async () => (await api('agent-observations')).nodes.find(n => n.agent_ref === 'node')?.connection === 'disconnected', 'Controller observing stopped Agent')
+  await diagnostics('agent-stopped')
+  const controllerExit = await stopDeployed(controller)
   // Retain complete raw history for independent correlation; fence old receipts.
   const statusOffset = status.length
   controller = start('controller-restarted', installed.controllerBinary, ['-config', installed.configPath], installed.runtimeOptions)
@@ -267,8 +287,10 @@ try {
   const oldSessionStatus = (await fetch(origin + '/console/api/v1/publication', { headers: { Cookie: cookie } })).status
   assert.equal(oldSessionStatus, 401)
   const afterViews = await views(); assert.deepEqual(afterViews, beforeViews)
+  await diagnostics('controller-restored')
   agent = startAgent('agent-restarted')
   assert.equal(await confirmed(statusOffset), revision)
+  await diagnostics('agent-restarted', statusOffset)
   const freshStatusIndex = status.findLastIndex((s, i) => i >= statusOffset && s.enforcementConfirmed && s.appliedGeneration === revision)
   const fresh = status[freshStatusIndex]
   const observations = []

@@ -1,5 +1,16 @@
 # 自动交付检查点
 
+## 安装版CLI联合验收接续 — 2026-10-20T10:44Z
+负责人codex/installed-cli-conjunction；租约11:45Z或验证main后提前释放。
+Core81ec5bc/tree1b04ceb9/CI39405913826与Agentb14b54d/tree5b243935/CI39388341832
+三job/全部step通过，无开放PR；PR43已10:17:59Z、PR28已07:53Z释放并读回。
+复用干净隔离区，从准确main建新分支，保留旧分支/其他工作；基线261Node通过。
+设计/图/计划superpowers/{specs,plans}/2026-10-20-installed-cli-conjunction.md。
+在既有两套真实链路加入安装版status/doctor六阶段及真实Agent/Controller关联证明，
+不改产品/UI/内核/API/schema/依赖，不将报告当执行；自主授权免例行确认而不免
+TDD/唯一评审/完整原生CI/原始日志/四实际归档/expectedhead/main。最终PR证据及
+立即释放覆盖待验说明。
+
 ## 安装版OIDC联合接续 — 2026-10-20T06:43Z
 Owner codex/oidc-installed-conjunction，短租约07:45Z或明确main完整验证后释放。
 最新Agent0255d4d/treeced537d/CI39347548020和Core64c8cb8/tree4637c029/CI39379765387
@@ -149,3 +160,11 @@ superpowers/{specs,plans}/2026-10-19-installed-controller.md已自审；按自�
 Agent及双服务重启进入既有完整Linux/Gitea流程，不改生产内核/UI/API。本地CLI基线
 仅5项既有Unixgram EPERM，Node129/129通过；完整原生验证仍必需。正式Agent分发包、
 宿主systemd开机另做，不宣称整体完成；最终准确证据/租约释放以本轮PR元数据为准。
+## 已安装 CLI 评审完成 — 2026-10-20T10:53Z
+同一负责人/分支，租约11:45Z或更早main验收释放；PR29。本地353c178/treee450be6
+发布为5a590a3，同树经fetch/diff核对。完整304Node、Python12、vet/build与锁文件
+CoreWeb通过；本地普通/race仅五项既有UnixgramEPERM，不算原生成功。唯一全分支
+独立评审0Critical/0Important/1Minor，236项独立通过。相同版本/摘要单元夹具
+Minor延后并保留覆盖成本；全部四项未判断范围裁定见validation/INSTALLED_CLI_REVIEW*。
+评审后无代码修改。原生39410601717进行中，原始Go193顶层/485总项无fail/skip/race
+已核对；最终精确head原生/原始日志/四份实际归档/main门禁仍必需，尚未宣称合并。
