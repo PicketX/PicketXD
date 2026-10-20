@@ -17,11 +17,13 @@ import { runGiteaApplication, validateGiteaEvidence, redactFixtureFailure } from
 import { prepareInstalledIngress, installedNginxConfiguration } from './installed-ingress.mjs'
 import { initializeInstalledController, businessViewDigest, parseEnforceStatusLog } from './controller-install.mjs'
 import { validateAgentDistributionEvidence } from '../scripts/agent-bundle.mjs'
+import { configureOidcIdentity } from './oidc-identity.mjs'
 
 assert.equal(process.env.PICKETX_CONSOLE_KERNEL_TESTS, '1', 'explicit native opt-in required')
 assert.notEqual(await readlink('/proc/self/ns/net'), await readlink('/proc/1/ns/net'), 'disposable network namespace required')
 const root = resolve(import.meta.dirname, '..'), core = resolve(process.argv[2])
-const evidence = join(root, 'artifacts/console-kernel')
+const oidcConfig = process.env.PICKETX_REAL_OIDC_CONFIG ? JSON.parse(await readFile(process.env.PICKETX_REAL_OIDC_CONFIG, 'utf8')) : undefined
+const evidence = join(root, oidcConfig ? 'artifacts/console-kernel/oidc' : 'artifacts/console-kernel')
 await mkdir(evidence, { recursive: true })
 const temp = await mkdtemp(join(tmpdir(), 'picketx-console-kernel-'))
 const hash = x => createHash('sha256').update(x).digest('hex')
@@ -31,8 +33,8 @@ const applicationSecrets = []
 const runtimeEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('PICKETX_')))
 const report = { coreCommit, agentCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), agentTree: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim(), kernel: release(), confirmations: [], cases: [] }
 const children = [], servers = [], keep = new Map(), status = [], logs = new Map()
-let browser, appHits = 0, healthy = false, latestControllerReceipt
-const origin = 'http://127.0.0.1:18080', host = 'protected.example:18445'
+let browser, appHits = 0, healthy = false, latestControllerReceipt, phase = 'setup'
+const origin = oidcConfig ? 'https://127.0.0.1:18081' : 'http://127.0.0.1:18080', host = 'protected.example:18445'
 const pause = ms => new Promise(r => setTimeout(r, ms))
 const privateFile = (name, body) => writeFile(join(temp, name), body, { mode: 0o600 })
 function start(name, binary, args, options = {}) {
@@ -140,7 +142,8 @@ spec: {resourceRef: {name: demo, uid: resource-demo-v1}, endpointName: web, host
 const facts = { authorityID: 'static-test', agents: [{ Name: 'node', Labels: {}, Capabilities: { Classes: ['host-local'], Protocols: ['tcp', 'udp'], Families: [4, 6], Handling: ['graceful'], OriginalDestination: true } }], contexts: [{ AgentRef: 'node', ProfileRef: 'host', ID: 'controller-context', NetworkSpaceID: 'declarative-not-local', Class: 'host-local', Stage: 'original-destination', Handling: 'graceful', Destinations: ['127.0.0.1/32', '::1/128'] }] }
 try {
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: core, encoding: 'utf8' }).trim(), coreCommit)
-  const installed = await initializeInstalledController(join(root, 'artifacts/controller-bundle'), temp)
+  const installed = await initializeInstalledController(join(root, 'artifacts/controller-bundle'), temp, { browserOrigin: origin })
+  const oidc = oidcConfig ? await configureOidcIdentity(installed, oidcConfig) : undefined
   ;({ adminToken, agentToken, ingressToken } = installed)
   facts.authorityID = installed.authority
   const agentBinary = join(temp, 'installed-picketxd')
@@ -155,6 +158,13 @@ try {
     configPreserved: false, credentialsPrivate: true, authority: installed.authority,
     sourceMode: 'database', usersMode: 'database', ingressRoutes: ['route-v1', 'route-gitea-v1'] }
   execFileSync('ip', ['link', 'set', 'lo', 'up'])
+  phase = 'installed-start'
+  if (oidc) {
+    // Existing ingress owns normal TLS and forwarding; Controller stays private.
+    const config = join(temp, 'console-tls.conf')
+    await privateFile('console-tls.conf', `worker_processes 1;\npid ${temp}/console-tls.pid;\nerror_log stderr error;\nevents {}\nhttp { access_log off; server { listen 127.0.0.1:18081 ssl; server_name 127.0.0.1; ssl_certificate ${JSON.stringify(oidcConfig.cert)}; ssl_certificate_key ${JSON.stringify(oidcConfig.key)}; location / { proxy_set_header Host $http_host; proxy_pass http://127.0.0.1:18080; } } }\n`)
+    start('console-tls', 'nginx', ['-p', temp + '/', '-c', config, '-g', 'daemon off;'])
+  }
   let controller = start('controller', installed.controllerBinary, ['-config', installed.configPath], installed.runtimeOptions)
   const ready = () => until(async () => { try { return (await fetch(origin + '/readyz', { signal: AbortSignal.timeout(500) })).ok } catch { return false } }, 'installed Controller startup')
   await ready()
@@ -185,7 +195,9 @@ try {
   await page.getByLabel('Access key', { exact: true }).fill(adminToken)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByLabel('Policy YAML').waitFor()
+  phase = 'managed-humans'
   await provisionManagedHumans({ page, password, evidence, report })
+  if (oidc) await oidc.bindAccounts(report)
   async function publish(policy, reason) {
     await page.getByRole('button', { name: 'Desired configuration', exact: true }).click()
     const reload = page.getByRole('button', { name: 'Reload latest into editor', exact: true })
@@ -233,6 +245,7 @@ try {
   }
   const four = await issue('browser-four', '127.0.0.1'); await scenario('grant4')
   const six = await issue('browser-six', '::1'); await scenario('grant6', { persistent: true })
+  phase = 'restart'
   // Restart both real deployed processes with active grants, never reinitialize.
   const paths = { publication: 'publication', accounts: 'accounts', grants: 'grants?limit=100', audit: 'audit?limit=100' }
   const views = async () => Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([k, path]) => [k, businessViewDigest(k, await api(path))])))
@@ -321,9 +334,22 @@ try {
   // The previous expiry case intentionally retained established connections.
   // The human sequence must establish its own sockets after pending denial.
   for (const entry of keep.values()) { entry.agent.destroy(); entry.agent = new http.Agent({ keepAlive: true, maxSockets: 1 }); entry.socket = null }
-  await runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, adminPage: page, appHits: () => appHits })
+  phase = 'human-approval'
+  await runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, adminPage: page, appHits: () => appHits, ...(oidc ? { externalSignIn: oidc.signIn } : {}) })
+  phase = 'gitea'
+  if (oidc) await oidc.signIn(page, 'approver', report)
   report.gitea = await runGiteaApplication({ root, ingress, temp, evidence, chromium, page, publish, confirmed, api, start, children, secrets: applicationSecrets })
   validateGiteaEvidence(report.gitea, report.confirmations)
+  if (oidc) {
+    const events = (await api('audit?limit=100')).events
+    report.oidc.giteaAudit = report.gitea.grants.map(g => {
+      const event = events.find(e => e.revision === g.revision)
+      assert(event, 'actual Gitea Grant audit required')
+      assert.equal(event.actor, report.managedAccounts.directory.accounts.find(a => a.username === 'approver').id)
+      return { revision: event.revision, actor: event.actor }
+    })
+  }
+  phase = 'final-validation'
   await page.getByRole('button', { name: 'Nodes', exact: true }).click()
   await page.getByRole('button', { name: 'Refresh nodes', exact: true }).click()
   await page.getByRole('heading', { name: 'node', exact: true }).waitFor()
@@ -338,6 +364,7 @@ try {
   report.result = 'pass'
   console.log(`PASS combined native evidence: ${report.cases.length} cases, ${report.confirmations.length} actual Agent confirmations`)
 } catch (error) {
+  if (oidcConfig) { console.error('OIDC native failed phase ' + phase); throw new Error('OIDC native conjunction failed') }
   throw redactFixtureFailure(error, [adminToken, agentToken, ingressToken, password, ...applicationSecrets])
 } finally {
   await browser?.close()
@@ -351,7 +378,12 @@ try {
   }
   for (const server of servers) { server.closeAllConnections(); await new Promise(r => server.close(r)) }
   const redact = x => [adminToken, agentToken, ingressToken, password, ...applicationSecrets].filter(Boolean).reduce((s, secret) => s.replaceAll(secret, '[REDACTED]'), x)
-  for (const [name, log] of logs) await writeFile(join(evidence, name + '.log'), redact(log))
+  for (const [name, log] of logs) {
+    // New real-provider mode never publishes raw Controller/Nginx diagnostics or
+    // failure logs; retain successful original Agent logs for raw-status fencing.
+    if (oidcConfig && (report.result !== 'pass' || !['agent', 'agent-restarted'].includes(name))) continue
+    await writeFile(join(evidence, name + '.log'), redact(log))
+  }
   await writeFile(join(evidence, 'report.json'), JSON.stringify(report, null, 2))
   await writeFile(join(evidence, 'agent-status.json'), JSON.stringify(status, null, 2))
   // Only the known mkdtemp directory belongs to this fixture; never the worktree.

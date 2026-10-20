@@ -11,13 +11,15 @@ export function assertDeadline(actual, expected) {
   assert.equal(observed, wanted, 'the absolute instant must not change')
 }
 
-export async function runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, appHits, adminPage }) {
+export async function runHumanRequests({ browser, origin, host, password, evidence, report, api, confirmed, scenario, appHits, adminPage, externalSignIn }) {
   const contexts = await Promise.all([browser.newContext(), browser.newContext()])
   const [requester, approver] = await Promise.all(contexts.map(c => c.newPage()))
   const errors = []
   try {
     for (const page of [requester, approver]) page.on('pageerror', e => errors.push(e.message))
     async function signIn(page, user) {
+      if (externalSignIn) await externalSignIn(page, user, report)
+      else {
       await page.goto(origin + '/console/')
       await page.getByLabel('Sign-in method', { exact: true }).selectOption('password')
       await page.getByLabel('Username', { exact: true }).fill(user)
@@ -25,6 +27,7 @@ export async function runHumanRequests({ browser, origin, host, password, eviden
       const response = page.waitForResponse(r => r.url().endsWith('/login/password') && r.request().method() === 'POST')
       await page.getByRole('button', { name: 'Sign in', exact: true }).click()
       assert.equal((await response).status(), 200, `actual human ${user} login`)
+      }
       const me = await page.evaluate(async () => {
         const r = await fetch('/console/api/v1/me'); if (!r.ok) throw Error(`identity ${r.status}`); return r.json()
       })

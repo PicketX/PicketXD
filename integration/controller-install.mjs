@@ -7,8 +7,8 @@ import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { validateInstalledIngress } from './installed-ingress.mjs'
 
-export const coreCommit = 'adfa1b111e719b606222f6643c7343afa98d3f03'
-export const coreTree = '7a5cbb6c764c5e2b4a98e956a3e23fb1b3169d71'
+export const coreCommit = '64c8cb8e6c92669873031ca45cff47dbb38d0224'
+export const coreTree = '4637c029a34c71ec04b66fcc205c288f1280dfb9'
 export const digest = value => createHash('sha256').update(value).digest('hex')
 // Read-observation clocks are not persisted business state. All other fields,
 // including audit event timestamps and independent absolute Grant deadlines, stay.
@@ -69,14 +69,14 @@ export async function verifyControllerBundle(directory) {
     controllerSHA256: digest(await readFile(join(directory, 'bin/picketx-controller'))) }
 }
 
-export async function initializeInstalledController(bundle, temp) {
+export async function initializeInstalledController(bundle, temp, { browserOrigin = 'http://127.0.0.1:18080' } = {}) {
   temp = await realpath(temp)
   const deployed = join(temp, 'installed-controller'), instance = join(temp, 'controller')
   await cp(bundle, deployed, { recursive: true, errorOnExist: true, force: false })
   const proof = await verifyControllerBundle(deployed)
   const runtimeOptions = { cwd: temp, env: { PATH: '' } }
   execFileSync(join(deployed, 'bin/picketx'), ['controller-init', '--directory', instance,
-    '--assets', join(deployed, 'web'), '--origin', 'http://127.0.0.1:18080', '--listen', '127.0.0.1:18080',
+    '--assets', join(deployed, 'web'), '--origin', browserOrigin, '--listen', '127.0.0.1:18080',
     '--agent-listen', '127.0.0.1:19090', '--authz-listen', '127.0.0.1:19091', '--agent-ref', 'node', '--route-id', 'route-v1'],
   { ...runtimeOptions, encoding: 'utf8', timeout: 10000 })
   const configPath = join(instance, 'controller.yaml'), configBytes = await readFile(configPath)

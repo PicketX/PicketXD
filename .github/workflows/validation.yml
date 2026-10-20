@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: PicketX/PicketX
-          ref: adfa1b111e719b606222f6643c7343afa98d3f03
+          ref: 64c8cb8e6c92669873031ca45cff47dbb38d0224
           path: .ci-core
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
@@ -53,6 +53,20 @@ jobs:
         run: scripts/test-console-kernel.sh "$PWD/.ci-core"
       - name: Actual Controller-mode Agent systemd outage and LKG recovery
         run: sudo --non-interactive env PICKETX_CONTROLLER_SERVICE_TESTS=1 python3 -B scripts/test-controller-service.py --binary "$PWD/artifacts/picketxd-console" --controller-bundle "$PWD/artifacts/controller-bundle" --artifacts "$PWD/artifacts/console-kernel" --unit "$PWD/deploy/systemd/picketxd-controller.service"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify pinned real OIDC provider distribution
+        run: |
+          curl -fsSL --retry 3 https://github.com/keycloak/keycloak/releases/download/26.8.1/keycloak-26.8.1.tar.gz -o "$RUNNER_TEMP/keycloak.tar.gz"
+          echo "4e2740b181faa2ea623a1c2ecf00855935311e546046e2f857615a47ed24cbe8  $RUNNER_TEMP/keycloak.tar.gz" | sha256sum --check --strict -
+          tar -C "$RUNNER_TEMP" -xzf "$RUNNER_TEMP/keycloak.tar.gz"
+      - name: Real OIDC HTTPS humans installed Agent ingress application conjunction
+        run: |
+          sudo --non-interactive env PATH="$PATH" JAVA_HOME="$JAVA_HOME" GITHUB_ACTIONS="$GITHUB_ACTIONS" \
+            PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" PICKETX_CONSOLE_KERNEL_TESTS=1 \
+            unshare --net -- node "$PWD/integration/oidc-conjunction.mjs" "$PWD/.ci-core" "$RUNNER_TEMP/keycloak-26.8.1"
       - name: Print native conjunction report and sanitized process logs
         if: always()
         run: |
