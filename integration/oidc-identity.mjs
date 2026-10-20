@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Native acceptance adapter only: explicit local bindings, no identity simulation.
 import assert from 'node:assert/strict'
-import { lstat, readFile, writeFile, rename } from 'node:fs/promises'
+import { lstat, readFile, writeFile, rename, mkdtemp, chmod, rm, mkdir } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { randomBytes } from 'node:crypto'
 
@@ -10,6 +11,10 @@ export const oidcCoreTree = '4637c029a34c71ec04b66fcc205c288f1280dfb9'
 export const keycloakSHA256 = '4e2740b181faa2ea623a1c2ecf00855935311e546046e2f857615a47ed24cbe8'
 const only = (v, names) => { assert(v && typeof v === 'object' && !Array.isArray(v)); assert.deepEqual(Object.keys(v).sort(), [...names].sort(), 'public OIDC fields only') }
 const role = user => user === 'requester' ? 'role:requester' : 'role:admin'
+
+export async function installedSessionCookie(context, origin) {
+  return (await context.cookies(origin + '/console/')).find(c => c.name === 'picketx_session')
+}
 
 export function validateOidcEvidence(r, report) {
   only(r, ['result', 'provider', 'source', 'tls', 'identities', 'logins', 'approvals', 'giteaActors', 'cleanup'])
@@ -48,6 +53,22 @@ export function validateOidcEvidence(r, report) {
     only(a, ['revision', 'actor']); assert.equal(a.actor, r.identities.approver)
     assert.equal(a.revision, report.gitea.grants[i].revision); applied(a.revision)
   })
+}
+
+// Separate from the provider's 0700 root: Gitea needs public ancestor traversal.
+// The wrapper owns this entire root even when the native child's finally is lost.
+export async function createOidcNativeWorkspace() {
+  const directory = await mkdtemp(join(tmpdir(), 'picketx-oidc-native-'))
+  try {
+    await chmod(directory, 0o711)
+    const home = join(directory, 'home')
+    await mkdir(home, { mode: 0o700 })
+    return { directory, env: { TMPDIR: directory, HOME: home },
+      async cleanup() {
+        await rm(directory, { recursive: true, force: true })
+        await assert.rejects(lstat(directory), { code: 'ENOENT' })
+      } }
+  } catch (error) { await rm(directory, { recursive: true, force: true }); throw error }
 }
 
 export async function configureOidcIdentity(installed, config) {
@@ -97,7 +118,7 @@ export async function configureOidcIdentity(installed, config) {
       let loginPhase = 'oidc-console-open'
       try {
         await page.goto(origin + '/console/')
-        const previous = (await page.context().cookies(origin)).find(c => c.name === 'picketx_session')?.value
+        const previous = (await installedSessionCookie(page.context(), origin))?.value
         const start = page.getByRole('button', { name: 'Continue with organization', exact: true })
         const signOut = page.getByRole('button', { name: 'Sign out', exact: true })
         const loginDeadline = Date.now() + 15000
@@ -129,7 +150,7 @@ export async function configureOidcIdentity(installed, config) {
         assert(me, 'actual OIDC login deadline'); loginPhase = 'oidc-local-identity'; assert.equal(me.id, account.id); assert.deepEqual(me.roles, account.roles)
         assert(observed.s256 && observed.nonce, 'actual provider authorization request required, no password fallback')
         loginPhase = 'oidc-secure-session'
-        const cookie = (await page.context().cookies(origin)).find(c => c.name === 'picketx_session')
+        const cookie = await installedSessionCookie(page.context(), origin)
         assert(cookie?.secure && cookie.httpOnly && cookie.sameSite === 'Strict', 'normal HTTPS secure local session required')
         if (previous) assert.notEqual(cookie.value, previous, 'OIDC must establish a new local session')
         assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0, 'no browser token storage')

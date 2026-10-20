@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, readFile, readlink, writeFile, stat, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { tmpdir, homedir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { randomBytes } from 'node:crypto'
 import { spawn, spawnSync } from 'node:child_process'
@@ -11,11 +11,11 @@ import { once } from 'node:events'
 import { coreCommit, coreTree, parseEnforceStatusLog } from './controller-install.mjs'
 import { validateEvidence } from './console-evidence.mjs'
 import { validateGiteaEvidence } from './gitea-application.mjs'
-import { keycloakSHA256, validateOidcEvidence } from './oidc-identity.mjs'
+import { keycloakSHA256, validateOidcEvidence, createOidcNativeWorkspace } from './oidc-identity.mjs'
 
 const root = resolve(import.meta.dirname, '..'), core = resolve(process.argv[2] ?? '/missing-core'), input = resolve(process.argv[3] ?? '/missing-provider')
-const evidence = join(root, 'artifacts/console-kernel/oidc'), nss = join(homedir(), '.pki/nssdb')
-let phase = 'guard', directory, provider, child, trustLabel
+const evidence = join(root, 'artifacts/console-kernel/oidc')
+let phase = 'guard', directory, provider, child, trustLabel, nativeWorkspace, nss
 const pause = ms => new Promise(r => setTimeout(r, ms))
 function command(bin, args) {
   const r = spawnSync(bin, args, { encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -76,13 +76,15 @@ async function run() {
     await assert.rejects(requestHTTPS(issuer + '/.well-known/openid-configuration'), { message: 'HTTPS observation failed' })
     await assert.rejects(requestHTTPS(issuer + '/.well-known/openid-configuration', { ca, servername: 'wrong.example.test' }), { message: 'HTTPS observation failed' })
     phase = 'browser-trust'
+    nativeWorkspace = await createOidcNativeWorkspace()
+    nss = join(nativeWorkspace.env.HOME, '.pki/nssdb')
     await mkdir(nss, { recursive: true })
     try { await readFile(join(nss, 'cert9.db')) } catch (e) { if (e.code !== 'ENOENT') throw e; command('certutil', ['-N', '--empty-password', '-d', `sql:${nss}`]) }
     trustLabel = 'picketx-oidc-joint-' + randomBytes(8).toString('hex')
     command('certutil', ['-A', '-d', `sql:${nss}`, '-n', trustLabel, '-t', 'C,,', '-i', certificate.ca])
     phase = 'native-conjunction'
     child = spawn(process.execPath, [join(root, 'integration/console-kernel.mjs'), core], { cwd: root, detached: true,
-      env: { ...process.env, NODE_EXTRA_CA_CERTS: certificate.ca, PICKETX_REAL_OIDC_CONFIG: config }, stdio: ['ignore', 'pipe', 'pipe'] })
+      env: { ...process.env, ...nativeWorkspace.env, NODE_EXTRA_CA_CERTS: certificate.ca, PICKETX_REAL_OIDC_CONFIG: config }, stdio: ['ignore', 'pipe', 'pipe'] })
     // No provider/child exception/query/body/private path goes into public logs.
     child.stdout.resume()
     let diagnostic = ''
@@ -114,6 +116,8 @@ async function run() {
     try { await stopOwnedGroup() } catch { failed = true }
     try { await stopProvider() } catch { failed = true }
     if (trustLabel) { try { command('certutil', ['-D', '-d', `sql:${nss}`, '-n', trustLabel]); trustLabel = undefined } catch { failed = true } }
+    // Removes both native credentials and both fixture CA databases after group exit.
+    if (nativeWorkspace) { try { await nativeWorkspace.cleanup() } catch { failed = true } }
     if (directory) {
       try { await rm(directory, { recursive: true, force: true }); await assert.rejects(stat(directory), { code: 'ENOENT' }); directory = undefined } catch { failed = true }
     }

@@ -4,10 +4,21 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { mkdtemp, mkdir, writeFile, readFile, lstat, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 let helper
 try { helper = await import('./oidc-identity.mjs') } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e; helper = {} }
 const ids = { requester: 'principal:account-' + '1'.repeat(32), approver: 'principal:account-' + '2'.repeat(32) }
+test('session lookup includes the installed console Cookie path, never the site root', async () => {
+  const cookie = { name: 'picketx_session', value: 'UNIT-PRIVATE', path: '/console/', secure: true, httpOnly: true, sameSite: 'Strict' }
+  // Controlled API contract only, not a real browser/login proof. Like Playwright,
+  // a URL-filtered cookie query excludes cookies not applicable to its path.
+  const context = { cookies: async url => {
+    const target = new URL(url); assert.equal(target.origin, 'https://127.0.0.1:18081')
+    return target.pathname.startsWith(cookie.path) ? [cookie] : []
+  } }
+  assert.equal(await helper.installedSessionCookie(context, 'https://127.0.0.1:18081'), cookie)
+})
 function fixture() {
   const login = username => ({ username, id: ids[username], roles: [username === 'requester' ? 'role:requester' : 'role:admin'], method: 'oidc', s256: true, nonce: true, secureSession: true, noBrowserTokens: true })
   const logins = ['requester', 'approver', 'requester', 'requester', 'approver'].map(login)
@@ -97,4 +108,39 @@ test('OIDC setup refuses a symlinked Controller config before writing provider s
     await assert.rejects(helper.configureOidcIdentity(installed, config))
     assert.equal(await readFile(outside, 'utf8'), 'retained caller bytes')
   })
+})
+
+// Abrupt termination skips the native child's finally: the parent must own its
+// whole separate tree, including Gitea traversal paths and private credentials.
+for (const signal of ['SIGTERM', 'SIGKILL']) test(`parent removes native private state after actual child ${signal}`, async () => {
+  assert.equal(typeof helper.createOidcNativeWorkspace, 'function', 'parent-owned native workspace required')
+  const workspace = await helper.createOidcNativeWorkspace()
+  try {
+    assert.equal((await lstat(workspace.directory)).mode & 0o777, 0o711)
+    const child = spawnSync(process.execPath, ['--input-type=module', '-e', `
+      import {mkdtemp,mkdir,writeFile,chmod} from 'node:fs/promises';
+      import {tmpdir} from 'node:os'; import {join} from 'node:path';
+      const dir=await mkdtemp(join(tmpdir(),'picketx-console-kernel-'));
+      await chmod(dir,0o711); await mkdir(join(dir,'instance'),{mode:0o700});
+      await writeFile(join(dir,'instance','oidc.json'),'PRIVATE-TEST-CREDENTIAL',{mode:0o600});
+      await writeFile(join(dir,'gitea-public'),'public',{mode:0o644});
+      await writeFile(join(tmpdir(),'child-path'),dir,{mode:0o600});
+      const nss=join(process.env.HOME,'.pki/nssdb'); await mkdir(nss,{recursive:true,mode:0o700});
+      await writeFile(join(nss,'cert9.db'),'UNIT-PROVIDER-AND-GITEA-TRUST',{mode:0o600});
+      process.kill(process.pid,process.argv[1]);
+    `, signal], { env: {...process.env, ...workspace.env}, encoding: 'utf8' })
+    assert.equal(child.signal, signal)
+    const path = await readFile(join(workspace.directory,'child-path'),'utf8')
+    assert(path.startsWith(workspace.directory + '/picketx-console-kernel-'))
+    assert.equal(await readFile(join(path,'instance','oidc.json'),'utf8'),'PRIVATE-TEST-CREDENTIAL')
+    assert.equal((await lstat(path)).mode & 0o777,0o711,'Gitea public ancestors remain traversable')
+    assert.equal((await lstat(join(path,'instance'))).mode & 0o777,0o700,'private Controller directory')
+    assert.equal((await lstat(join(path,'instance','oidc.json'))).mode & 0o777,0o600,'private Controller credentials')
+    assert(workspace.env.HOME.startsWith(workspace.directory + '/'))
+    assert.equal((await lstat(workspace.env.HOME)).mode & 0o777,0o700)
+    const nss = join(workspace.env.HOME,'.pki/nssdb')
+    assert.equal(await readFile(join(nss,'cert9.db'),'utf8'),'UNIT-PROVIDER-AND-GITEA-TRUST')
+    await workspace.cleanup()
+    await assert.rejects(lstat(workspace.directory),{code:'ENOENT'})
+  } finally { await workspace.cleanup() }
 })
