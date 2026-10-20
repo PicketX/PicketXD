@@ -24,8 +24,8 @@ import urllib.request
 from stopped_agent_state import capture, restore, quarantine_state, finish_cleanup
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE = 'adfa1b111e719b606222f6643c7343afa98d3f03'
-TREE = '7a5cbb6c764c5e2b4a98e956a3e23fb1b3169d71'
+CORE = '64c8cb8e6c92669873031ca45cff47dbb38d0224'
+TREE = '4637c029a34c71ec04b66fcc205c288f1280dfb9'
 PHASES = {'startup': True, 'crash': True, 'offline': True, 'stopped': True, 'restored': True,
           'expired': False, 'restoredExpired': False, 'offlineRestart': False, 'reconnected': False}
 PHASE_PROCESS = {'startup': 0, 'crash': 1, 'offline': 1, 'stopped': None, 'restored': 2,
