@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Hand-derived UNIT data only. Never written as native acceptance evidence.
+export const issuanceFixture = (revision = 2) => [
+  { family: 4, source: '127.0.0.1', uid: 'grant-four', revision: revision - 1 },
+  { family: 6, source: '::1', uid: 'grant-six', revision },
+]
 export function auditFixture(principal = 'principal:account-' + '2'.repeat(32), revision = 2) {
   const events = [
     { id: 11, caller: 'initial-ingress', route: 'route-v1', source: '127.0.0.1', allowed: true, reason: 'allowed', revision, grant_ids: ['grant-four'], deny_ids: [] },

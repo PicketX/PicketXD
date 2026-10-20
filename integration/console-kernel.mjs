@@ -262,6 +262,11 @@ try {
   }
   const four = await issue('browser-four', '127.0.0.1'); await scenario('grant4')
   const six = await issue('browser-six', '::1'); await scenario('grant6', { persistent: true })
+  // Independent original API creation receipts, not copied from audit events.
+  report.grantIssuances = [
+    { family: 4, source: '127.0.0.1', uid: four.uid, revision: four.revision },
+    { family: 6, source: '::1', uid: six.uid, revision: six.revision },
+  ]
   await diagnostics('grants-applied')
   phase = 'restart'
   // Restart both real deployed processes with active grants, never reinitialize.

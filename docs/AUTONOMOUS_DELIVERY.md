@@ -1,5 +1,17 @@
 # Autonomous delivery checkpoint
 
+## Installed HTTP audit reviewed correction — 2026-10-20T12:58Z
+Same owner codex/installed-http-audit/PR30/lease13:40Z or explicit verified-main
+release. One whole-branch independent review0Critical/1Important/0Minor. Root ONE
+TDD correction: seven coherent-substitution/independent-issuance regressions RED→
+GREEN; receipt now ties exact family/source/UID/creation revision to original real
+Grant responses and grant4/grant6/restored revisions.199targeted/346fullNode pass,
+no fail/skip. Six declined-scope rulings/costs in validation/INSTALLED_HTTP_AUDIT_REVIEW*.md.
+Candidate39425492259 realGo193top/485total nofail/skip/race and112kernel/9systemd
+jobs green; installed password/audit reached actual service recovery. Candidate is
+not corrected-head acceptance. Exact corrected CI/raw/fouractualarchives/static/
+source/notices/24images/expectedhead/freshmain remain mandatory. No merge claim.
+
 ## Installed HTTP audit acquisition — 2026-10-20T12:42Z
 Owner codex/installed-http-audit; short lease13:40Z or earlier verified-main release.
 Fresh Corec67da107/treeb2d6855/CI39421146281 and Agent665c9a4/tree5907b051/

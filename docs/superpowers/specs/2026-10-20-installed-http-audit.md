@@ -43,6 +43,13 @@ The gate doesn't turn UI data into kernel evidence; existing raw Agent receipt
 and packet gates independently prove L4. This is source-backed L7, not request-user
 identity or TLS termination. No Go/API/schema/runtime/kernel/dependency/UI changes.
 
+Review correction: retain independent report.grantIssuances, two ordered public
+{family,source,uid,revision} records from the actual original Grant-create responses
+and known source inputs. Exact sequential creation revisions must match existing
+grant4/grant6 cases and restored revision; all receipt UID copies must match these
+independent originals. Coordinated substitution must fail, not just single-field
+mutations. This strengthens the binding requirement without changing product APIs.
+
 ## Context map (self-reviewed)
 | File | Responsibility/change |
 | --- | --- |

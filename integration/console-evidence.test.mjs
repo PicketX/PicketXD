@@ -2,7 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { validateEvidence, requiredCases, coreCommit } from './console-evidence.mjs'
-import { auditFixture } from './fixtures/http-audit.mjs'
+import { auditFixture, issuanceFixture } from './fixtures/http-audit.mjs'
 
 // Unit data only; never emitted as native acceptance evidence.
 const nativeFixture = () => {
@@ -29,7 +29,7 @@ const fixture = () => {
       { id: 'principal:account-' + '2'.repeat(32), roles: ['role:admin'] },
     ],
   },
-  confirmations: [2, 3, 4, 5].map(revision => ({ revision, generation: revision, appliedGeneration: revision, policyHash: 'e'.repeat(64), appliedPolicyHash: 'e'.repeat(64), enforcementConfirmed: true })),
+  confirmations: [2, 3, 4, 5, 1].map(revision => ({ revision, generation: revision, appliedGeneration: revision, policyHash: 'e'.repeat(64), appliedPolicyHash: 'e'.repeat(64), enforcementConfirmed: true })),
   humanTimeline: { baseline: 2, approved4: 3, approved6: 4, revoked4: 5, expired: 5, rejected: 5 },
   humanRequests: [4, 6].map(family => ({
     family, uid: `request-${family}`, requester: 'principal:account-' + '1'.repeat(32), approver: 'principal:account-' + '2'.repeat(32),
@@ -45,7 +45,7 @@ const fixture = () => {
     finalGrantState: family === 4 ? 'revoked' : 'expired',
   })),
   cases: Object.entries(requiredCases).map(([name, specs]) => ({ name,
-    revision: ({ humanPending4: 2, humanApproved4: 3, humanPending6: 3, humanApproved6: 4, humanSibling: 4, humanBrowser: 4,
+    revision: ({ grant4: 1, humanPending4: 2, humanApproved4: 3, humanPending6: 3, humanApproved6: 4, humanSibling: 4, humanBrowser: 4,
       humanAccountDisabled: 4, humanAccountReenabled: 4, humanRevoke4: 5, humanEstablishedRevoke4: 5, humanExpired: 5, humanEstablishedExpired6: 5, humanRejected: 5 })[name] ?? 2,
     status: 'pass', observations: specs.map(([family, outcome]) => ({ family, outcome, status: outcome === 'allow' ? 200 : outcome === 'http-deny' ? 403 : null, appDelta: outcome === 'allow' ? 1 : 0 })) })),
  }
@@ -103,6 +103,7 @@ const fixture = () => {
        ...(healthy ? { rawStatusIndex: i === 5 ? 10 : 0, controllerReceipt: structuredClone(report.deployment.restart.controllerReceipt) } : {}) }
    }) }
  report.httpAudit = auditFixture(logins[1].id, 2)
+ report.grantIssuances = issuanceFixture(2)
  return report
 }
 test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validate(fixture())))
