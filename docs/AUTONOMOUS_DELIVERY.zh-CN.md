@@ -1,5 +1,17 @@
 # 自动交付检查点
 
+## 入口失败隐私接续 — 2026-10-20T00:14Z
+Owner codex/ingress-error-privacy，短租约00:55Z或明确释放/合并且main完整复核。
+Agent524a62c/treef9b6f00/main39344752833及Coreadfa1b1/tree7a5cbb6/main39339061250
+全绿，无开放PR，PR26已于00:05:45Z明确释放。现有干净隔离区从准确main新建分支，
+原目录未动。有界设计/上下文/计划见validation/INGRESS_ERROR_PRIVACY.md。
+四个真实进程/文件失败RED→GREEN，完整233Node通过。Go基线仅五个既有Unixgram
+EPERM，不冒充原生成功；无生产内核/API/UI变更。一次独立评审及准确head完整原生/
+四归档/main待完成，最终回执/即时释放在PR元数据。基本目标核对发现Core架构/路线
+仍明确要求OIDC，但本地人员登录文档明确不含OIDC，代码无issuer/callback实现。
+账户生命周期已交付，PR12 revision1 stale UPDATE CAS已有双回归，不重做。
+下一实际功能为沿用SCS/Casbin的OIDC会话登录与真实浏览器协议验收；整体目标继续。
+
 ## 安装入口评审修复 — 2026-10-19T23:49Z
 同owner codex/installed-ingress，租约00:30Z或明确释放/已验证main。PR26初始
 5bcf252/tree6b3eeb6，原生39343624737仍进行中，不作为最终证明。一次独立全分支评审
