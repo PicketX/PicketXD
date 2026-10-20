@@ -364,7 +364,11 @@ try {
   report.result = 'pass'
   console.log(`PASS combined native evidence: ${report.cases.length} cases, ${report.confirmations.length} actual Agent confirmations`)
 } catch (error) {
-  if (oidcConfig) { console.error('OIDC native failed phase ' + phase); throw new Error('OIDC native conjunction failed') }
+  if (oidcConfig) {
+    const loginPhases = ['oidc-console-open', 'oidc-start-control', 'oidc-provider-arrival', 'oidc-provider-credentials', 'oidc-provider-submitted', 'oidc-console-return', 'oidc-local-identity', 'oidc-secure-session', 'oidc-provider-input-rejected', 'oidc-provider-error', 'oidc-console-alert']
+    console.error('OIDC native failed phase ' + (loginPhases.includes(error?.oidcPhase) ? error.oidcPhase : phase))
+    throw new Error('OIDC native conjunction failed')
+  }
   throw redactFixtureFailure(error, [adminToken, agentToken, ingressToken, password, ...applicationSecrets])
 } finally {
   await browser?.close()

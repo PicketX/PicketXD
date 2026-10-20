@@ -94,6 +94,7 @@ export async function configureOidcIdentity(installed, config) {
         }
       }
       page.on('request', observe)
+      let loginPhase = 'oidc-console-open'
       try {
         await page.goto(origin + '/console/')
         const previous = (await page.context().cookies(origin)).find(c => c.name === 'picketx_session')?.value
@@ -106,27 +107,39 @@ export async function configureOidcIdentity(installed, config) {
           if (await signOut.isVisible()) { await signOut.click(); break }
           await new Promise(r => setTimeout(r, 100))
         }
+        loginPhase = 'oidc-start-control'
         await start.waitFor({ timeout: 15000 })
         await page.getByRole('button', { name: 'Continue with organization', exact: true }).click()
+        loginPhase = 'oidc-provider-arrival'
         let me, submitted = false; const deadline = Date.now() + 20000
         while (Date.now() < deadline) {
           const site = new URL(page.url()).origin
           if (site === providerOrigin && !submitted && await page.locator('#username').isVisible()) {
+            loginPhase = 'oidc-provider-credentials'
             await page.locator('#username').fill(username); await page.locator('#password').fill(config.password)
             await page.locator('#kc-login').click(); submitted = true
+            loginPhase = 'oidc-provider-submitted'
           } else if (site === origin) {
+            loginPhase = 'oidc-console-return'
             try { me = await page.evaluate(async () => { const r = await fetch('/console/api/v1/me'); return r.ok ? r.json() : undefined }) } catch { /* bounded navigation transition */ }
             if (me) break
           }
           await new Promise(r => setTimeout(r, 100))
         }
-        assert(me, 'actual OIDC login deadline'); assert.equal(me.id, account.id); assert.deepEqual(me.roles, account.roles)
+        assert(me, 'actual OIDC login deadline'); loginPhase = 'oidc-local-identity'; assert.equal(me.id, account.id); assert.deepEqual(me.roles, account.roles)
         assert(observed.s256 && observed.nonce, 'actual provider authorization request required, no password fallback')
+        loginPhase = 'oidc-secure-session'
         const cookie = (await page.context().cookies(origin)).find(c => c.name === 'picketx_session')
         assert(cookie?.secure && cookie.httpOnly && cookie.sameSite === 'Strict', 'normal HTTPS secure local session required')
         if (previous) assert.notEqual(cookie.value, previous, 'OIDC must establish a new local session')
         assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0, 'no browser token storage')
         report.oidc.logins.push({ username, id: me.id, roles: me.roles, method: 'oidc', ...observed, secureSession: true, noBrowserTokens: true })
+      } catch {
+        // Fixed classification only: never publish the URL, query, form, or raw error.
+        if (await page.locator('#input-error-username').count().catch(() => 0)) loginPhase = 'oidc-provider-input-rejected'
+        else if (await page.locator('#kc-error-message').count().catch(() => 0)) loginPhase = 'oidc-provider-error'
+        else if (new URL(page.url()).origin === origin && await page.getByRole('alert').count().catch(() => 0)) loginPhase = 'oidc-console-alert'
+        const failure = new Error('OIDC native login failed'); failure.oidcPhase = loginPhase; throw failure
       } finally { page.off('request', observe) }
     },
   }
