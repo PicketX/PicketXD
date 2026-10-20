@@ -2,6 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { validateEvidence, requiredCases, coreCommit } from './console-evidence.mjs'
+import { auditFixture } from './fixtures/http-audit.mjs'
 
 // Unit data only; never emitted as native acceptance evidence.
 const nativeFixture = () => {
@@ -68,7 +69,7 @@ const fixture = () => {
    disabledGrants: report.humanRequests.map(r => structuredClone(r.grant)),
    enabledGrants: report.humanRequests.map(r => structuredClone(r.grant)) }
  report.deployment = {
-   source: { commit: coreCommit, tree: '1b04ceb9d86f4d72c30e12c540097aafd915b2d2', platform: 'linux-amd64' },
+   source: { commit: coreCommit, tree: 'b2d6855d8406d70f98cc0d4c17fae9e31803a249', platform: 'linux-amd64' },
    manifestSHA256: 'f'.repeat(64), cliSHA256: 'a'.repeat(64),
    controllerSHA256: report.controllerBinarySHA256, agentSHA256: report.agentBinarySHA256,
    runtimePATH: '', relocated: true, initialized: true, configPreserved: true, credentialsPrivate: true,
@@ -101,6 +102,7 @@ const fixture = () => {
      return { phase, revision: 2, status: observation(false), doctor: observation(true), statusExit: 0, doctorExit: healthy ? 0 : 1,
        ...(healthy ? { rawStatusIndex: i === 5 ? 10 : 0, controllerReceipt: structuredClone(report.deployment.restart.controllerReceipt) } : {}) }
    }) }
+ report.httpAudit = auditFixture(logins[1].id, 2)
  return report
 }
 test('complete unit report satisfies the evidence schema', () => assert.doesNotThrow(() => validate(fixture())))

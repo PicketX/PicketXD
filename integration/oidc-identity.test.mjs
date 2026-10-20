@@ -23,13 +23,13 @@ function fixture() {
   const login = username => ({ username, id: ids[username], roles: [username === 'requester' ? 'role:requester' : 'role:admin'], method: 'oidc', s256: true, nonce: true, secureSession: true, noBrowserTokens: true })
   const logins = ['requester', 'approver', 'requester', 'requester', 'approver'].map(login)
   const giteaAudit = [10, 11, 12, 13].map(revision => ({ revision, actor: ids.approver }))
-  const report = { result: 'pass', coreCommit: '81ec5bc8a483010f99672f7ff5d982ad4ee6698f', agentCommit: 'a'.repeat(40), agentTree: 'b'.repeat(40),
+  const report = { result: 'pass', coreCommit: 'c67da10767d5cb92012366b6328baa31be8afa61', agentCommit: 'a'.repeat(40), agentTree: 'b'.repeat(40),
     managedAccounts: { directory: { accounts: Object.entries(ids).map(([username, id]) => ({ username, id, roles: [username === 'requester' ? 'role:requester' : 'role:admin'] })) } },
     humanRequests: [4, 6].map((family, i) => ({ family, revision: 3 + i, requester: ids.requester, approver: ids.approver })),
     confirmations: [3, 4, 10, 11, 12, 13].map(revision => ({ revision, enforcementConfirmed: true, appliedGeneration: revision })),
     gitea: { grants: [10, 11, 12, 13].map(revision => ({ revision })) }, oidc: { logins, giteaAudit } }
   const receipt = { result: 'pass', provider: { kind: 'real-keycloak', version: '26.8.1', archiveSHA256: '4e2740b181faa2ea623a1c2ecf00855935311e546046e2f857615a47ed24cbe8', disposable: true },
-    source: { coreCommit: report.coreCommit, coreTree: '1b04ceb9d86f4d72c30e12c540097aafd915b2d2', agentCommit: report.agentCommit, agentTree: report.agentTree },
+    source: { coreCommit: report.coreCommit, coreTree: 'b2d6855d8406d70f98cc0d4c17fae9e31803a249', agentCommit: report.agentCommit, agentTree: report.agentTree },
     tls: { verified: true, unknownCARejected: true, wrongSANRejected: true }, identities: { ...ids },
     logins: structuredClone(logins), approvals: structuredClone(report.humanRequests), giteaActors: structuredClone(giteaAudit),
     cleanup: { trustRemoved: true, providerStateRemoved: true } }
